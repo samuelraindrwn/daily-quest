@@ -40,7 +40,7 @@ Daily Quest keeps today's priorities visible without turning them into a complic
 ## Download and install
 
 1. Open the [latest release](https://github.com/samuelraindrwn/daily-quest/releases/latest).
-2. Download `DailyQuest-v1.2.0-win-x64.zip` (recommended) and extract it, or download the standalone `.exe` asset.
+2. Download the `win-x64.zip` asset (recommended) and extract it, or download the standalone `.exe` asset.
 3. Run `DailyQuest.exe`.
 
 The release is portable and self-contained for 64-bit Windows 10/11, so there is no installer and the .NET runtime does not need to be installed separately. To update, close Daily Quest and replace the old executable; your data in Local AppData remains intact.

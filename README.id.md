@@ -40,7 +40,7 @@ Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi
 ## Unduh dan pasang
 
 1. Buka halaman [rilis terbaru](https://github.com/samuelraindrwn/daily-quest/releases/latest).
-2. Unduh `DailyQuest-v1.2.0-win-x64.zip` (disarankan) lalu ekstrak, atau unduh aset `.exe` mandiri.
+2. Unduh aset `win-x64.zip` (disarankan) lalu ekstrak, atau unduh aset `.exe` mandiri.
 3. Jalankan `DailyQuest.exe`.
 
 Rilis ini portable dan self-contained untuk Windows 10/11 64-bit, jadi tidak ada installer dan runtime .NET tidak perlu dipasang terpisah. Untuk memperbarui aplikasi, tutup Daily Quest lalu ganti executable lama; data di Local AppData tetap tersimpan.
