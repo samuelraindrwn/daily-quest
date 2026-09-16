@@ -1,6 +1,7 @@
 <Application x:Class="DailyQuest.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:infrastructure="clr-namespace:DailyQuest.Infrastructure"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
         <ResourceDictionary>
@@ -11,6 +12,7 @@
         <FontFamily x:Key="DisplayFont">Segoe UI Variable Display, Segoe UI</FontFamily>
         <FontFamily x:Key="AppFont">Segoe UI Variable Text, Segoe UI</FontFamily>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <infrastructure:HexColorBrushConverter x:Key="HexColorBrushConverter" />
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{StaticResource AppFont}" />

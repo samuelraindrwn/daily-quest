@@ -17,5 +17,13 @@ public sealed class HistoryItemViewModel
 
     public required bool IsCompleted { get; init; }
 
+    public Guid? LabelId { get; init; }
+
+    public bool HasLabel => LabelId.HasValue;
+
+    public string? LabelName { get; init; }
+
+    public string? LabelColorHex { get; init; }
+
     public string StatusGlyph => IsCompleted ? "✓" : "○";
 }

@@ -13,6 +13,7 @@ public partial class App : Application
     private const int RestoreWindowCommand = 9;
     private Mutex? _singleInstanceMutex;
     private bool _ownsSingleInstanceMutex;
+    private WindowsQuestAlarmService? _questAlarmService;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -34,7 +35,10 @@ public partial class App : Application
         base.OnStartup(e);
 
         var themeService = new WpfThemeService(this);
-        var viewModel = new MainViewModel(themeService: themeService);
+        _questAlarmService = new WindowsQuestAlarmService();
+        var viewModel = new MainViewModel(
+            themeService: themeService,
+            alarmService: _questAlarmService);
         var mainWindow = new MainWindow(viewModel);
         MainWindow = mainWindow;
         mainWindow.Show();
@@ -42,6 +46,9 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _questAlarmService?.Dispose();
+        _questAlarmService = null;
+
         if (_ownsSingleInstanceMutex)
         {
             _singleInstanceMutex?.ReleaseMutex();

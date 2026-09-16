@@ -15,22 +15,35 @@ namespace DailyQuest.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private const int CurrentSchemaVersion = 4;
+    private const int CurrentSchemaVersion = 7;
     private const int MaximumScheduleOffset = 8;
+    private const int MaximumTimerDurationMinutes = 480;
+    private const int MaximumQuestLabels = 12;
+    private const int MaximumQuestLabelNameLength = 24;
+    private const string DefaultLabelColorHex = "#5B8A72";
+    private static readonly Guid ImportantLabelId = Guid.Parse("D9110000-0000-4000-8000-000000000001");
+    private static readonly Guid PersonalLabelId = Guid.Parse("D9110000-0000-4000-8000-000000000002");
+    private static readonly Guid RoutineLabelId = Guid.Parse("D9110000-0000-4000-8000-000000000003");
     private static readonly string AppVersion =
         typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     private readonly IStateStore _stateStore;
     private readonly IStorageUsageService _storageUsageService;
     private readonly IThemeService _themeService;
+    private readonly IQuestAlarmService? _alarmService;
     private readonly Func<DateTimeOffset> _now;
     private readonly AppState _state;
+    private readonly Dictionary<Guid, int> _manualSortOrders = [];
     private string _newItemText = string.Empty;
     private bool _alwaysOnTop;
     private bool _isHistoryView;
     private bool _isUpcomingView;
     private bool _isSettingsView;
     private int _selectedScheduleOffset;
+    private int? _selectedDurationMinutes;
+    private Guid? _selectedLabelId;
+    private QuestSortMode _sortMode;
+    private Guid? _alarmingQuestId;
     private bool _suppressItemPersistence;
     private string _applicationStorageText = "0 B";
     private string _dataStorageText = "0 B";
@@ -40,11 +53,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IStateStore? stateStore = null,
         Func<DateTimeOffset>? now = null,
         IStorageUsageService? storageUsageService = null,
-        IThemeService? themeService = null)
+        IThemeService? themeService = null,
+        IQuestAlarmService? alarmService = null)
     {
         _stateStore = stateStore ?? new JsonStateStore();
         _storageUsageService = storageUsageService ?? new StorageUsageService();
         _themeService = themeService ?? NullThemeService.Instance;
+        _alarmService = alarmService;
         _now = now ?? (() => DateTimeOffset.Now);
 
         var loadedState = _stateStore.Load();
@@ -54,17 +69,40 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var needsV1HistoryMigration = _state.SchemaVersion < 2;
         var didNormalize = NormalizeState();
         _themeService.Apply(_state.Settings.ThemeCode);
+        _sortMode = QuestSortModeCodes.Parse(_state.Settings.QuestSortMode);
+        Labels = new ObservableCollection<QuestLabelViewModel>(
+            _state.Labels
+                .OrderBy(label => label.SortOrder)
+                .Select(ToLabelViewModel));
+        foreach (var itemState in _state.Items.OrderBy(item => item.SortOrder))
+        {
+            _manualSortOrders[itemState.Id] = itemState.ManualSortOrder ?? itemState.SortOrder;
+        }
+
         Items = new ObservableCollection<ChecklistItem>(
             _state.Items
                 .OrderBy(item => item.SortOrder)
-                .Select(item => new ChecklistItem(
-                    item.Id,
-                    item.Text,
-                    item.IsCompleted,
-                    item.CreatedAt)));
+                .Select(item =>
+                {
+                    var label = FindLabel(item.LabelId);
+                    return new ChecklistItem(
+                        item.Id,
+                        item.Text,
+                        item.IsCompleted,
+                        item.CreatedAt,
+                        item.PlannedDurationMinutes,
+                        item.RemainingSeconds,
+                        item.TimerStartedAt,
+                        label?.Id,
+                        label?.Name,
+                        label?.ColorHex,
+                        item.IsOvertime,
+                        item.OvertimeSeconds);
+                }));
         HistoryEntries = [];
         UpcomingQuests = [];
         ScheduleOptions = [];
+        DurationOptions = [0, 5, 10, 15, 25, 30, 45, 60];
 
         foreach (var item in Items)
         {
@@ -88,11 +126,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
         SetScheduleOffsetCommand = new RelayCommand(
             SetScheduleOffset,
             parameter => TryGetScheduleOffset(parameter, out _));
+        SetDurationCommand = new RelayCommand(SetDuration);
+        SetSelectedLabelCommand = new RelayCommand(SetSelectedLabel);
+        AssignItemLabelCommand = new RelayCommand(AssignItemLabel, CanAssignItemLabel);
+        AddLabelCommand = new RelayCommand(AddLabel, CanAddLabel);
+        UpdateLabelCommand = new RelayCommand(UpdateLabel, CanUpdateLabel);
+        DeleteLabelCommand = new RelayCommand(DeleteLabel, CanDeleteLabel);
+        MoveLabelUpCommand = new RelayCommand(MoveLabelUp, CanMoveLabelUp);
+        MoveLabelDownCommand = new RelayCommand(MoveLabelDown, CanMoveLabelDown);
+        SetSortModeCommand = new RelayCommand(SetSortMode, CanSetSortMode);
+        ToggleTimerCommand = new RelayCommand(ToggleTimer, CanToggleTimer);
+        ResetTimerCommand = new RelayCommand(ResetTimer, CanResetTimer);
+        StartOvertimeCommand = new RelayCommand(StartOvertime, CanStartOvertime);
+        SetOvertimeCommand = new RelayCommand(SetOvertime, CanSetOvertime);
+        ToggleOvertimeCommand = new RelayCommand(ToggleOvertime);
         ShowTodayCommand = new RelayCommand(ShowToday);
         ShowHistoryCommand = new RelayCommand(ShowHistory);
         ShowUpcomingCommand = new RelayCommand(ShowUpcoming);
         ShowSettingsCommand = new RelayCommand(ShowSettings);
         ClearHistoryCommand = new RelayCommand(ClearHistory, () => _state.History.Count > 0);
+
+        var didApplySort = ApplyQuestSort();
 
         if (needsV1HistoryMigration && !string.IsNullOrWhiteSpace(_state.CurrentDate))
         {
@@ -104,7 +158,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RefreshScheduleOptions();
         RefreshUpcomingQuests();
 
-        if (isFirstRun || didNormalize || didRollOver)
+        if (isFirstRun || didNormalize || didRollOver || didApplySort)
         {
             Save();
         }
@@ -112,11 +166,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<ChecklistItem> Items { get; }
 
+    public ObservableCollection<QuestLabelViewModel> Labels { get; }
+
     public ObservableCollection<HistoryEntryViewModel> HistoryEntries { get; }
 
     public ObservableCollection<UpcomingQuestViewModel> UpcomingQuests { get; }
 
     public ObservableCollection<ScheduleOptionViewModel> ScheduleOptions { get; }
+
+    public IReadOnlyList<int> DurationOptions { get; }
 
     public ICommand AddItemCommand { get; }
 
@@ -139,6 +197,34 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand SetThemeCommand { get; }
 
     public ICommand SetScheduleOffsetCommand { get; }
+
+    public ICommand SetDurationCommand { get; }
+
+    public ICommand SetSelectedLabelCommand { get; }
+
+    public ICommand AssignItemLabelCommand { get; }
+
+    public ICommand AddLabelCommand { get; }
+
+    public ICommand UpdateLabelCommand { get; }
+
+    public ICommand DeleteLabelCommand { get; }
+
+    public ICommand MoveLabelUpCommand { get; }
+
+    public ICommand MoveLabelDownCommand { get; }
+
+    public ICommand SetSortModeCommand { get; }
+
+    public ICommand ToggleTimerCommand { get; }
+
+    public ICommand ResetTimerCommand { get; }
+
+    public ICommand StartOvertimeCommand { get; }
+
+    public ICommand SetOvertimeCommand { get; }
+
+    public ICommand ToggleOvertimeCommand { get; }
 
     public ICommand ShowTodayCommand { get; }
 
@@ -198,9 +284,108 @@ public sealed class MainViewModel : INotifyPropertyChanged
         .FirstOrDefault(option => option.Offset == SelectedScheduleOffset)?.Label
         ?? GetScheduleLabel(SelectedScheduleOffset);
 
+    public int? SelectedDurationMinutes
+    {
+        get => _selectedDurationMinutes;
+        set
+        {
+            if ((value.HasValue &&
+                 (value.Value < 1 || value.Value > MaximumTimerDurationMinutes)) ||
+                !SetField(ref _selectedDurationMinutes, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(HasSelectedDuration));
+            OnPropertyChanged(nameof(SelectedDurationLabel));
+        }
+    }
+
+    public bool HasSelectedDuration => SelectedDurationMinutes.HasValue;
+
+    public string SelectedDurationLabel => SelectedDurationMinutes.HasValue
+        ? string.Format(
+            Copy.Culture,
+            Copy.DurationMinutesFormat,
+            SelectedDurationMinutes.Value)
+        : Copy.NoTimer;
+
+    public int MaximumDurationMinutes => MaximumTimerDurationMinutes;
+
+    public int MaximumLabelCount => MaximumQuestLabels;
+
+    public int MaximumLabelNameLength => MaximumQuestLabelNameLength;
+
+    public bool CanAddMoreLabels => Labels.Count < MaximumQuestLabels;
+
+    public string LabelCountText => string.Format(
+        Copy.Culture,
+        Copy.LabelLimitFormat,
+        Labels.Count,
+        MaximumQuestLabels);
+
+    public Guid? SelectedLabelId
+    {
+        get => _selectedLabelId;
+        set
+        {
+            var normalized = value.HasValue && FindLabel(value) is not null ? value : null;
+            if (!SetField(ref _selectedLabelId, normalized))
+            {
+                return;
+            }
+
+            foreach (var label in Labels)
+            {
+                label.IsSelected = label.Id == normalized;
+            }
+
+            OnPropertyChanged(nameof(SelectedLabel));
+            OnPropertyChanged(nameof(HasSelectedLabel));
+            OnPropertyChanged(nameof(SelectedLabelName));
+            OnPropertyChanged(nameof(SelectedLabelColorHex));
+        }
+    }
+
+    public QuestLabelViewModel? SelectedLabel => Labels.FirstOrDefault(label => label.Id == SelectedLabelId);
+
+    public bool HasSelectedLabel => SelectedLabelId.HasValue;
+
+    public string? SelectedLabelName => SelectedLabel?.Name;
+
+    public string? SelectedLabelColorHex => SelectedLabel?.ColorHex;
+
+    public QuestSortMode SortMode => _sortMode;
+
+    public string SortModeCode => QuestSortModeCodes.ToCode(SortMode);
+
+    public IReadOnlyList<QuestSortMode> SortModes { get; } =
+    [
+        QuestSortMode.Manual,
+        QuestSortMode.Label,
+        QuestSortMode.DurationAscending,
+        QuestSortMode.DurationDescending
+    ];
+
+    public bool IsManualSort => SortMode == QuestSortMode.Manual;
+
+    public bool IsLabelSort => SortMode == QuestSortMode.Label;
+
+    public bool IsDurationAscendingSort => SortMode == QuestSortMode.DurationAscending;
+
+    public bool IsDurationDescendingSort => SortMode == QuestSortMode.DurationDescending;
+
+    public bool OvertimeEnabled => _state.Settings.OvertimeEnabled;
+
     public ChecklistItem? NextPendingItem => Items.FirstOrDefault(item => !item.IsCompleted);
 
     public bool HasPendingItem => NextPendingItem is not null;
+
+    public ChecklistItem? ActiveTimerItem => Items.FirstOrDefault(item => item.IsTimerRunning);
+
+    public bool HasActiveTimer => ActiveTimerItem is not null;
+
+    public ChecklistItem? CompactDisplayItem => ActiveTimerItem ?? NextPendingItem;
 
     public string FooterText => string.Format(Copy.Culture, Copy.FooterFormat, AppVersion);
 
@@ -301,6 +486,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool RollOverToCurrentDay(bool saveAfterReset = true)
     {
         var now = _now();
+        TickTimers(now);
         var today = GetLocalDate(now);
         var todayKey = GetDateKey(today);
         var dateChanged = !string.Equals(
@@ -320,9 +506,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _suppressItemPersistence = true;
             try
             {
+                StopTimerAlarm();
                 foreach (var item in Items)
                 {
                     item.IsCompleted = false;
+                    if (item.IsOvertime || !item.IsTimerRunning)
+                    {
+                        item.ResetTimer();
+                    }
                 }
             }
             finally
@@ -341,6 +532,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return false;
         }
 
+        ApplyQuestSort();
         SyncHistoryFromActiveDay(preserveCompletedOrphans: !dateChanged);
         NotifyProgressChanged();
         RefreshHistoryEntries();
@@ -376,27 +568,232 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool MoveItem(ChecklistItem item, int destinationIndex)
     {
         var sourceIndex = Items.IndexOf(item);
-        if (sourceIndex < 0 || Items.Count < 2)
+        if (!IsManualSort || sourceIndex < 0 || Items.Count < 2)
         {
             return false;
         }
 
         destinationIndex = Math.Clamp(destinationIndex, 0, Items.Count - 1);
+        var pendingCount = Items.Count(candidate => !candidate.IsCompleted);
+        destinationIndex = item.IsCompleted
+            ? Math.Clamp(destinationIndex, pendingCount, Items.Count - 1)
+            : Math.Clamp(destinationIndex, 0, Math.Max(0, pendingCount - 1));
         if (sourceIndex == destinationIndex)
         {
             return false;
         }
 
         Items.Move(sourceIndex, destinationIndex);
+        CaptureManualOrder();
         SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
         OnPropertyChanged(nameof(NextPendingItem));
         OnPropertyChanged(nameof(HasPendingItem));
+        OnPropertyChanged(nameof(CompactDisplayItem));
         RefreshHistoryEntries();
         Save();
         return true;
     }
 
+    public bool TickTimers() => TickTimers(_now());
+
     public void Save() => _stateStore.Save(CreateSnapshot());
+
+    private bool ApplyQuestSort()
+    {
+        if (Items.Count < 2)
+        {
+            return false;
+        }
+
+        var labelOrder = _state.Labels
+            .Select((label, index) => new { label.Id, Index = index })
+            .ToDictionary(entry => entry.Id, entry => entry.Index);
+        var indexedItems = Items
+            .Select((item, index) => new { Item = item, OriginalIndex = index });
+
+        var targetOrder = indexedItems
+            .OrderBy(entry => entry.Item.IsCompleted ? 1 : 0)
+            .ThenBy(entry => SortMode switch
+            {
+                QuestSortMode.Label => entry.Item.LabelId.HasValue &&
+                                       labelOrder.ContainsKey(entry.Item.LabelId.Value) ? 0 : 1,
+                QuestSortMode.DurationAscending or QuestSortMode.DurationDescending =>
+                    entry.Item.PlannedDurationMinutes.HasValue ? 0 : 1,
+                _ => 0
+            })
+            .ThenBy(entry => SortMode switch
+            {
+                QuestSortMode.Label when entry.Item.LabelId.HasValue &&
+                                         labelOrder.TryGetValue(entry.Item.LabelId.Value, out var index) => index,
+                QuestSortMode.Label => int.MaxValue,
+                QuestSortMode.DurationAscending => entry.Item.PlannedDurationMinutes ?? int.MaxValue,
+                QuestSortMode.DurationDescending => -(entry.Item.PlannedDurationMinutes ?? 0),
+                _ => 0
+            })
+            .ThenBy(entry => GetManualSortOrder(entry.Item, entry.OriginalIndex))
+            .Select(entry => entry.Item)
+            .ToList();
+        var changed = !Items.Select(item => item.Id).SequenceEqual(targetOrder.Select(item => item.Id));
+        if (!changed)
+        {
+            return false;
+        }
+
+        for (var targetIndex = 0; targetIndex < targetOrder.Count; targetIndex++)
+        {
+            var currentIndex = Items.IndexOf(targetOrder[targetIndex]);
+            if (currentIndex != targetIndex)
+            {
+                Items.Move(currentIndex, targetIndex);
+            }
+        }
+
+        return true;
+    }
+
+    private int GetManualSortOrder(ChecklistItem item, int fallback = int.MaxValue) =>
+        _manualSortOrders.TryGetValue(item.Id, out var sortOrder) ? sortOrder : fallback;
+
+    private void CaptureManualOrder()
+    {
+        _manualSortOrders.Clear();
+        for (var index = 0; index < Items.Count; index++)
+        {
+            _manualSortOrders[Items[index].Id] = index;
+        }
+    }
+
+    private void AddToManualOrder(ChecklistItem item)
+    {
+        var nextSortOrder = _manualSortOrders.Count == 0
+            ? 0
+            : _manualSortOrders.Values.Max() + 1;
+        _manualSortOrders[item.Id] = nextSortOrder;
+    }
+
+    private void RemoveFromManualOrder(Guid id)
+    {
+        if (!_manualSortOrders.Remove(id))
+        {
+            return;
+        }
+
+        var orderedIds = _manualSortOrders
+            .OrderBy(entry => entry.Value)
+            .Select(entry => entry.Key)
+            .ToList();
+        for (var index = 0; index < orderedIds.Count; index++)
+        {
+            _manualSortOrders[orderedIds[index]] = index;
+        }
+    }
+
+    private QuestLabelState? FindLabel(Guid? labelId) => labelId.HasValue
+        ? _state.Labels.FirstOrDefault(label => label.Id == labelId.Value)
+        : null;
+
+    private static QuestLabelViewModel ToLabelViewModel(QuestLabelState label) => new()
+    {
+        Id = label.Id,
+        Name = label.Name,
+        ColorHex = label.ColorHex,
+        SortOrder = label.SortOrder
+    };
+
+    private void RefreshLabels()
+    {
+        if (SelectedLabelId.HasValue && FindLabel(SelectedLabelId) is null)
+        {
+            _selectedLabelId = null;
+        }
+
+        Labels.Clear();
+        foreach (var label in _state.Labels.OrderBy(label => label.SortOrder))
+        {
+            var viewModel = ToLabelViewModel(label);
+            viewModel.IsSelected = viewModel.Id == SelectedLabelId;
+            Labels.Add(viewModel);
+        }
+
+        OnPropertyChanged(nameof(Labels));
+        OnPropertyChanged(nameof(CanAddMoreLabels));
+        OnPropertyChanged(nameof(LabelCountText));
+        OnPropertyChanged(nameof(SelectedLabelId));
+        OnPropertyChanged(nameof(SelectedLabel));
+        OnPropertyChanged(nameof(HasSelectedLabel));
+        OnPropertyChanged(nameof(SelectedLabelName));
+        OnPropertyChanged(nameof(SelectedLabelColorHex));
+        RaiseLabelCommandStates();
+    }
+
+    private void RefreshActiveItemLabels()
+    {
+        foreach (var item in Items)
+        {
+            var label = FindLabel(item.LabelId);
+            item.ApplyLabel(label?.Id, label?.Name, label?.ColorHex);
+        }
+    }
+
+    private void RenumberLabels()
+    {
+        for (var index = 0; index < _state.Labels.Count; index++)
+        {
+            _state.Labels[index].SortOrder = index;
+        }
+    }
+
+    private void NotifySortModeChanged()
+    {
+        OnPropertyChanged(nameof(SortMode));
+        OnPropertyChanged(nameof(SortModeCode));
+        OnPropertyChanged(nameof(IsManualSort));
+        OnPropertyChanged(nameof(IsLabelSort));
+        OnPropertyChanged(nameof(IsDurationAscendingSort));
+        OnPropertyChanged(nameof(IsDurationDescendingSort));
+    }
+
+    private void RaiseLabelCommandStates()
+    {
+        (AddLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (UpdateLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DeleteLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (MoveLabelUpCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (MoveLabelDownCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AssignItemLabelCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private bool TickTimers(DateTimeOffset now)
+    {
+        var changed = false;
+        var requiresSave = false;
+        List<ChecklistItem>? elapsedQuestItems = null;
+
+        foreach (var item in Items.Where(item => item.IsTimerRunning).ToList())
+        {
+            var result = item.AdvanceTimer(now);
+            changed |= result != TimerAdvanceResult.None;
+            requiresSave |= result is TimerAdvanceResult.Elapsed or TimerAdvanceResult.ClockAdjusted;
+
+            if (result == TimerAdvanceResult.Elapsed)
+            {
+                (elapsedQuestItems ??= []).Add(item);
+            }
+        }
+
+        if (changed)
+        {
+            NotifyTimerStateChanged();
+        }
+
+        if (requiresSave)
+        {
+            Save();
+        }
+
+        NotifyElapsedTimers(elapsedQuestItems);
+        return changed;
+    }
 
     private static AppState CreateFirstRunState(DateTimeOffset now) => new()
     {
@@ -405,13 +802,41 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Items = [],
         History = [],
         ScheduledQuests = [],
+        Labels = CreateDefaultLabels(),
         Settings = new AppSettings
         {
             AlwaysOnTop = true,
             LanguageCode = UiCopyCatalog.EnglishCode,
-            ThemeCode = ThemeCatalog.LightCode
+            ThemeCode = ThemeCatalog.LightCode,
+            QuestSortMode = QuestSortModeCodes.Manual,
+            OvertimeEnabled = false
         }
     };
+
+    private static List<QuestLabelState> CreateDefaultLabels() =>
+    [
+        new QuestLabelState
+        {
+            Id = ImportantLabelId,
+            Name = "Important",
+            ColorHex = "#D95757",
+            SortOrder = 0
+        },
+        new QuestLabelState
+        {
+            Id = PersonalLabelId,
+            Name = "Personal",
+            ColorHex = "#5E7FA3",
+            SortOrder = 1
+        },
+        new QuestLabelState
+        {
+            Id = RoutineLabelId,
+            Name = "Routine",
+            ColorHex = "#5B8A72",
+            SortOrder = 2
+        }
+    ];
 
     private static string GetDateKey(DateTimeOffset value) =>
         value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -430,6 +855,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 $"State schema {_state.SchemaVersion} is newer than supported schema {CurrentSchemaVersion}.");
         }
 
+        var loadedSchemaVersion = _state.SchemaVersion;
         var needsSave = _state.SchemaVersion != CurrentSchemaVersion;
 
         _state.Items ??= [];
@@ -437,6 +863,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (_state.ScheduledQuests is null)
         {
             _state.ScheduledQuests = [];
+            needsSave = true;
+        }
+
+        if (_state.Labels is null)
+        {
+            _state.Labels = [];
+            needsSave = true;
+        }
+
+        if (loadedSchemaVersion < 6 && _state.Labels.Count == 0)
+        {
+            _state.Labels = CreateDefaultLabels();
             needsSave = true;
         }
 
@@ -449,8 +887,24 @@ public sealed class MainViewModel : INotifyPropertyChanged
             needsSave = true;
         }
 
-        _state.Items = NormalizeChecklistStates(_state.Items);
+        var labelsBeforeNormalization = _state.Labels;
+        _state.Labels = NormalizeLabelStates(_state.Labels);
+        if (!LabelStatesEqual(labelsBeforeNormalization, _state.Labels))
+        {
+            needsSave = true;
+        }
 
+        var validLabelIds = _state.Labels.Select(label => label.Id).ToHashSet();
+
+        _state.Items = NormalizeChecklistStates(
+            _state.Items,
+            allowRunningTimer: true,
+            allowOvertime: _state.Settings.OvertimeEnabled,
+            validLabelIds,
+            out var normalizedActiveItems);
+        needsSave |= normalizedActiveItems;
+
+        var normalizedHistoricalItems = false;
         _state.History = _state.History
             .Where(entry => entry is not null && IsValidDateKey(entry.Date))
             .GroupBy(entry => entry.Date, StringComparer.Ordinal)
@@ -458,12 +912,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
             .Select(entry =>
             {
                 entry.Items ??= [];
-                entry.Items = NormalizeChecklistStates(entry.Items);
+                entry.Items = NormalizeChecklistStates(
+                    entry.Items,
+                    allowRunningTimer: false,
+                    allowOvertime: false,
+                    validLabelIds,
+                    out var normalizedEntryItems);
+                normalizedHistoricalItems |= normalizedEntryItems;
                 return entry;
             })
             .Where(entry => entry.Items.Count > 0)
             .OrderByDescending(entry => entry.Date, StringComparer.Ordinal)
             .ToList();
+        needsSave |= normalizedHistoricalItems;
 
         var scheduledBeforeNormalization = _state.ScheduledQuests;
         var reservedIds = _state.Items
@@ -472,7 +933,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             .ToHashSet();
         var normalizedScheduledQuests = NormalizeScheduledQuestStates(
             scheduledBeforeNormalization,
-            reservedIds);
+            reservedIds,
+            validLabelIds);
         if (!ScheduledQuestStatesEqual(scheduledBeforeNormalization, normalizedScheduledQuests))
         {
             needsSave = true;
@@ -494,16 +956,140 @@ public sealed class MainViewModel : INotifyPropertyChanged
             needsSave = true;
         }
 
-        _state.Window.Width = Math.Clamp(_state.Window.Width, 430, 760);
-        _state.Window.Height = Math.Clamp(_state.Window.Height, 460, 1000);
+        var normalizedSortMode = QuestSortModeCodes.ToCode(
+            QuestSortModeCodes.Parse(_state.Settings.QuestSortMode));
+        if (!string.Equals(
+                _state.Settings.QuestSortMode,
+                normalizedSortMode,
+                StringComparison.Ordinal))
+        {
+            _state.Settings.QuestSortMode = normalizedSortMode;
+            needsSave = true;
+        }
+
+        if (loadedSchemaVersion < 5 &&
+            _state.Window.Width == 430 &&
+            _state.Window.Height == 610)
+        {
+            _state.Window.Width = 520;
+            _state.Window.Height = 680;
+            needsSave = true;
+        }
+
+        _state.Window.Width = Math.Clamp(_state.Window.Width, 390, 1200);
+        _state.Window.Height = Math.Clamp(_state.Window.Height, 500, 1200);
         _state.SchemaVersion = CurrentSchemaVersion;
         return needsSave;
     }
 
-    private List<ChecklistItemState> NormalizeChecklistStates(IEnumerable<ChecklistItemState> states)
+    private static List<QuestLabelState> NormalizeLabelStates(IEnumerable<QuestLabelState> states)
     {
+        var result = new List<QuestLabelState>();
+        var seenIds = new HashSet<Guid>();
+        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var state in states
+                     .Select((state, originalIndex) => new { State = state, OriginalIndex = originalIndex })
+                     .Where(entry => entry.State is not null)
+                     .OrderBy(entry => entry.State.SortOrder)
+                     .ThenBy(entry => entry.OriginalIndex)
+                     .Select(entry => entry.State))
+        {
+            if (result.Count >= MaximumQuestLabels)
+            {
+                break;
+            }
+
+            var name = NormalizeLabelNameForStorage(state.Name);
+            if (name.Length == 0 || !seenNames.Add(name))
+            {
+                continue;
+            }
+
+            var id = state.Id;
+            if (id == Guid.Empty || !seenIds.Add(id))
+            {
+                do
+                {
+                    id = Guid.NewGuid();
+                }
+                while (!seenIds.Add(id));
+            }
+
+            result.Add(new QuestLabelState
+            {
+                Id = id,
+                Name = name,
+                ColorHex = TryNormalizeColorHex(state.ColorHex, out var colorHex)
+                    ? colorHex
+                    : DefaultLabelColorHex,
+                SortOrder = result.Count
+            });
+        }
+
+        return result;
+    }
+
+    private static bool LabelStatesEqual(
+        IReadOnlyList<QuestLabelState> left,
+        IReadOnlyList<QuestLabelState> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < left.Count; index++)
+        {
+            var first = left[index];
+            var second = right[index];
+            if (first is null ||
+                first.Id != second.Id ||
+                !string.Equals(first.Name, second.Name, StringComparison.Ordinal) ||
+                !string.Equals(first.ColorHex, second.ColorHex, StringComparison.Ordinal) ||
+                first.SortOrder != second.SortOrder)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string NormalizeLabelNameForStorage(string? name)
+    {
+        var cleanName = name?.Trim() ?? string.Empty;
+        return cleanName.Length > MaximumQuestLabelNameLength
+            ? cleanName[..MaximumQuestLabelNameLength]
+            : cleanName;
+    }
+
+    private static bool TryNormalizeColorHex(string? value, out string colorHex)
+    {
+        var candidate = value?.Trim() ?? string.Empty;
+        if (candidate.Length == 7 &&
+            candidate[0] == '#' &&
+            candidate.Skip(1).All(Uri.IsHexDigit))
+        {
+            colorHex = candidate.ToUpperInvariant();
+            return true;
+        }
+
+        colorHex = string.Empty;
+        return false;
+    }
+
+    private List<ChecklistItemState> NormalizeChecklistStates(
+        IEnumerable<ChecklistItemState> states,
+        bool allowRunningTimer,
+        bool allowOvertime,
+        ISet<Guid> validLabelIds,
+        out bool didNormalize)
+    {
+        didNormalize = false;
         var seenIds = new HashSet<Guid>();
         var result = new List<ChecklistItemState>();
+        var hasRunningTimer = false;
 
         foreach (var state in states
                      .Select((state, originalIndex) => new { State = state, OriginalIndex = originalIndex })
@@ -517,24 +1103,88 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 id = Guid.NewGuid();
                 seenIds.Add(id);
+                didNormalize = true;
             }
 
-            result.Add(new ChecklistItemState
+            var cleanText = state.Text.Trim();
+            var createdAt = state.CreatedAt == default ? _now() : state.CreatedAt;
+            var plannedDurationMinutes = NormalizeDurationMinutes(state.PlannedDurationMinutes);
+            var fullDurationSeconds = plannedDurationMinutes.GetValueOrDefault() * 60;
+            int? remainingSeconds = plannedDurationMinutes.HasValue
+                ? Math.Clamp(state.RemainingSeconds ?? fullDurationSeconds, 0, fullDurationSeconds)
+                : null;
+            var isOvertime = allowRunningTimer &&
+                             allowOvertime &&
+                             !state.IsCompleted &&
+                             plannedDurationMinutes.HasValue &&
+                             remainingSeconds == 0 &&
+                             state.IsOvertime;
+            var overtimeSeconds = isOvertime ? Math.Max(0, state.OvertimeSeconds) : 0;
+            var canRun = allowRunningTimer &&
+                          !hasRunningTimer &&
+                          !state.IsCompleted &&
+                          plannedDurationMinutes.HasValue &&
+                          (remainingSeconds > 0 || isOvertime);
+            var timerStartedAt = canRun ? state.TimerStartedAt : null;
+            hasRunningTimer |= timerStartedAt.HasValue;
+            var labelId = state.LabelId.HasValue && validLabelIds.Contains(state.LabelId.Value)
+                ? state.LabelId
+                : null;
+
+            var normalizedState = new ChecklistItemState
             {
                 Id = id,
-                Text = state.Text.Trim(),
+                Text = cleanText,
                 IsCompleted = state.IsCompleted,
                 SortOrder = result.Count,
-                CreatedAt = state.CreatedAt == default ? _now() : state.CreatedAt
-            });
+                ManualSortOrder = state.ManualSortOrder ?? state.SortOrder,
+                CreatedAt = createdAt,
+                PlannedDurationMinutes = plannedDurationMinutes,
+                RemainingSeconds = remainingSeconds,
+                TimerStartedAt = timerStartedAt,
+                IsOvertime = isOvertime,
+                OvertimeSeconds = overtimeSeconds,
+                LabelId = labelId
+            };
+            result.Add(normalizedState);
+
+            didNormalize |=
+                state.Id != normalizedState.Id ||
+                !string.Equals(state.Text, normalizedState.Text, StringComparison.Ordinal) ||
+                state.SortOrder != normalizedState.SortOrder ||
+                state.ManualSortOrder != normalizedState.ManualSortOrder ||
+                state.CreatedAt != normalizedState.CreatedAt ||
+                state.PlannedDurationMinutes != normalizedState.PlannedDurationMinutes ||
+                state.RemainingSeconds != normalizedState.RemainingSeconds ||
+                state.TimerStartedAt != normalizedState.TimerStartedAt ||
+                state.IsOvertime != normalizedState.IsOvertime ||
+                state.OvertimeSeconds != normalizedState.OvertimeSeconds ||
+                state.LabelId != normalizedState.LabelId;
+        }
+
+        var manualOrder = result
+            .Select((state, displayIndex) => new { State = state, DisplayIndex = displayIndex })
+            .OrderBy(entry => entry.State.ManualSortOrder)
+            .ThenBy(entry => entry.DisplayIndex)
+            .ToList();
+        for (var manualIndex = 0; manualIndex < manualOrder.Count; manualIndex++)
+        {
+            didNormalize |= manualOrder[manualIndex].State.ManualSortOrder != manualIndex;
+            manualOrder[manualIndex].State.ManualSortOrder = manualIndex;
         }
 
         return result;
     }
 
+    private static int? NormalizeDurationMinutes(int? durationMinutes) =>
+        durationMinutes is >= 1 and <= MaximumTimerDurationMinutes
+            ? durationMinutes
+            : null;
+
     private List<ScheduledQuestState> NormalizeScheduledQuestStates(
         IEnumerable<ScheduledQuestState> states,
-        ISet<Guid> reservedIds)
+        ISet<Guid> reservedIds,
+        ISet<Guid> validLabelIds)
     {
         var normalizationTime = _now();
         var seenIds = new HashSet<Guid>(reservedIds);
@@ -573,7 +1223,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Text = cleanText,
                 ScheduledDate = state.ScheduledDate,
                 SortOrder = result.Count,
-                CreatedAt = state.CreatedAt == default ? normalizationTime : state.CreatedAt
+                CreatedAt = state.CreatedAt == default ? normalizationTime : state.CreatedAt,
+                PlannedDurationMinutes = NormalizeDurationMinutes(state.PlannedDurationMinutes),
+                LabelId = state.LabelId.HasValue && validLabelIds.Contains(state.LabelId.Value)
+                    ? state.LabelId
+                    : null
             });
         }
 
@@ -598,7 +1252,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 !string.Equals(first.Text, second.Text, StringComparison.Ordinal) ||
                 !string.Equals(first.ScheduledDate, second.ScheduledDate, StringComparison.Ordinal) ||
                 first.SortOrder != second.SortOrder ||
-                first.CreatedAt != second.CreatedAt)
+                first.CreatedAt != second.CreatedAt ||
+                first.PlannedDurationMinutes != second.PlannedDurationMinutes ||
+                first.LabelId != second.LabelId)
             {
                 return false;
             }
@@ -628,6 +1284,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         var now = _now();
+        var plannedDurationMinutes = SelectedDurationMinutes;
+        var selectedLabel = FindLabel(SelectedLabelId);
         if (SelectedScheduleOffset > 0)
         {
             var targetDate = GetLocalDate(now).AddDays(SelectedScheduleOffset);
@@ -637,22 +1295,39 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Text = cleanText,
                 ScheduledDate = GetDateKey(targetDate),
                 SortOrder = _state.ScheduledQuests.Count,
-                CreatedAt = now
+                CreatedAt = now,
+                PlannedDurationMinutes = plannedDurationMinutes,
+                LabelId = selectedLabel?.Id
             });
             SortAndRenumberScheduledQuests();
 
             NewItemText = string.Empty;
             SelectedScheduleOffset = 0;
+            SelectedDurationMinutes = null;
+            SelectedLabelId = null;
             RefreshUpcomingQuests();
             Save();
             return;
         }
 
-        var item = new ChecklistItem(Guid.NewGuid(), cleanText, false, now);
+        var item = new ChecklistItem(
+            Guid.NewGuid(),
+            cleanText,
+            false,
+            now,
+            plannedDurationMinutes,
+            labelId: selectedLabel?.Id,
+            labelName: selectedLabel?.Name,
+            labelColorHex: selectedLabel?.ColorHex);
         SubscribeToItem(item);
         Items.Add(item);
+        AddToManualOrder(item);
         NewItemText = string.Empty;
         SelectedScheduleOffset = 0;
+        SelectedDurationMinutes = null;
+        SelectedLabelId = null;
+
+        ApplyQuestSort();
 
         SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
         NotifyProgressChanged();
@@ -692,6 +1367,384 @@ public sealed class MainViewModel : INotifyPropertyChanged
         };
 
         return offset is >= 0 and <= MaximumScheduleOffset;
+    }
+
+    private void SetDuration(object? parameter)
+    {
+        if (TryGetDurationMinutes(parameter, out var durationMinutes))
+        {
+            SelectedDurationMinutes = durationMinutes;
+        }
+    }
+
+    private static bool TryGetDurationMinutes(object? parameter, out int? durationMinutes)
+    {
+        durationMinutes = null;
+        switch (parameter)
+        {
+            case null:
+                return true;
+            case int intValue when intValue == 0:
+            case long longValue when longValue == 0:
+                return true;
+            case int intValue when intValue is >= 1 and <= MaximumTimerDurationMinutes:
+                durationMinutes = intValue;
+                return true;
+            case long longValue when longValue is >= 1 and <= MaximumTimerDurationMinutes:
+                durationMinutes = (int)longValue;
+                return true;
+            case string text:
+                var cleanText = text.Trim();
+                if (cleanText.Length == 0 ||
+                    cleanText.Equals("none", StringComparison.OrdinalIgnoreCase) ||
+                    cleanText.Equals("off", StringComparison.OrdinalIgnoreCase) ||
+                    cleanText == "0")
+                {
+                    return true;
+                }
+
+                if (int.TryParse(
+                        cleanText,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out var parsed) &&
+                    parsed is >= 1 and <= MaximumTimerDurationMinutes)
+                {
+                    durationMinutes = parsed;
+                    return true;
+                }
+
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    private void SetSelectedLabel(object? parameter)
+    {
+        if (TryGetLabelId(parameter, allowNone: true, out var labelId))
+        {
+            SelectedLabelId = labelId;
+        }
+    }
+
+    private bool CanAssignItemLabel(object? parameter) =>
+        parameter is QuestItemLabelRequest request &&
+        Items.Contains(request.Item) &&
+        (!request.LabelId.HasValue || FindLabel(request.LabelId) is not null);
+
+    private void AssignItemLabel(object? parameter)
+    {
+        if (parameter is QuestItemLabelRequest request)
+        {
+            AssignItemLabel(request.Item, request.LabelId);
+        }
+    }
+
+    public bool AssignItemLabel(ChecklistItem item, Guid? labelId)
+    {
+        if (!Items.Contains(item))
+        {
+            return false;
+        }
+
+        var label = FindLabel(labelId);
+        if (labelId.HasValue && label is null)
+        {
+            return false;
+        }
+
+        if (!item.ApplyLabel(label?.Id, label?.Name, label?.ColorHex))
+        {
+            return false;
+        }
+
+        ApplyQuestSort();
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        NotifyProgressChanged();
+        RefreshHistoryEntries();
+        Save();
+        return true;
+    }
+
+    private bool CanAddLabel(object? parameter) =>
+        parameter is QuestLabelDraft draft &&
+        CanCreateLabel(draft.Name, draft.ColorHex);
+
+    private void AddLabel(object? parameter)
+    {
+        if (parameter is QuestLabelDraft draft)
+        {
+            TryAddLabel(draft.Name, draft.ColorHex);
+        }
+    }
+
+    public bool TryAddLabel(string? name, string? colorHex)
+    {
+        if (!CanCreateLabel(name, colorHex) ||
+            !TryNormalizeColorHex(colorHex, out var normalizedColor))
+        {
+            return false;
+        }
+
+        var normalizedName = name!.Trim();
+        var label = new QuestLabelState
+        {
+            Id = Guid.NewGuid(),
+            Name = normalizedName,
+            ColorHex = normalizedColor,
+            SortOrder = _state.Labels.Count
+        };
+        _state.Labels.Add(label);
+        RefreshLabels();
+        Save();
+        return true;
+    }
+
+    private bool CanCreateLabel(string? name, string? colorHex)
+    {
+        var normalizedName = name?.Trim() ?? string.Empty;
+        return _state.Labels.Count < MaximumQuestLabels &&
+               normalizedName.Length is > 0 and <= MaximumQuestLabelNameLength &&
+               !_state.Labels.Any(label => string.Equals(
+                   label.Name,
+                   normalizedName,
+                   StringComparison.OrdinalIgnoreCase)) &&
+               TryNormalizeColorHex(colorHex, out _);
+    }
+
+    private bool CanUpdateLabel(object? parameter) =>
+        parameter is QuestLabelUpdateRequest request &&
+        CanUpdateLabel(request.Id, request.Name, request.ColorHex);
+
+    private void UpdateLabel(object? parameter)
+    {
+        if (parameter is QuestLabelUpdateRequest request)
+        {
+            TryUpdateLabel(request.Id, request.Name, request.ColorHex);
+        }
+    }
+
+    public bool TryUpdateLabel(Guid id, string? name, string? colorHex)
+    {
+        if (!CanUpdateLabel(id, name, colorHex) ||
+            !TryNormalizeColorHex(colorHex, out var normalizedColor))
+        {
+            return false;
+        }
+
+        var label = _state.Labels.Single(candidate => candidate.Id == id);
+        label.Name = name!.Trim();
+        label.ColorHex = normalizedColor;
+        RefreshLabels();
+        RefreshActiveItemLabels();
+        RefreshUpcomingQuests();
+        RefreshHistoryEntries();
+        Save();
+        return true;
+    }
+
+    private bool CanUpdateLabel(Guid id, string? name, string? colorHex)
+    {
+        var normalizedName = name?.Trim() ?? string.Empty;
+        return id != Guid.Empty &&
+               _state.Labels.Any(label => label.Id == id) &&
+               normalizedName.Length is > 0 and <= MaximumQuestLabelNameLength &&
+               !_state.Labels.Any(label =>
+                   label.Id != id &&
+                   string.Equals(label.Name, normalizedName, StringComparison.OrdinalIgnoreCase)) &&
+               TryNormalizeColorHex(colorHex, out _);
+    }
+
+    private bool CanDeleteLabel(object? parameter) =>
+        TryGetLabelId(parameter, allowNone: false, out var labelId) &&
+        labelId.HasValue &&
+        _state.Labels.Any(label => label.Id == labelId.Value);
+
+    private void DeleteLabel(object? parameter)
+    {
+        if (TryGetLabelId(parameter, allowNone: false, out var labelId) && labelId.HasValue)
+        {
+            DeleteLabel(labelId.Value);
+        }
+    }
+
+    public bool DeleteLabel(Guid id)
+    {
+        var label = _state.Labels.FirstOrDefault(candidate => candidate.Id == id);
+        if (label is null)
+        {
+            return false;
+        }
+
+        _state.Labels.Remove(label);
+        RenumberLabels();
+        foreach (var item in Items.Where(item => item.LabelId == id))
+        {
+            item.ApplyLabel(null, null, null);
+        }
+
+        foreach (var scheduledQuest in _state.ScheduledQuests.Where(item => item.LabelId == id))
+        {
+            scheduledQuest.LabelId = null;
+        }
+
+        foreach (var historicalItem in _state.History
+                     .SelectMany(entry => entry.Items)
+                     .Where(item => item.LabelId == id))
+        {
+            historicalItem.LabelId = null;
+        }
+
+        if (SelectedLabelId == id)
+        {
+            SelectedLabelId = null;
+        }
+
+        RefreshLabels();
+        ApplyQuestSort();
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        RefreshUpcomingQuests();
+        RefreshHistoryEntries();
+        Save();
+        return true;
+    }
+
+    private bool CanMoveLabelUp(object? parameter) =>
+        TryGetLabelIndex(parameter, out var index) && index > 0;
+
+    private void MoveLabelUp(object? parameter)
+    {
+        if (TryGetLabelIndex(parameter, out var index))
+        {
+            MoveLabel(index, index - 1);
+        }
+    }
+
+    private bool CanMoveLabelDown(object? parameter) =>
+        TryGetLabelIndex(parameter, out var index) && index < _state.Labels.Count - 1;
+
+    private void MoveLabelDown(object? parameter)
+    {
+        if (TryGetLabelIndex(parameter, out var index))
+        {
+            MoveLabel(index, index + 1);
+        }
+    }
+
+    public bool MoveLabel(Guid id, int destinationIndex)
+    {
+        var sourceIndex = _state.Labels.FindIndex(label => label.Id == id);
+        return MoveLabel(sourceIndex, destinationIndex);
+    }
+
+    private bool MoveLabel(int sourceIndex, int destinationIndex)
+    {
+        if (sourceIndex < 0 || sourceIndex >= _state.Labels.Count || _state.Labels.Count < 2)
+        {
+            return false;
+        }
+
+        destinationIndex = Math.Clamp(destinationIndex, 0, _state.Labels.Count - 1);
+        if (sourceIndex == destinationIndex)
+        {
+            return false;
+        }
+
+        var label = _state.Labels[sourceIndex];
+        _state.Labels.RemoveAt(sourceIndex);
+        _state.Labels.Insert(destinationIndex, label);
+        RenumberLabels();
+        RefreshLabels();
+        if (SortMode == QuestSortMode.Label)
+        {
+            ApplyQuestSort();
+            SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+            RefreshHistoryEntries();
+        }
+
+        Save();
+        return true;
+    }
+
+    private bool CanSetSortMode(object? parameter) =>
+        TryGetSortMode(parameter, out _);
+
+    private void SetSortMode(object? parameter)
+    {
+        if (!TryGetSortMode(parameter, out var sortMode) || sortMode == SortMode)
+        {
+            return;
+        }
+
+        _sortMode = sortMode;
+        _state.Settings.QuestSortMode = QuestSortModeCodes.ToCode(sortMode);
+        ApplyQuestSort();
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        NotifySortModeChanged();
+        NotifyProgressChanged();
+        RefreshHistoryEntries();
+        Save();
+    }
+
+    private static bool TryGetSortMode(object? parameter, out QuestSortMode sortMode)
+    {
+        switch (parameter)
+        {
+            case QuestSortMode mode when Enum.IsDefined(mode):
+                sortMode = mode;
+                return true;
+            case string text:
+                var normalized = text.Trim().ToLowerInvariant();
+                if (normalized is QuestSortModeCodes.Manual or
+                    QuestSortModeCodes.Label or
+                    QuestSortModeCodes.DurationAscending or
+                    QuestSortModeCodes.DurationDescending)
+                {
+                    sortMode = QuestSortModeCodes.Parse(normalized);
+                    return true;
+                }
+
+                break;
+        }
+
+        sortMode = QuestSortMode.Manual;
+        return false;
+    }
+
+    private bool TryGetLabelIndex(object? parameter, out int index)
+    {
+        index = -1;
+        if (!TryGetLabelId(parameter, allowNone: false, out var labelId) || !labelId.HasValue)
+        {
+            return false;
+        }
+
+        index = _state.Labels.FindIndex(label => label.Id == labelId.Value);
+        return index >= 0;
+    }
+
+    private bool TryGetLabelId(object? parameter, bool allowNone, out Guid? labelId)
+    {
+        labelId = parameter switch
+        {
+            QuestLabelViewModel label => label.Id,
+            QuestLabelState label => label.Id,
+            Guid guid => guid,
+            string text when Guid.TryParse(text, out var parsed) => parsed,
+            _ => null
+        };
+
+        if (!labelId.HasValue)
+        {
+            return allowNone &&
+                   (parameter is null ||
+                    parameter is string text &&
+                    (string.IsNullOrWhiteSpace(text) ||
+                     text.Equals("none", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return FindLabel(labelId) is not null;
     }
 
     private bool CanRemoveScheduledQuest(object? parameter) =>
@@ -739,7 +1792,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         item.PropertyChanged -= Item_PropertyChanged;
+        StopTimerAlarm(item.Id);
         Items.Remove(item);
+        RemoveFromManualOrder(item.Id);
+        NotifyTimerStateChanged();
         SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
         NotifyProgressChanged();
         RefreshHistoryEntries();
@@ -758,14 +1814,174 @@ public sealed class MainViewModel : INotifyPropertyChanged
         item.IsCompleted = true;
     }
 
+    private bool CanToggleTimer(object? parameter) =>
+        parameter is ChecklistItem item &&
+        Items.Contains(item) &&
+        item.HasTimer &&
+        !item.IsCompleted &&
+        (item.RemainingSeconds > 0 || item.IsOvertime);
+
+    private void ToggleTimer(object? parameter)
+    {
+        if (parameter is not ChecklistItem item || !CanToggleTimer(item))
+        {
+            return;
+        }
+
+        var now = _now();
+        List<ChecklistItem>? elapsedQuestItems = null;
+        var stateChanged = false;
+
+        if (item.IsTimerRunning)
+        {
+            var result = item.AdvanceTimer(now);
+            if (result == TimerAdvanceResult.Elapsed)
+            {
+                (elapsedQuestItems ??= []).Add(item);
+                stateChanged = true;
+            }
+            else
+            {
+                stateChanged = item.PauseTimer() || result != TimerAdvanceResult.None;
+            }
+        }
+        else
+        {
+            foreach (var runningItem in Items
+                         .Where(candidate => candidate.IsTimerRunning && candidate != item)
+                         .ToList())
+            {
+                var result = runningItem.AdvanceTimer(now);
+                if (result == TimerAdvanceResult.Elapsed)
+                {
+                    (elapsedQuestItems ??= []).Add(runningItem);
+                }
+                else
+                {
+                    runningItem.PauseTimer();
+                }
+
+                stateChanged = true;
+            }
+
+            stateChanged = item.StartTimer(now) || stateChanged;
+        }
+
+        if (stateChanged)
+        {
+            NotifyTimerStateChanged();
+            Save();
+        }
+
+        NotifyElapsedTimers(elapsedQuestItems);
+    }
+
+    private bool CanResetTimer(object? parameter) =>
+        parameter is ChecklistItem item &&
+        Items.Contains(item) &&
+        item.HasTimer &&
+        (item.IsTimerRunning || item.IsOvertime ||
+         item.RemainingSeconds != item.PlannedDurationMinutes!.Value * 60);
+
+    private void ResetTimer(object? parameter)
+    {
+        if (parameter is not ChecklistItem item || !CanResetTimer(item) || !item.ResetTimer())
+        {
+            return;
+        }
+
+        StopTimerAlarm(item.Id);
+        NotifyTimerStateChanged();
+        Save();
+    }
+
+    private bool CanStartOvertime(object? parameter) =>
+        OvertimeEnabled &&
+        parameter is ChecklistItem item &&
+        Items.Contains(item) &&
+        item.CanStartOvertime;
+
+    private void StartOvertime(object? parameter)
+    {
+        if (parameter is not ChecklistItem item ||
+            !CanStartOvertime(item) ||
+            !item.StartOvertime(_now()))
+        {
+            return;
+        }
+
+        foreach (var runningItem in Items
+                     .Where(candidate => candidate != item && candidate.IsTimerRunning)
+                     .ToList())
+        {
+            runningItem.AdvanceTimer(_now());
+            runningItem.PauseTimer();
+        }
+
+        StopTimerAlarm(item.Id);
+        NotifyTimerStateChanged();
+        Save();
+    }
+
+    private bool CanSetOvertime(object? parameter) => TryGetBoolean(parameter, out _);
+
+    private void SetOvertime(object? parameter)
+    {
+        if (!TryGetBoolean(parameter, out var enabled) || enabled == OvertimeEnabled)
+        {
+            return;
+        }
+
+        _state.Settings.OvertimeEnabled = enabled;
+        if (!enabled)
+        {
+            StopTimerAlarm();
+            foreach (var item in Items.Where(item => item.IsOvertime).ToList())
+            {
+                item.ClearOvertime();
+            }
+        }
+
+        OnPropertyChanged(nameof(OvertimeEnabled));
+        NotifyTimerStateChanged();
+        (StartOvertimeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        Save();
+    }
+
+    private void ToggleOvertime() => SetOvertime(!OvertimeEnabled);
+
+    private static bool TryGetBoolean(object? parameter, out bool value)
+    {
+        switch (parameter)
+        {
+            case bool boolean:
+                value = boolean;
+                return true;
+            case string text when bool.TryParse(text, out var parsed):
+                value = parsed;
+                return true;
+            case string text when text.Trim().Equals("on", StringComparison.OrdinalIgnoreCase):
+                value = true;
+                return true;
+            case string text when text.Trim().Equals("off", StringComparison.OrdinalIgnoreCase):
+                value = false;
+                return true;
+            default:
+                value = false;
+                return false;
+        }
+    }
+
     private void ResetToday()
     {
+        StopTimerAlarm();
         _suppressItemPersistence = true;
         try
         {
             foreach (var item in Items)
             {
                 item.IsCompleted = false;
+                item.ResetTimer();
             }
         }
         finally
@@ -773,7 +1989,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _suppressItemPersistence = false;
         }
 
+        ApplyQuestSort();
         SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        NotifyTimerStateChanged();
         NotifyProgressChanged();
         RefreshHistoryEntries();
         Save();
@@ -784,11 +2002,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var completedItems = Items.Where(item => item.IsCompleted).ToList();
         foreach (var item in completedItems)
         {
+            StopTimerAlarm(item.Id);
             item.PropertyChanged -= Item_PropertyChanged;
             Items.Remove(item);
+            RemoveFromManualOrder(item.Id);
         }
 
         SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        NotifyTimerStateChanged();
         NotifyProgressChanged();
         RefreshHistoryEntries();
         Save();
@@ -957,9 +2178,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 id,
                 scheduledQuest.Text,
                 isCompleted: false,
-                scheduledQuest.CreatedAt);
+                scheduledQuest.CreatedAt,
+                scheduledQuest.PlannedDurationMinutes,
+                labelId: scheduledQuest.LabelId,
+                labelName: FindLabel(scheduledQuest.LabelId)?.Name,
+                labelColorHex: FindLabel(scheduledQuest.LabelId)?.ColorHex);
             SubscribeToItem(item);
             Items.Add(item);
+            AddToManualOrder(item);
         }
 
         var dueIds = dueQuests.Select(item => item.Id).ToHashSet();
@@ -1025,6 +2251,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             var scheduleLabel = GetScheduleLabel(date.DayNumber - today.DayNumber);
             var dateText = FormatUpcomingDate(date);
+            var questLabel = FindLabel(scheduledQuest.LabelId);
             UpcomingQuests.Add(new UpcomingQuestViewModel
             {
                 Id = scheduledQuest.Id,
@@ -1032,6 +2259,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 ScheduledDate = scheduledQuest.ScheduledDate,
                 DateText = dateText,
                 ScheduleLabel = scheduleLabel,
+                PlannedDurationMinutes = scheduledQuest.PlannedDurationMinutes,
+                DurationText = scheduledQuest.PlannedDurationMinutes.HasValue
+                    ? string.Format(
+                        Copy.Culture,
+                        Copy.DurationMinutesFormat,
+                        scheduledQuest.PlannedDurationMinutes.Value)
+                    : null,
+                LabelId = questLabel?.Id,
+                LabelName = questLabel?.Name,
+                LabelColorHex = questLabel?.ColorHex,
                 DisplayDate = string.Format(
                     Copy.Culture,
                     Copy.ScheduleOptionFormat,
@@ -1069,6 +2306,31 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
+        if (sender is ChecklistItem { IsCompleted: true } completedItem)
+        {
+            if (completedItem.IsTimerRunning)
+            {
+                completedItem.AdvanceTimer(_now());
+                completedItem.PauseTimer();
+            }
+
+            completedItem.ClearOvertime();
+            StopTimerAlarm(completedItem.Id);
+
+            var currentIndex = Items.IndexOf(completedItem);
+            if (currentIndex >= 0 && currentIndex < Items.Count - 1)
+            {
+                Items.Move(currentIndex, Items.Count - 1);
+            }
+
+            if (IsManualSort)
+            {
+                CaptureManualOrder();
+            }
+        }
+
+        ApplyQuestSort();
+        NotifyTimerStateChanged();
         SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
         NotifyProgressChanged();
         RefreshHistoryEntries();
@@ -1180,10 +2442,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     ? 0
                     : (double)completedCount / totalCount * 100,
                 Items = orderedItems
-                    .Select(item => new HistoryItemViewModel
+                    .Select(item =>
                     {
-                        Text = item.Text,
-                        IsCompleted = item.IsCompleted
+                        var label = FindLabel(item.LabelId);
+                        return new HistoryItemViewModel
+                        {
+                            Text = item.Text,
+                            IsCompleted = item.IsCompleted,
+                            LabelId = label?.Id,
+                            LabelName = label?.Name,
+                            LabelColorHex = label?.ColorHex
+                        };
                     })
                     .ToList()
             });
@@ -1205,7 +2474,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CurrentDate = string.IsNullOrWhiteSpace(_state.CurrentDate)
             ? GetDateKey(_now())
             : _state.CurrentDate,
-        Items = Items.Select((item, index) => ToState(item, index)).ToList(),
+        Items = Items.Select((item, index) => ToState(
+            item,
+            index,
+            GetManualSortOrder(item, index))).ToList(),
         History = _state.History
             .Select(entry => new DailyHistoryState
             {
@@ -1215,6 +2487,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             .ToList(),
         ScheduledQuests = _state.ScheduledQuests
             .Select(CloneScheduledQuestState)
+            .ToList(),
+        Labels = _state.Labels
+            .Select(CloneLabelState)
             .ToList(),
         Window = new WidgetWindowState
         {
@@ -1227,18 +2502,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             AlwaysOnTop = AlwaysOnTop,
             LanguageCode = LanguageCode,
-            ThemeCode = ThemeCode
+            ThemeCode = ThemeCode,
+            QuestSortMode = SortModeCode,
+            OvertimeEnabled = OvertimeEnabled
         }
     };
 
-    private static ChecklistItemState ToState(ChecklistItem item, int index) => new()
-    {
-        Id = item.Id,
-        Text = item.Text,
-        IsCompleted = item.IsCompleted,
-        SortOrder = index,
-        CreatedAt = item.CreatedAt
-    };
+    private static ChecklistItemState ToState(
+        ChecklistItem item,
+        int index,
+        int? manualSortOrder = null) => new()
+        {
+            Id = item.Id,
+            Text = item.Text,
+            IsCompleted = item.IsCompleted,
+            SortOrder = index,
+            ManualSortOrder = manualSortOrder ?? index,
+            CreatedAt = item.CreatedAt,
+            PlannedDurationMinutes = item.PlannedDurationMinutes,
+            RemainingSeconds = item.HasTimer ? item.RemainingSeconds : null,
+            TimerStartedAt = item.TimerStartedAt,
+            IsOvertime = item.IsOvertime,
+            OvertimeSeconds = item.OvertimeSeconds,
+            LabelId = item.LabelId
+        };
 
     private static ChecklistItemState CloneItemState(ChecklistItemState item) => new()
     {
@@ -1246,7 +2533,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Text = item.Text,
         IsCompleted = item.IsCompleted,
         SortOrder = item.SortOrder,
-        CreatedAt = item.CreatedAt
+        ManualSortOrder = item.ManualSortOrder,
+        CreatedAt = item.CreatedAt,
+        PlannedDurationMinutes = item.PlannedDurationMinutes,
+        RemainingSeconds = item.RemainingSeconds,
+        TimerStartedAt = item.TimerStartedAt,
+        IsOvertime = item.IsOvertime,
+        OvertimeSeconds = item.OvertimeSeconds,
+        LabelId = item.LabelId
     };
 
     private static ScheduledQuestState CloneScheduledQuestState(ScheduledQuestState item) => new()
@@ -1255,8 +2549,72 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Text = item.Text,
         ScheduledDate = item.ScheduledDate,
         SortOrder = item.SortOrder,
-        CreatedAt = item.CreatedAt
+        CreatedAt = item.CreatedAt,
+        PlannedDurationMinutes = item.PlannedDurationMinutes,
+        LabelId = item.LabelId
     };
+
+    private static QuestLabelState CloneLabelState(QuestLabelState label) => new()
+    {
+        Id = label.Id,
+        Name = label.Name,
+        ColorHex = label.ColorHex,
+        SortOrder = label.SortOrder
+    };
+
+    private void NotifyTimerStateChanged()
+    {
+        OnPropertyChanged(nameof(ActiveTimerItem));
+        OnPropertyChanged(nameof(HasActiveTimer));
+        OnPropertyChanged(nameof(CompactDisplayItem));
+        (ToggleTimerCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ResetTimerCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (StartOvertimeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void NotifyElapsedTimers(IEnumerable<ChecklistItem>? questItems)
+    {
+        if (_alarmService is null || questItems is null)
+        {
+            return;
+        }
+
+        foreach (var item in questItems)
+        {
+            try
+            {
+                _alarmingQuestId = item.Id;
+                _alarmService.NotifyTimerCompleted(item.Text, OvertimeEnabled);
+            }
+            catch (Exception)
+            {
+                // A notification failure must never take down the user's checklist.
+            }
+        }
+    }
+
+    private void StopTimerAlarm(Guid? questId = null)
+    {
+        if (questId.HasValue && _alarmingQuestId != questId)
+        {
+            return;
+        }
+
+        _alarmingQuestId = null;
+        if (_alarmService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _alarmService.StopTimerAlarm();
+        }
+        catch (Exception)
+        {
+            // Alarm cleanup should never interrupt checklist persistence.
+        }
+    }
 
     private void NotifyProgressChanged()
     {
@@ -1269,6 +2627,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsAllDone));
         OnPropertyChanged(nameof(NextPendingItem));
         OnPropertyChanged(nameof(HasPendingItem));
+        OnPropertyChanged(nameof(CompactDisplayItem));
         RaiseCommandStates();
     }
 
@@ -1285,6 +2644,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ProgressText));
         OnPropertyChanged(nameof(EncouragementText));
         OnPropertyChanged(nameof(FooterText));
+        OnPropertyChanged(nameof(SelectedDurationLabel));
+        OnPropertyChanged(nameof(LabelCountText));
         RefreshScheduleOptions();
         RefreshUpcomingQuests();
     }
@@ -1296,6 +2657,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         (ClearCompletedCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ClearHistoryCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RemoveScheduledQuestCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ToggleTimerCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ResetTimerCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (StartOvertimeCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void RefreshStorageUsage()

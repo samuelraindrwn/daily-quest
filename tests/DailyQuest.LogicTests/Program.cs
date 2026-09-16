@@ -16,23 +16,43 @@ internal static class Program
         ("explicit language selection validates aliases and no-ops", ExplicitLanguageSelectionValidatesAliasesAndNoOps),
         ("explicit theme selection applies validates and persists", ExplicitThemeSelectionAppliesValidatesAndPersists),
         ("today, upcoming, history, and settings navigation is mutually exclusive", ViewNavigationIsMutuallyExclusive),
-        ("unknown language falls back to Indonesian", UnknownLanguageFallsBackToIndonesian),
+        ("unknown language falls back to English", UnknownLanguageFallsBackToEnglish),
         ("language normalization preserves history-only completed items", LanguageNormalizationPreservesHistoryOnlyCompletedItems),
         ("invalid theme falls back to light without data loss", InvalidThemeFallsBackToLightWithoutDataLoss),
         ("current-day history tracks add, toggle, remove, and clear", CurrentDayHistoryTracksChecklistMutations),
         ("composer schedules only today through H plus eight", ComposerSchedulesOnlyTodayThroughEightDays),
         ("scheduled quests stay outside today's checklist until due", ScheduledQuestsStayOutsideTodayUntilDue),
         ("upcoming quests can be canceled without changing today", UpcomingQuestsCanBeCanceledWithoutChangingToday),
+        ("duration selection supports custom values and no timer", DurationSelectionSupportsCustomValuesAndNoTimer),
+        ("scheduled timer duration survives activation", ScheduledTimerDurationSurvivesActivation),
+        ("timer starts pauses resumes resets and persists", TimerStartsPausesResumesResetsAndPersists),
+        ("starting a timer pauses the other active timer", StartingTimerPausesOtherActiveTimer),
+        ("running timer restores from timestamp and alarms once", RunningTimerRestoresFromTimestampAndAlarmsOnce),
+        ("completion pauses timer and daily rollover resets it", CompletionPausesTimerAndDailyRolloverResetsIt),
+        ("midnight rollover resolves timers before resetting the day", MidnightRolloverResolvesTimersBeforeResettingDay),
+        ("overtime alarm repeats until count-up starts and persists", OvertimeAlarmRepeatsUntilCountUpStartsAndPersists),
+        ("disabled overtime uses a finite alarm and rejects count-up", DisabledOvertimeUsesFiniteAlarmAndRejectsCountUp),
+        ("overtime clears on completion reset and setting disable", OvertimeClearsOnCompletionResetAndSettingDisable),
+        ("overtime dependent properties notify after reset and completion", OvertimeDependentPropertiesNotifyAfterResetAndCompletion),
+        ("v6 migration defaults overtime off without adding deleted labels", V6MigrationDefaultsOvertimeOffWithoutAddingLabels),
+        ("v4 migration expands only the legacy default window", V4MigrationExpandsOnlyLegacyDefaultWindow),
         ("next pending item follows quest order and completion", NextPendingItemFollowsQuestOrderAndCompletion),
-        ("compact completion advances once without checking the next quest", CompactCompletionAdvancesOnceWithoutCheckingNextQuest),
+        ("completed quest moves to the bottom without checking the next quest", CompletedQuestMovesToBottomWithoutCheckingNextQuest),
         ("pin toggle persists and updates its presentation", PinTogglePersistsAndUpdatesPresentation),
         ("quest reorder persists to active state and current history", QuestReorderPersistsToActiveStateAndCurrentHistory),
         ("quest reorder retains completed history-only items", QuestReorderRetainsCompletedHistoryOnlyItems),
         ("quest reorder rejects foreign and unchanged moves", QuestReorderRejectsForeignAndUnchangedMoves),
         ("persisted sort order is normalized stably", PersistedSortOrderIsNormalizedStably),
+        ("label defaults migrate once while an intentional empty set stays empty", LabelDefaultsMigrateOnceAndEmptySetStaysEmpty),
+        ("label CRUD validates and clears quest references safely", LabelCrudValidatesAndClearsReferences),
+        ("label sorting assignment and label order preserve manual order", LabelSortingAssignmentAndOrderPreserveManualOrder),
+        ("duration sorting keeps untimed and completed quests last without disturbing timers", DurationSortingKeepsTimerSound),
+        ("scheduled labels survive activation and history projection", ScheduledLabelsSurviveActivationAndHistory),
+        ("malformed persisted labels normalize safely", MalformedPersistedLabelsNormalizeSafely),
         ("clear history preserves active quests", ClearHistoryPreservesActiveQuests),
         ("settings refreshes injected storage usage", SettingsRefreshesInjectedStorageUsage),
         ("storage usage failures degrade gracefully", StorageUsageFailuresDegradeGracefully),
+        ("active quests recur unchecked after daily rollover", ActiveQuestsRecurUncheckedAfterDailyRollover),
         ("daily rollover archives once without duplicates", DailyRolloverArchivesOnceWithoutDuplicates),
         ("daily rollover activates due quests after archiving", DailyRolloverActivatesDueQuestsAfterArchiving),
         ("overdue quests activate once on the next launch", OverdueQuestsActivateOnceOnNextLaunch),
@@ -98,14 +118,24 @@ internal static class Program
         AssertEx.Equal("Good morning!", viewModel.Greeting);
         AssertEx.Equal(0, viewModel.Items.Count);
         AssertEx.Equal(0, viewModel.HistoryEntries.Count);
+        AssertEx.SequenceEqual(
+            ["Important", "Personal", "Routine"],
+            viewModel.Labels.Select(label => label.Name));
+        AssertEx.True(
+            viewModel.Labels.All(label => label.Id != Guid.Empty),
+            "Built-in labels should have stable non-empty IDs.");
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(4, saved.SchemaVersion);
+        AssertEx.Equal(7, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal(0, saved.Items.Count);
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.Equal(0, saved.History.Count);
+        AssertEx.Equal(3, saved.Labels.Count);
+        AssertEx.Equal("manual", saved.Settings.QuestSortMode);
+        AssertEx.Equal(520d, saved.Window.Width);
+        AssertEx.Equal(680d, saved.Window.Height);
         AssertEx.True(saved.Settings.AlwaysOnTop, "Always-on-top should default to enabled.");
         AssertEx.Equal("en-US", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
@@ -121,6 +151,9 @@ internal static class Program
         AssertEx.Equal(0, reloaded.TotalCount);
         AssertEx.Equal(0, reloaded.Items.Count);
         AssertEx.Equal(0, reloaded.HistoryEntries.Count);
+        AssertEx.SequenceEqual(
+            saved.Labels.Select(label => label.Id),
+            reloaded.Labels.Select(label => label.Id));
         AssertEx.Equal("light", reloaded.ThemeCode);
         AssertEx.SequenceEqual(["light"], reloadTheme.AppliedThemes);
         AssertEx.Equal(0, reloadStore.SaveCount);
@@ -274,7 +307,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16",
             Settings = new AppSettings
             {
@@ -390,7 +423,7 @@ internal static class Program
         AssertEx.Equal(0, store.SaveCount);
     }
 
-    private static void UnknownLanguageFallsBackToIndonesian()
+    private static void UnknownLanguageFallsBackToEnglish()
     {
         var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
@@ -404,10 +437,10 @@ internal static class Program
 
         var viewModel = new MainViewModel(store, () => now);
 
-        AssertEx.Equal("id-ID", viewModel.LanguageCode);
-        AssertEx.Equal("ID", viewModel.LanguageBadge);
-        AssertEx.Equal("Selamat pagi!", viewModel.Greeting);
-        AssertEx.Equal("id-ID", AssertEx.NotNull(store.Snapshot).Settings.LanguageCode);
+        AssertEx.Equal("en-US", viewModel.LanguageCode);
+        AssertEx.Equal("EN", viewModel.LanguageBadge);
+        AssertEx.Equal("Good morning!", viewModel.Greeting);
+        AssertEx.Equal("en-US", AssertEx.NotNull(store.Snapshot).Settings.LanguageCode);
         AssertEx.Equal(1, store.SaveCount);
     }
 
@@ -418,7 +451,7 @@ internal static class Program
         var orphanCreatedAt = now.AddMinutes(-20);
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16",
             Items = [],
             History =
@@ -445,7 +478,7 @@ internal static class Program
 
         var viewModel = new MainViewModel(store, () => now);
 
-        AssertEx.Equal("id-ID", viewModel.LanguageCode);
+        AssertEx.Equal("en-US", viewModel.LanguageCode);
         AssertEx.Equal(0, viewModel.Items.Count);
         AssertEx.Equal(1, viewModel.HistoryEntries.Count);
         AssertEx.Equal(1, store.SaveCount);
@@ -457,7 +490,7 @@ internal static class Program
         AssertEx.Equal("Selesai lalu dihapus", retainedOrphan.Text);
         AssertEx.True(retainedOrphan.IsCompleted, "Language normalization must not erase a completed history-only item.");
         AssertEx.Equal(orphanCreatedAt, retainedOrphan.CreatedAt);
-        AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
+        AssertEx.Equal("en-US", saved.Settings.LanguageCode);
     }
 
     private static void InvalidThemeFallsBackToLightWithoutDataLoss()
@@ -468,7 +501,7 @@ internal static class Program
         var scheduledId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -576,9 +609,9 @@ internal static class Program
         saved = AssertEx.NotNull(store.Snapshot);
         var afterClear = HistoryFor(saved, "2026-09-16");
         AssertEx.SequenceEqual(
-            [removedAfterCompletion.Id, cleared.Id, active.Id],
+            [removedAfterCompletion.Id, active.Id, cleared.Id],
             afterClear.Items.Select(item => item.Id));
-        AssertEx.SequenceEqual([true, true, false], afterClear.Items.Select(item => item.IsCompleted));
+        AssertEx.SequenceEqual([true, false, true], afterClear.Items.Select(item => item.IsCompleted));
 
         viewModel.RemoveItemCommand.Execute(active);
         saved = AssertEx.NotNull(store.Snapshot);
@@ -588,7 +621,7 @@ internal static class Program
             finalHistory.Items.Select(item => item.Id));
         AssertEx.True(finalHistory.Items.All(item => item.IsCompleted), "Only completed historical items should remain.");
         AssertEx.Equal(1, viewModel.HistoryEntries.Count);
-        AssertEx.Equal("2 dari 2 selesai", viewModel.HistoryEntries.Single().SummaryText);
+        AssertEx.Equal("2 of 2 done", viewModel.HistoryEntries.Single().SummaryText);
         AssertEx.Equal(10, store.SaveCount);
     }
 
@@ -597,7 +630,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 23, 45, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16"
         });
         var viewModel = new MainViewModel(store, () => now);
@@ -648,7 +681,7 @@ internal static class Program
         var activeState = CreateItemState(activeId, "Quest hari ini", false, 0, now.AddMinutes(-1));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16",
             Items = [activeState],
             History =
@@ -687,7 +720,7 @@ internal static class Program
         var scheduledId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -725,6 +758,727 @@ internal static class Program
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));
         AssertEx.Equal(0, saved.History.Count);
+    }
+
+    private static void DurationSelectionSupportsCustomValuesAndNoTimer()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings
+            {
+                LanguageCode = "en-US",
+                ThemeCode = "light"
+            }
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.SequenceEqual([0, 5, 10, 15, 25, 30, 45, 60], viewModel.DurationOptions);
+        AssertEx.False(viewModel.SelectedDurationMinutes.HasValue);
+        AssertEx.Equal("No timer", viewModel.SelectedDurationLabel);
+
+        viewModel.SetDurationCommand.Execute("37");
+
+        AssertEx.Equal(37, viewModel.SelectedDurationMinutes);
+        AssertEx.True(viewModel.HasSelectedDuration);
+        AssertEx.Equal("37 min", viewModel.SelectedDurationLabel);
+
+        viewModel.SetDurationCommand.Execute("481");
+        viewModel.SetDurationCommand.Execute(-1);
+        AssertEx.Equal(37, viewModel.SelectedDurationMinutes);
+
+        viewModel.NewItemText = "Write focused draft";
+        viewModel.AddItemCommand.Execute(null);
+
+        var item = viewModel.Items.Single();
+        AssertEx.True(item.HasTimer);
+        AssertEx.Equal(37, item.PlannedDurationMinutes);
+        AssertEx.Equal(37 * 60, item.RemainingSeconds);
+        AssertEx.Equal("37:00", item.RemainingTimeText);
+        AssertEx.False(viewModel.SelectedDurationMinutes.HasValue);
+        AssertEx.Equal("No timer", viewModel.SelectedDurationLabel);
+
+        var savedItem = AssertEx.NotNull(store.Snapshot).Items.Single();
+        AssertEx.Equal(37, savedItem.PlannedDurationMinutes);
+        AssertEx.Equal(37 * 60, savedItem.RemainingSeconds);
+        AssertEx.False(savedItem.TimerStartedAt.HasValue);
+
+        viewModel.SetDurationCommand.Execute(15);
+        viewModel.SetDurationCommand.Execute(0);
+        AssertEx.False(viewModel.SelectedDurationMinutes.HasValue);
+    }
+
+    private static void ScheduledTimerDurationSurvivesActivation()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings
+            {
+                LanguageCode = "en-US",
+                ThemeCode = "light"
+            }
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+
+        viewModel.SetDurationCommand.Execute("45");
+        viewModel.SetScheduleOffsetCommand.Execute(2);
+        viewModel.NewItemText = "Prepare launch notes";
+        viewModel.AddItemCommand.Execute(null);
+
+        var upcoming = viewModel.UpcomingQuests.Single();
+        AssertEx.Equal(45, upcoming.PlannedDurationMinutes);
+        AssertEx.True(upcoming.HasTimer);
+        AssertEx.Equal("45 min", upcoming.DurationText);
+        AssertEx.Equal(45, AssertEx.NotNull(store.Snapshot).ScheduledQuests.Single().PlannedDurationMinutes);
+
+        clock.Now = clock.Now.AddDays(2);
+        AssertEx.True(viewModel.RollOverToCurrentDay());
+
+        var activated = viewModel.Items.Single();
+        AssertEx.Equal("Prepare launch notes", activated.Text);
+        AssertEx.Equal(45, activated.PlannedDurationMinutes);
+        AssertEx.Equal(45 * 60, activated.RemainingSeconds);
+        AssertEx.False(activated.IsTimerRunning);
+        AssertEx.Equal(0, viewModel.UpcomingQuests.Count);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(45, saved.Items.Single().PlannedDurationMinutes);
+        AssertEx.Equal(45 * 60, saved.Items.Single().RemainingSeconds);
+        AssertEx.Equal(0, saved.ScheduledQuests.Count);
+    }
+
+    private static void TimerStartsPausesResumesResetsAndPersists()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
+        var itemId = Guid.NewGuid();
+        var alarm = new RecordingQuestAlarmService();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    itemId,
+                    "Deep work",
+                    false,
+                    0,
+                    clock.Now,
+                    plannedDurationMinutes: 2,
+                    remainingSeconds: 120)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now, null, null, alarm);
+        var item = viewModel.Items.Single();
+
+        AssertEx.True(viewModel.ToggleTimerCommand.CanExecute(item));
+        viewModel.ToggleTimerCommand.Execute(item);
+
+        AssertEx.True(item.IsTimerRunning);
+        AssertEx.Equal(clock.Now, item.TimerStartedAt);
+        AssertEx.Equal(itemId, AssertEx.NotNull(viewModel.ActiveTimerItem).Id);
+        AssertEx.True(viewModel.HasActiveTimer);
+        AssertEx.Equal(1, store.SaveCount);
+
+        clock.Now = clock.Now.AddSeconds(30.4);
+        AssertEx.True(viewModel.TickTimers());
+        AssertEx.Equal(90, item.RemainingSeconds);
+        AssertEx.Equal("01:30", item.RemainingTimeText);
+        AssertEx.Equal(25d, item.TimerProgressPercent);
+        AssertEx.Equal(1, store.SaveCount);
+
+        clock.Now = clock.Now.AddSeconds(1);
+        viewModel.ToggleTimerCommand.Execute(item);
+
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.Equal(89, item.RemainingSeconds);
+        AssertEx.False(viewModel.HasActiveTimer);
+        var paused = AssertEx.NotNull(store.Snapshot).Items.Single();
+        AssertEx.Equal(89, paused.RemainingSeconds);
+        AssertEx.False(paused.TimerStartedAt.HasValue);
+
+        clock.Now = clock.Now.AddMinutes(5);
+        viewModel.ToggleTimerCommand.Execute(item);
+        clock.Now = clock.Now.AddSeconds(10);
+        viewModel.TickTimers();
+        AssertEx.Equal(79, item.RemainingSeconds);
+
+        viewModel.ResetTimerCommand.Execute(item);
+
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.Equal(120, item.RemainingSeconds);
+        AssertEx.Equal("02:00", item.RemainingTimeText);
+        AssertEx.Equal(0d, item.TimerProgressPercent);
+        AssertEx.False(viewModel.ResetTimerCommand.CanExecute(item));
+        AssertEx.Equal(0, alarm.Notifications.Count);
+
+        var reset = AssertEx.NotNull(store.Snapshot).Items.Single();
+        AssertEx.Equal(120, reset.RemainingSeconds);
+        AssertEx.False(reset.TimerStartedAt.HasValue);
+    }
+
+    private static void StartingTimerPausesOtherActiveTimer()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 9, 0, 0, TimeSpan.FromHours(7)));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(firstId, "First timer", false, 0, clock.Now, 5, 300),
+                CreateItemState(secondId, "Second timer", false, 1, clock.Now, 3, 180)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+        var first = viewModel.Items.Single(item => item.Id == firstId);
+        var second = viewModel.Items.Single(item => item.Id == secondId);
+
+        viewModel.ToggleTimerCommand.Execute(first);
+        clock.Now = clock.Now.AddSeconds(10);
+        viewModel.ToggleTimerCommand.Execute(second);
+
+        AssertEx.False(first.IsTimerRunning);
+        AssertEx.Equal(290, first.RemainingSeconds);
+        AssertEx.True(second.IsTimerRunning);
+        AssertEx.Equal(secondId, AssertEx.NotNull(viewModel.ActiveTimerItem).Id);
+        AssertEx.Equal(
+            secondId,
+            AssertEx.NotNull(viewModel.CompactDisplayItem).Id);
+        AssertEx.Equal(1, viewModel.Items.Count(item => item.IsTimerRunning));
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(1, saved.Items.Count(item => item.TimerStartedAt.HasValue));
+        AssertEx.Equal(290, saved.Items.Single(item => item.Id == firstId).RemainingSeconds);
+        AssertEx.Equal(clock.Now, saved.Items.Single(item => item.Id == secondId).TimerStartedAt);
+
+        viewModel.ToggleTimerCommand.Execute(second);
+        AssertEx.Equal(
+            firstId,
+            AssertEx.NotNull(viewModel.CompactDisplayItem).Id);
+    }
+
+    private static void RunningTimerRestoresFromTimestampAndAlarmsOnce()
+    {
+        var startedAt = new DateTimeOffset(2026, 9, 16, 10, 0, 0, TimeSpan.FromHours(7));
+        var clock = new MutableClock(startedAt.AddSeconds(45));
+        var itemId = Guid.NewGuid();
+        var alarm = new RecordingQuestAlarmService();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    itemId,
+                    "Tea break",
+                    false,
+                    0,
+                    startedAt,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 60,
+                    timerStartedAt: startedAt)
+            ]
+        });
+
+        var viewModel = new MainViewModel(store, () => clock.Now, null, null, alarm);
+        var item = viewModel.Items.Single();
+
+        AssertEx.True(item.IsTimerRunning);
+        AssertEx.Equal(15, item.RemainingSeconds);
+        AssertEx.Equal("00:15", item.RemainingTimeText);
+        AssertEx.Equal(0, alarm.Notifications.Count);
+        AssertEx.Equal(0, store.SaveCount);
+
+        clock.Now = startedAt.AddSeconds(61);
+        AssertEx.True(viewModel.TickTimers());
+
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.True(item.IsTimerExpired);
+        AssertEx.Equal(0, item.RemainingSeconds);
+        AssertEx.SequenceEqual(["Tea break"], alarm.Notifications);
+        AssertEx.Equal(1, store.SaveCount);
+
+        AssertEx.False(viewModel.TickTimers());
+        AssertEx.SequenceEqual(["Tea break"], alarm.Notifications);
+        AssertEx.Equal(1, store.SaveCount);
+
+        var reloadAlarm = new RecordingQuestAlarmService();
+        var reloadStore = new InMemoryStateStore(AssertEx.NotNull(store.Snapshot));
+        var reloaded = new MainViewModel(reloadStore, () => clock.Now, null, null, reloadAlarm);
+
+        AssertEx.Equal(0, reloaded.Items.Single().RemainingSeconds);
+        AssertEx.False(reloaded.Items.Single().IsTimerRunning);
+        AssertEx.Equal(0, reloadAlarm.Notifications.Count);
+        AssertEx.Equal(0, reloadStore.SaveCount);
+    }
+
+    private static void CompletionPausesTimerAndDailyRolloverResetsIt()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 11, 0, 0, TimeSpan.FromHours(7)));
+        var itemId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(itemId, "Timed quest", false, 0, clock.Now, 2, 120)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+        var item = viewModel.Items.Single();
+
+        viewModel.ToggleTimerCommand.Execute(item);
+        clock.Now = clock.Now.AddSeconds(10);
+        item.IsCompleted = true;
+
+        AssertEx.True(item.IsCompleted);
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.Equal(110, item.RemainingSeconds);
+        AssertEx.False(viewModel.ToggleTimerCommand.CanExecute(item));
+
+        clock.Now = clock.Now.AddDays(1);
+        AssertEx.True(viewModel.RollOverToCurrentDay());
+
+        AssertEx.False(item.IsCompleted);
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.Equal(120, item.RemainingSeconds);
+        AssertEx.True(viewModel.ToggleTimerCommand.CanExecute(item));
+
+        var saved = AssertEx.NotNull(store.Snapshot).Items.Single();
+        AssertEx.False(saved.IsCompleted);
+        AssertEx.Equal(120, saved.RemainingSeconds);
+        AssertEx.False(saved.TimerStartedAt.HasValue);
+    }
+
+    private static void MidnightRolloverResolvesTimersBeforeResettingDay()
+    {
+        var startedAt = new DateTimeOffset(2026, 9, 16, 23, 58, 0, TimeSpan.FromHours(7));
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 17, 0, 1, 0, TimeSpan.FromHours(7)));
+        var elapsedId = Guid.NewGuid();
+        var continuingId = Guid.NewGuid();
+        var alarm = new RecordingQuestAlarmService();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(elapsedId, "Short timer", false, 0, startedAt, 1, 60, startedAt),
+                CreateItemState(continuingId, "Long timer", false, 1, startedAt, 10, 600)
+            ]
+        });
+
+        var viewModel = new MainViewModel(store, () => clock.Now, null, null, alarm);
+
+        var elapsed = viewModel.Items.Single(item => item.Id == elapsedId);
+        AssertEx.SequenceEqual(["Short timer"], alarm.Notifications);
+        AssertEx.False(elapsed.IsTimerRunning);
+        AssertEx.Equal(60, elapsed.RemainingSeconds);
+        AssertEx.Equal("2026-09-17", AssertEx.NotNull(store.Snapshot).CurrentDate);
+
+        // Starting the longer timer after rollover verifies that daily reset left it usable.
+        var continuing = viewModel.Items.Single(item => item.Id == continuingId);
+        AssertEx.False(continuing.IsTimerRunning);
+        AssertEx.Equal(600, continuing.RemainingSeconds);
+        viewModel.ToggleTimerCommand.Execute(continuing);
+        AssertEx.True(continuing.IsTimerRunning);
+
+        var crossMidnightAlarm = new RecordingQuestAlarmService();
+        var crossMidnightId = Guid.NewGuid();
+        var crossMidnightStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    crossMidnightId,
+                    "Long running timer",
+                    false,
+                    0,
+                    startedAt,
+                    plannedDurationMinutes: 10,
+                    remainingSeconds: 600,
+                    timerStartedAt: startedAt)
+            ]
+        });
+
+        var crossMidnight = new MainViewModel(
+            crossMidnightStore,
+            () => clock.Now,
+            null,
+            null,
+            crossMidnightAlarm);
+        var runningAcrossMidnight = crossMidnight.Items.Single();
+
+        AssertEx.True(runningAcrossMidnight.IsTimerRunning);
+        AssertEx.Equal(420, runningAcrossMidnight.RemainingSeconds);
+        AssertEx.Equal(clock.Now, runningAcrossMidnight.TimerStartedAt);
+        AssertEx.Equal(0, crossMidnightAlarm.Notifications.Count);
+        AssertEx.Equal("2026-09-17", AssertEx.NotNull(crossMidnightStore.Snapshot).CurrentDate);
+    }
+
+    private static void OvertimeAlarmRepeatsUntilCountUpStartsAndPersists()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
+        var itemId = Guid.NewGuid();
+        var alarm = new RecordingQuestAlarmService();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    itemId,
+                    "Timed focus",
+                    false,
+                    0,
+                    clock.Now,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 1,
+                    timerStartedAt: clock.Now)
+            ],
+            Settings = new AppSettings { OvertimeEnabled = true }
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now, null, null, alarm);
+        var item = viewModel.Items.Single();
+
+        clock.Now = clock.Now.AddSeconds(2);
+        AssertEx.True(viewModel.TickTimers());
+        AssertEx.True(item.IsTimerExpired);
+        AssertEx.False(item.IsOvertime);
+        AssertEx.SequenceEqual(["Timed focus"], alarm.Notifications);
+        AssertEx.SequenceEqual([true], alarm.RepeatRequests);
+        AssertEx.True(viewModel.StartOvertimeCommand.CanExecute(item));
+
+        viewModel.StartOvertimeCommand.Execute(item);
+        AssertEx.True(item.IsOvertime);
+        AssertEx.True(item.IsTimerRunning);
+        AssertEx.Equal("+00:00", item.RemainingTimeText);
+        AssertEx.Equal(1, alarm.StopCount);
+
+        clock.Now = clock.Now.AddSeconds(65);
+        AssertEx.True(viewModel.TickTimers());
+        AssertEx.Equal(65, item.OvertimeSeconds);
+        AssertEx.Equal("+01:05", item.RemainingTimeText);
+
+        viewModel.ToggleTimerCommand.Execute(item);
+        AssertEx.False(item.IsTimerRunning);
+        clock.Now = clock.Now.AddSeconds(10);
+        AssertEx.False(viewModel.TickTimers());
+        AssertEx.Equal(65, item.OvertimeSeconds);
+
+        viewModel.ToggleTimerCommand.Execute(item);
+        clock.Now = clock.Now.AddSeconds(5);
+        AssertEx.True(viewModel.TickTimers());
+        AssertEx.Equal(70, item.OvertimeSeconds);
+        viewModel.Save();
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.True(saved.Settings.OvertimeEnabled);
+        AssertEx.True(saved.Items.Single().IsOvertime);
+        AssertEx.Equal(70, saved.Items.Single().OvertimeSeconds);
+        var reloaded = new MainViewModel(new InMemoryStateStore(saved), () => clock.Now);
+        var restored = reloaded.Items.Single();
+        AssertEx.True(restored.IsOvertime);
+        AssertEx.True(restored.IsTimerRunning);
+        AssertEx.Equal(70, restored.OvertimeSeconds);
+        AssertEx.Equal("+01:10", restored.RemainingTimeText);
+    }
+
+    private static void DisabledOvertimeUsesFiniteAlarmAndRejectsCountUp()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
+        var alarm = new RecordingQuestAlarmService();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    Guid.NewGuid(),
+                    "Finite alarm",
+                    false,
+                    0,
+                    clock.Now,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 1,
+                    timerStartedAt: clock.Now)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now, null, null, alarm);
+        var item = viewModel.Items.Single();
+
+        clock.Now = clock.Now.AddSeconds(2);
+        viewModel.TickTimers();
+
+        AssertEx.SequenceEqual([false], alarm.RepeatRequests);
+        AssertEx.False(viewModel.OvertimeEnabled);
+        AssertEx.False(viewModel.StartOvertimeCommand.CanExecute(item));
+        viewModel.StartOvertimeCommand.Execute(item);
+        AssertEx.False(item.IsOvertime);
+        viewModel.ResetTimerCommand.Execute(item);
+        AssertEx.Equal(1, alarm.StopCount);
+        AssertEx.Equal(60, item.RemainingSeconds);
+
+        var inconsistentStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    Guid.NewGuid(),
+                    "Invalid overtime",
+                    false,
+                    0,
+                    clock.Now,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 0,
+                    timerStartedAt: clock.Now,
+                    isOvertime: true,
+                    overtimeSeconds: 50)
+            ],
+            Settings = new AppSettings { OvertimeEnabled = false }
+        });
+        var normalized = new MainViewModel(inconsistentStore, () => clock.Now);
+        var normalizedItem = normalized.Items.Single();
+        AssertEx.False(normalizedItem.IsOvertime);
+        AssertEx.Equal(0, normalizedItem.OvertimeSeconds);
+        AssertEx.False(normalizedItem.IsTimerRunning);
+        AssertEx.True(normalizedItem.IsTimerExpired);
+        AssertEx.Equal(1, inconsistentStore.SaveCount);
+    }
+
+    private static void OvertimeClearsOnCompletionResetAndSettingDisable()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
+        var itemId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    itemId,
+                    "Overtime",
+                    false,
+                    0,
+                    clock.Now,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 0,
+                    timerStartedAt: clock.Now,
+                    isOvertime: true,
+                    overtimeSeconds: 12)
+            ],
+            Settings = new AppSettings { OvertimeEnabled = true }
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+        var item = viewModel.Items.Single();
+
+        item.IsCompleted = true;
+        AssertEx.False(item.IsOvertime);
+        AssertEx.Equal(0, item.OvertimeSeconds);
+        AssertEx.False(item.IsTimerRunning);
+
+        viewModel.ResetTodayCommand.Execute(null);
+        AssertEx.Equal(60, item.RemainingSeconds);
+        AssertEx.False(item.IsOvertime);
+
+        item.IsCompleted = false;
+        viewModel.ToggleTimerCommand.Execute(item);
+        clock.Now = clock.Now.AddSeconds(61);
+        viewModel.TickTimers();
+        viewModel.StartOvertimeCommand.Execute(item);
+        AssertEx.True(item.IsOvertime);
+        viewModel.SetOvertimeCommand.Execute(false);
+        AssertEx.False(viewModel.OvertimeEnabled);
+        AssertEx.False(item.IsOvertime);
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.Equal(0, item.RemainingSeconds);
+        AssertEx.False(viewModel.StartOvertimeCommand.CanExecute(item));
+    }
+
+    private static void OvertimeDependentPropertiesNotifyAfterResetAndCompletion()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var overtimeStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    Guid.NewGuid(),
+                    "Overtime reset notifications",
+                    false,
+                    0,
+                    now,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 0,
+                    isOvertime: true,
+                    overtimeSeconds: 25)
+            ],
+            Settings = new AppSettings { OvertimeEnabled = true }
+        });
+        var overtimeViewModel = new MainViewModel(overtimeStore, () => now);
+        var overtimeItem = overtimeViewModel.Items.Single();
+        var resetNotifications = new HashSet<string?>();
+        overtimeItem.PropertyChanged += (_, eventArgs) =>
+            resetNotifications.Add(eventArgs.PropertyName);
+
+        overtimeViewModel.ResetTimerCommand.Execute(overtimeItem);
+
+        AssertEx.False(overtimeItem.IsOvertime);
+        AssertEx.Equal(0, overtimeItem.OvertimeSeconds);
+        AssertEx.True(
+            resetNotifications.Contains(nameof(ChecklistItem.IsOvertime)),
+            "Resetting overtime should notify the red overtime presentation trigger.");
+        AssertEx.True(
+            resetNotifications.Contains(nameof(ChecklistItem.OvertimeSeconds)),
+            "Resetting a nonzero overtime counter should notify its dependent display.");
+
+        var expiredStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    Guid.NewGuid(),
+                    "Expired completion notifications",
+                    false,
+                    0,
+                    now,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 0)
+            ],
+            Settings = new AppSettings { OvertimeEnabled = true }
+        });
+        var expiredViewModel = new MainViewModel(expiredStore, () => now);
+        var expiredItem = expiredViewModel.Items.Single();
+        var completionNotifications = new HashSet<string?>();
+        expiredItem.PropertyChanged += (_, eventArgs) =>
+            completionNotifications.Add(eventArgs.PropertyName);
+
+        AssertEx.True(expiredItem.IsTimerExpired);
+        AssertEx.True(expiredItem.CanStartOvertime);
+        expiredItem.IsCompleted = true;
+
+        AssertEx.False(expiredItem.IsTimerExpired);
+        AssertEx.False(expiredItem.CanStartOvertime);
+        AssertEx.True(
+            completionNotifications.Contains(nameof(ChecklistItem.IsTimerExpired)),
+            "Completing an expired quest should notify expiry-dependent visibility.");
+        AssertEx.True(
+            completionNotifications.Contains(nameof(ChecklistItem.CanStartOvertime)),
+            "Completing an expired quest should hide its overtime action immediately.");
+    }
+
+    private static void V6MigrationDefaultsOvertimeOffWithoutAddingLabels()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 6,
+            CurrentDate = "2026-09-16",
+            Labels = [],
+            Settings = new AppSettings { QuestSortMode = QuestSortModeCodes.Manual }
+        });
+
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.False(viewModel.OvertimeEnabled);
+        AssertEx.Equal(0, viewModel.Labels.Count);
+        AssertEx.Equal(1, store.SaveCount);
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(7, saved.SchemaVersion);
+        AssertEx.False(saved.Settings.OvertimeEnabled);
+        AssertEx.Equal(0, saved.Labels.Count);
+    }
+
+    private static void V4MigrationExpandsOnlyLegacyDefaultWindow()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var legacyDefaultStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 4,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(Guid.NewGuid(), "Legacy untimed quest", false, 0, now)
+            ],
+            Window = new WidgetWindowState
+            {
+                Width = 430,
+                Height = 610
+            }
+        });
+
+        _ = new MainViewModel(legacyDefaultStore, () => now);
+
+        var migratedDefault = AssertEx.NotNull(legacyDefaultStore.Snapshot);
+        AssertEx.Equal(7, migratedDefault.SchemaVersion);
+        AssertEx.Equal(520d, migratedDefault.Window.Width);
+        AssertEx.Equal(680d, migratedDefault.Window.Height);
+        AssertEx.False(migratedDefault.Items.Single().PlannedDurationMinutes.HasValue);
+        AssertEx.False(migratedDefault.Items.Single().RemainingSeconds.HasValue);
+        AssertEx.False(migratedDefault.Items.Single().TimerStartedAt.HasValue);
+
+        var customStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 4,
+            CurrentDate = "2026-09-16",
+            Window = new WidgetWindowState
+            {
+                Width = 500,
+                Height = 700
+            }
+        });
+
+        _ = new MainViewModel(customStore, () => now);
+
+        var migratedCustom = AssertEx.NotNull(customStore.Snapshot);
+        AssertEx.Equal(500d, migratedCustom.Window.Width);
+        AssertEx.Equal(700d, migratedCustom.Window.Height);
+
+        var currentSchemaStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Window = new WidgetWindowState
+            {
+                Width = 430,
+                Height = 610
+            }
+        });
+
+        _ = new MainViewModel(currentSchemaStore, () => now);
+
+        AssertEx.Equal(430d, AssertEx.NotNull(currentSchemaStore.Snapshot).Window.Width);
+        AssertEx.Equal(610d, AssertEx.NotNull(currentSchemaStore.Snapshot).Window.Height);
+        AssertEx.Equal(0, currentSchemaStore.SaveCount);
     }
 
     private static void NextPendingItemFollowsQuestOrderAndCompletion()
@@ -772,7 +1526,7 @@ internal static class Program
         AssertEx.True(viewModel.HasPendingItem);
     }
 
-    private static void CompactCompletionAdvancesOnceWithoutCheckingNextQuest()
+    private static void CompletedQuestMovesToBottomWithoutCheckingNextQuest()
     {
         var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
         var firstId = Guid.NewGuid();
@@ -796,12 +1550,21 @@ internal static class Program
         AssertEx.True(first.IsCompleted, "The clicked compact quest should be completed.");
         AssertEx.Equal(secondId, second.Id);
         AssertEx.False(second.IsCompleted, "Advancing compact mode must not complete the next quest.");
+        AssertEx.SequenceEqual(
+            [secondId, firstId],
+            viewModel.Items.Select(item => item.Id));
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.SequenceEqual([true, false], saved.Items.Select(item => item.IsCompleted));
         AssertEx.SequenceEqual(
-            [true, false],
+            [secondId, firstId],
+            saved.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([false, true], saved.Items.Select(item => item.IsCompleted));
+        AssertEx.SequenceEqual(
+            [secondId, firstId],
+            HistoryFor(saved, "2026-09-16").Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [false, true],
             HistoryFor(saved, "2026-09-16").Items.Select(item => item.IsCompleted));
 
         viewModel.CompleteItemCommand.Execute(first);
@@ -811,6 +1574,71 @@ internal static class Program
 
         AssertEx.False(second.IsCompleted, "Stale commands must not affect the current compact quest.");
         AssertEx.Equal(1, store.SaveCount);
+    }
+
+    private static void ActiveQuestsRecurUncheckedAfterDailyRollover()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(firstId, "Quest pertama", false, 0, clock.Now.AddMinutes(-2)),
+                CreateItemState(secondId, "Quest kedua", false, 1, clock.Now.AddMinutes(-1))
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+        var first = viewModel.Items.Single(item => item.Id == firstId);
+
+        viewModel.CompleteItemCommand.Execute(first);
+        AssertEx.SequenceEqual(
+            [secondId, firstId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [false, true],
+            viewModel.Items.Select(item => item.IsCompleted));
+
+        clock.Now = clock.Now.AddDays(1);
+
+        AssertEx.True(
+            viewModel.RollOverToCurrentDay(),
+            "Advancing the local date should roll the active checklist forward.");
+        AssertEx.SequenceEqual(
+            [secondId, firstId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.True(
+            viewModel.Items.All(item => !item.IsCompleted),
+            "Recurring quests should be unchecked for the new day.");
+        AssertEx.Equal(secondId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal("2026-09-17", saved.CurrentDate);
+        AssertEx.SequenceEqual([secondId, firstId], saved.Items.Select(item => item.Id));
+        AssertEx.True(
+            saved.Items.All(item => !item.IsCompleted),
+            "The reset completion state should be persisted.");
+
+        var previousDay = HistoryFor(saved, "2026-09-16");
+        AssertEx.SequenceEqual([secondId, firstId], previousDay.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([false, true], previousDay.Items.Select(item => item.IsCompleted));
+
+        var currentDay = HistoryFor(saved, "2026-09-17");
+        AssertEx.SequenceEqual([secondId, firstId], currentDay.Items.Select(item => item.Id));
+        AssertEx.True(
+            currentDay.Items.All(item => !item.IsCompleted),
+            "The new day's history should begin with every recurring quest unchecked.");
+
+        var reloadStore = new InMemoryStateStore(saved);
+        var reloaded = new MainViewModel(reloadStore, () => clock.Now);
+
+        AssertEx.SequenceEqual([secondId, firstId], reloaded.Items.Select(item => item.Id));
+        AssertEx.True(reloaded.Items.All(item => !item.IsCompleted));
+        AssertEx.Equal(0, reloadStore.SaveCount);
     }
 
     private static void PinTogglePersistsAndUpdatesPresentation()
@@ -1041,6 +1869,304 @@ internal static class Program
         AssertEx.SequenceEqual([0, 1, 2], savedHistory.Select(item => item.SortOrder));
     }
 
+    private static void LabelDefaultsMigrateOnceAndEmptySetStaysEmpty()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var legacyStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 5,
+            CurrentDate = "2026-09-16",
+            Labels = [],
+            Settings = new AppSettings { QuestSortMode = "not-a-mode" }
+        });
+
+        var migrated = new MainViewModel(legacyStore, () => now);
+
+        AssertEx.SequenceEqual(
+            ["Important", "Personal", "Routine"],
+            migrated.Labels.Select(label => label.Name));
+        AssertEx.Equal("manual", migrated.SortModeCode);
+        AssertEx.Equal(1, legacyStore.SaveCount);
+        AssertEx.Equal(7, AssertEx.NotNull(legacyStore.Snapshot).SchemaVersion);
+
+        var emptyStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Labels = []
+        });
+
+        var intentionallyEmpty = new MainViewModel(emptyStore, () => now);
+
+        AssertEx.Equal(0, intentionallyEmpty.Labels.Count);
+        AssertEx.Equal(0, emptyStore.SaveCount);
+    }
+
+    private static void LabelCrudValidatesAndClearsReferences()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var labelId = Guid.NewGuid();
+        var activeId = Guid.NewGuid();
+        var historicalId = Guid.NewGuid();
+        var scheduledId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Labels =
+            [
+                new QuestLabelState
+                {
+                    Id = labelId,
+                    Name = "Work",
+                    ColorHex = "#336699",
+                    SortOrder = 0
+                }
+            ],
+            Items =
+            [
+                CreateItemState(activeId, "Current", false, 0, now, labelId: labelId)
+            ],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-15",
+                    Items =
+                    [
+                        CreateItemState(
+                            historicalId,
+                            "Past",
+                            true,
+                            0,
+                            now.AddDays(-1),
+                            labelId: labelId)
+                    ]
+                }
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    scheduledId,
+                    "Tomorrow",
+                    "2026-09-17",
+                    0,
+                    now,
+                    labelId: labelId)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.False(viewModel.TryAddLabel("", "#123456"));
+        AssertEx.False(viewModel.TryAddLabel("Bad color", "red"));
+        AssertEx.False(viewModel.TryAddLabel(new string('x', 25), "#123456"));
+        AssertEx.False(viewModel.TryAddLabel("work", "#123456"));
+        AssertEx.True(viewModel.TryUpdateLabel(labelId, "Deep Work", "#abcdef"));
+        AssertEx.Equal("Deep Work", viewModel.Items.Single().LabelName);
+        AssertEx.Equal("#ABCDEF", viewModel.Items.Single().LabelColorHex);
+        AssertEx.Equal("Deep Work", viewModel.UpcomingQuests.Single().LabelName);
+        AssertEx.True(
+            viewModel.HistoryEntries.SelectMany(entry => entry.Items).All(item => item.LabelName == "Deep Work"),
+            "Historical label presentation should follow the edited label definition.");
+
+        for (var index = 1; index < 12; index++)
+        {
+            AssertEx.True(viewModel.TryAddLabel($"Label {index}", $"#{index:X6}"));
+        }
+
+        AssertEx.Equal(12, viewModel.Labels.Count);
+        AssertEx.False(viewModel.CanAddMoreLabels);
+        AssertEx.False(viewModel.TryAddLabel("Overflow", "#112233"));
+        AssertEx.True(viewModel.DeleteLabel(labelId));
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.False(viewModel.Items.Single().HasLabel);
+        AssertEx.False(viewModel.UpcomingQuests.Single().HasLabel);
+        AssertEx.True(saved.Items.All(item => !item.LabelId.HasValue));
+        AssertEx.True(saved.ScheduledQuests.All(item => !item.LabelId.HasValue));
+        AssertEx.True(
+            saved.History.SelectMany(entry => entry.Items).All(item => !item.LabelId.HasValue),
+            "Deleting a label must clear history references without deleting history quests.");
+        AssertEx.Equal(2, saved.History.SelectMany(entry => entry.Items).Count());
+        AssertEx.True(viewModel.CanAddMoreLabels);
+    }
+
+    private static void LabelSortingAssignmentAndOrderPreserveManualOrder()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var highId = Guid.NewGuid();
+        var lowId = Guid.NewGuid();
+        var aId = Guid.NewGuid();
+        var bId = Guid.NewGuid();
+        var cId = Guid.NewGuid();
+        var doneId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Labels =
+            [
+                new QuestLabelState { Id = highId, Name = "High", ColorHex = "#CC4455", SortOrder = 0 },
+                new QuestLabelState { Id = lowId, Name = "Low", ColorHex = "#557799", SortOrder = 1 }
+            ],
+            Items =
+            [
+                CreateItemState(aId, "A", false, 0, now.AddMinutes(-4)),
+                CreateItemState(bId, "B", false, 1, now.AddMinutes(-3), labelId: lowId),
+                CreateItemState(cId, "C", false, 2, now.AddMinutes(-2), labelId: highId),
+                CreateItemState(doneId, "Done", true, 3, now.AddMinutes(-1), labelId: highId)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        viewModel.SetSortModeCommand.Execute(QuestSortModeCodes.Label);
+        AssertEx.SequenceEqual([cId, bId, aId, doneId], viewModel.Items.Select(item => item.Id));
+        AssertEx.False(viewModel.MoveItem(viewModel.Items[2], 0), "Drag reorder should be disabled outside manual mode.");
+
+        AssertEx.True(viewModel.AssignItemLabel(viewModel.Items.Single(item => item.Id == aId), highId));
+        AssertEx.SequenceEqual([aId, cId, bId, doneId], viewModel.Items.Select(item => item.Id));
+        AssertEx.True(viewModel.MoveLabel(lowId, 0));
+        AssertEx.SequenceEqual([bId, aId, cId, doneId], viewModel.Items.Select(item => item.Id));
+
+        viewModel.SetSortModeCommand.Execute(QuestSortMode.Manual);
+        AssertEx.SequenceEqual([aId, bId, cId, doneId], viewModel.Items.Select(item => item.Id));
+
+        viewModel.SetSortModeCommand.Execute(QuestSortMode.Label);
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(QuestSortModeCodes.Label, saved.Settings.QuestSortMode);
+        AssertEx.Equal(
+            0,
+            saved.Items.Single(item => item.Id == aId).ManualSortOrder.GetValueOrDefault());
+        AssertEx.Equal(
+            1,
+            saved.Items.Single(item => item.Id == bId).ManualSortOrder.GetValueOrDefault());
+        AssertEx.Equal(
+            2,
+            saved.Items.Single(item => item.Id == cId).ManualSortOrder.GetValueOrDefault());
+        AssertEx.Equal(
+            3,
+            saved.Items.Single(item => item.Id == doneId).ManualSortOrder.GetValueOrDefault());
+
+        var reloaded = new MainViewModel(new InMemoryStateStore(saved), () => now);
+        AssertEx.Equal(QuestSortMode.Label, reloaded.SortMode);
+        AssertEx.SequenceEqual([bId, aId, cId, doneId], reloaded.Items.Select(item => item.Id));
+        reloaded.SetSortModeCommand.Execute(QuestSortMode.Manual);
+        AssertEx.SequenceEqual([aId, bId, cId, doneId], reloaded.Items.Select(item => item.Id));
+    }
+
+    private static void DurationSortingKeepsTimerSound()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
+        var untimedId = Guid.NewGuid();
+        var longId = Guid.NewGuid();
+        var shortId = Guid.NewGuid();
+        var doneId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(untimedId, "Untimed", false, 0, clock.Now),
+                CreateItemState(longId, "Long", false, 1, clock.Now, plannedDurationMinutes: 30),
+                CreateItemState(shortId, "Short", false, 2, clock.Now, plannedDurationMinutes: 5),
+                CreateItemState(doneId, "Done", true, 3, clock.Now, plannedDurationMinutes: 1)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+        var longQuest = viewModel.Items.Single(item => item.Id == longId);
+
+        viewModel.ToggleTimerCommand.Execute(longQuest);
+        viewModel.SetSortModeCommand.Execute(QuestSortMode.DurationAscending);
+        AssertEx.SequenceEqual([shortId, longId, untimedId, doneId], viewModel.Items.Select(item => item.Id));
+        AssertEx.True(longQuest.IsTimerRunning, "Sorting must not pause or replace the running timer item.");
+
+        clock.Now = clock.Now.AddSeconds(30);
+        AssertEx.True(viewModel.TickTimers());
+        AssertEx.Equal(1770, longQuest.RemainingSeconds);
+        viewModel.SetSortModeCommand.Execute(QuestSortMode.DurationDescending);
+        AssertEx.SequenceEqual([longId, shortId, untimedId, doneId], viewModel.Items.Select(item => item.Id));
+        AssertEx.True(longQuest.IsTimerRunning);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(QuestSortModeCodes.DurationDescending, saved.Settings.QuestSortMode);
+        var reloaded = new MainViewModel(new InMemoryStateStore(saved), () => clock.Now);
+        AssertEx.SequenceEqual([longId, shortId, untimedId, doneId], reloaded.Items.Select(item => item.Id));
+        AssertEx.True(reloaded.Items.Single(item => item.Id == longId).IsTimerRunning);
+    }
+
+    private static void ScheduledLabelsSurviveActivationAndHistory()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 7, 0, 0, TimeSpan.FromHours(7));
+        var labelId = Guid.NewGuid();
+        var dueId = Guid.NewGuid();
+        var futureId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            Labels =
+            [
+                new QuestLabelState { Id = labelId, Name = "Focus", ColorHex = "#8866CC", SortOrder = 0 }
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(dueId, "Due", "2026-09-17", 0, now, 25, labelId),
+                CreateScheduledQuestState(futureId, "Future", "2026-09-18", 1, now, 10, labelId)
+            ]
+        });
+
+        var viewModel = new MainViewModel(store, () => now);
+
+        var active = viewModel.Items.Single();
+        AssertEx.Equal(dueId, active.Id);
+        AssertEx.Equal(labelId, active.LabelId);
+        AssertEx.Equal("Focus", active.LabelName);
+        AssertEx.Equal(25, active.PlannedDurationMinutes);
+        AssertEx.Equal(labelId, viewModel.UpcomingQuests.Single().LabelId);
+        AssertEx.Equal("Focus", viewModel.UpcomingQuests.Single().LabelName);
+        AssertEx.Equal(
+            labelId,
+            viewModel.HistoryEntries.Single().Items.Single().LabelId);
+    }
+
+    private static void MalformedPersistedLabelsNormalizeSafely()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var sharedId = Guid.NewGuid();
+        var focusId = Guid.NewGuid();
+        var missingId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-16",
+            Labels =
+            [
+                new QuestLabelState { Id = sharedId, Name = "  Work  ", ColorHex = "#abcdef", SortOrder = 0 },
+                new QuestLabelState { Id = sharedId, Name = "Other", ColorHex = "#112233", SortOrder = 1 },
+                new QuestLabelState { Id = Guid.NewGuid(), Name = "work", ColorHex = "#445566", SortOrder = 2 },
+                new QuestLabelState { Id = focusId, Name = "Focus", ColorHex = "invalid", SortOrder = 3 },
+                new QuestLabelState { Id = Guid.NewGuid(), Name = "   ", ColorHex = "#778899", SortOrder = 4 }
+            ],
+            Items =
+            [
+                CreateItemState(Guid.NewGuid(), "Known", false, 0, now, labelId: focusId),
+                CreateItemState(Guid.NewGuid(), "Missing", false, 1, now, labelId: missingId)
+            ]
+        });
+
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.SequenceEqual(["Work", "Other", "Focus"], viewModel.Labels.Select(label => label.Name));
+        AssertEx.True(viewModel.Labels.Select(label => label.Id).Distinct().Count() == 3);
+        AssertEx.Equal("#ABCDEF", viewModel.Labels.Single(label => label.Name == "Work").ColorHex);
+        AssertEx.Equal("#5B8A72", viewModel.Labels.Single(label => label.Name == "Focus").ColorHex);
+        AssertEx.Equal("Focus", viewModel.Items.Single(item => item.Text == "Known").LabelName);
+        AssertEx.False(viewModel.Items.Single(item => item.Text == "Missing").HasLabel);
+        AssertEx.Equal(1, store.SaveCount);
+    }
+
     private static void ClearHistoryPreservesActiveQuests()
     {
         var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
@@ -1088,15 +2214,15 @@ internal static class Program
         viewModel.ClearHistoryCommand.Execute(null);
 
         AssertEx.SequenceEqual(
-            [completedId, pendingId],
+            [pendingId, completedId],
             viewModel.Items.Select(item => item.Id));
         AssertEx.SequenceEqual(
-            [true, false],
+            [false, true],
             viewModel.Items.Select(item => item.IsCompleted));
         AssertEx.Equal(0, viewModel.HistoryEntries.Count);
         AssertEx.Equal(1, viewModel.UpcomingQuests.Count);
         AssertEx.False(viewModel.ClearHistoryCommand.CanExecute(null));
-        AssertEx.Equal(1, store.SaveCount);
+        AssertEx.Equal(2, store.SaveCount);
         var cleared = AssertEx.NotNull(store.Snapshot);
         AssertEx.Equal(0, cleared.History.Count);
         AssertEx.SequenceEqual([scheduledId], cleared.ScheduledQuests.Select(item => item.Id));
@@ -1187,7 +2313,7 @@ internal static class Program
         var pendingId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-15",
             Items =
             [
@@ -1208,8 +2334,8 @@ internal static class Program
         AssertEx.Equal(2, saved.History.Select(entry => entry.Date).Distinct().Count());
 
         var previousDay = HistoryFor(saved, "2026-09-15");
-        AssertEx.SequenceEqual([completedId, pendingId], previousDay.Items.Select(item => item.Id));
-        AssertEx.SequenceEqual([true, false], previousDay.Items.Select(item => item.IsCompleted));
+        AssertEx.SequenceEqual([pendingId, completedId], previousDay.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([false, true], previousDay.Items.Select(item => item.IsCompleted));
 
         var currentDay = HistoryFor(saved, "2026-09-16");
         AssertEx.SequenceEqual([completedId, pendingId], currentDay.Items.Select(item => item.Id));
@@ -1235,7 +2361,7 @@ internal static class Program
         var laterId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1293,7 +2419,7 @@ internal static class Program
         var futureId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 7,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1404,7 +2530,7 @@ internal static class Program
             AssertEx.Equal(1, store.SaveCount);
 
             var migrated = AssertEx.NotNull(durableStore.Load());
-            AssertEx.Equal(4, migrated.SchemaVersion);
+            AssertEx.Equal(7, migrated.SchemaVersion);
             AssertEx.Equal("light", migrated.Settings.ThemeCode);
             AssertEx.Equal("en-US", migrated.Settings.LanguageCode);
             AssertEx.False(migrated.Settings.AlwaysOnTop, "Migration should preserve the pin preference.");
@@ -1464,8 +2590,8 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(4, saved.SchemaVersion);
-        AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
+        AssertEx.Equal(7, saved.SchemaVersion);
+        AssertEx.Equal("en-US", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));
@@ -1511,7 +2637,7 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(4, saved.SchemaVersion);
+        AssertEx.Equal(7, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
@@ -1545,7 +2671,7 @@ internal static class Program
         var itemId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 5,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1562,12 +2688,12 @@ internal static class Program
             () => _ = new MainViewModel(store, () => now));
 
         AssertEx.True(
-            exception.Message.Contains("schema 5", StringComparison.Ordinal),
+            exception.Message.Contains("schema 8", StringComparison.Ordinal),
             "The error should identify the unsupported future schema.");
         AssertEx.Equal(0, store.SaveCount);
 
         var untouched = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(5, untouched.SchemaVersion);
+        AssertEx.Equal(8, untouched.SchemaVersion);
         AssertEx.Equal(itemId, untouched.Items.Single().Id);
         AssertEx.True(untouched.Items.Single().IsCompleted, "Rejected future state must remain untouched.");
         AssertEx.Equal("en-US", untouched.Settings.LanguageCode);
@@ -1585,11 +2711,19 @@ internal static class Program
             var historicalItemId = Guid.NewGuid();
             var expected = new AppState
             {
-                SchemaVersion = 4,
+                SchemaVersion = 7,
                 CurrentDate = "2026-09-16",
                 Items =
                 [
-                    CreateItemState(itemId, "Tulis jurnal", true, 0, now)
+                    CreateItemState(
+                        itemId,
+                        "Tulis jurnal",
+                        false,
+                        0,
+                        now,
+                        plannedDurationMinutes: 25,
+                        remainingSeconds: 1_000,
+                        timerStartedAt: now.AddSeconds(-5))
                 ],
                 ScheduledQuests =
                 [
@@ -1598,7 +2732,8 @@ internal static class Program
                         "Siapkan presentasi",
                         "2026-09-20",
                         0,
-                        now.AddMinutes(1))
+                        now.AddMinutes(1),
+                        plannedDurationMinutes: 45)
                 ],
                 History =
                 [
@@ -1635,14 +2770,18 @@ internal static class Program
             AssertEx.Equal(expected.CurrentDate, actual.CurrentDate);
             AssertEx.Equal(itemId, actual.Items.Single().Id);
             AssertEx.Equal("Tulis jurnal", actual.Items.Single().Text);
-            AssertEx.True(actual.Items.Single().IsCompleted, "Completion should round-trip.");
+            AssertEx.False(actual.Items.Single().IsCompleted, "Completion should round-trip.");
             AssertEx.Equal(now, actual.Items.Single().CreatedAt);
+            AssertEx.Equal(25, actual.Items.Single().PlannedDurationMinutes);
+            AssertEx.Equal(1_000, actual.Items.Single().RemainingSeconds);
+            AssertEx.Equal(now.AddSeconds(-5), actual.Items.Single().TimerStartedAt);
             AssertEx.Equal(1, actual.ScheduledQuests.Count);
             AssertEx.Equal(scheduledItemId, actual.ScheduledQuests.Single().Id);
             AssertEx.Equal("Siapkan presentasi", actual.ScheduledQuests.Single().Text);
             AssertEx.Equal("2026-09-20", actual.ScheduledQuests.Single().ScheduledDate);
             AssertEx.Equal(0, actual.ScheduledQuests.Single().SortOrder);
             AssertEx.Equal(now.AddMinutes(1), actual.ScheduledQuests.Single().CreatedAt);
+            AssertEx.Equal(45, actual.ScheduledQuests.Single().PlannedDurationMinutes);
             AssertEx.Equal(1, actual.History.Count);
             AssertEx.Equal("2026-09-15", actual.History.Single().Date);
             AssertEx.Equal(historicalItemId, actual.History.Single().Items.Single().Id);
@@ -1884,13 +3023,27 @@ internal static class Program
         string text,
         bool isCompleted,
         int sortOrder,
-        DateTimeOffset createdAt) => new()
+        DateTimeOffset createdAt,
+        int? plannedDurationMinutes = null,
+        int? remainingSeconds = null,
+        DateTimeOffset? timerStartedAt = null,
+        Guid? labelId = null,
+        int? manualSortOrder = null,
+        bool isOvertime = false,
+        int overtimeSeconds = 0) => new()
         {
             Id = id,
             Text = text,
             IsCompleted = isCompleted,
             SortOrder = sortOrder,
-            CreatedAt = createdAt
+            ManualSortOrder = manualSortOrder ?? sortOrder,
+            CreatedAt = createdAt,
+            PlannedDurationMinutes = plannedDurationMinutes,
+            RemainingSeconds = remainingSeconds,
+            TimerStartedAt = timerStartedAt,
+            IsOvertime = isOvertime,
+            OvertimeSeconds = overtimeSeconds,
+            LabelId = labelId
         };
 
     private static ScheduledQuestState CreateScheduledQuestState(
@@ -1898,13 +3051,17 @@ internal static class Program
         string text,
         string scheduledDate,
         int sortOrder,
-        DateTimeOffset createdAt) => new()
+        DateTimeOffset createdAt,
+        int? plannedDurationMinutes = null,
+        Guid? labelId = null) => new()
         {
             Id = id,
             Text = text,
             ScheduledDate = scheduledDate,
             SortOrder = sortOrder,
-            CreatedAt = createdAt
+            CreatedAt = createdAt,
+            PlannedDurationMinutes = plannedDurationMinutes,
+            LabelId = labelId
         };
 
     private static void WithTemporaryDirectory(Action<string> test)
@@ -1987,6 +3144,23 @@ internal sealed class RecordingThemeService : IThemeService
     public List<string> AppliedThemes { get; } = [];
 
     public void Apply(string themeCode) => AppliedThemes.Add(themeCode);
+}
+
+internal sealed class RecordingQuestAlarmService : IQuestAlarmService
+{
+    public List<string> Notifications { get; } = [];
+
+    public List<bool> RepeatRequests { get; } = [];
+
+    public int StopCount { get; private set; }
+
+    public void NotifyTimerCompleted(string questText, bool repeatUntilStopped)
+    {
+        Notifications.Add(questText);
+        RepeatRequests.Add(repeatUntilStopped);
+    }
+
+    public void StopTimerAlarm() => StopCount++;
 }
 
 internal sealed class FakeStorageUsageService(

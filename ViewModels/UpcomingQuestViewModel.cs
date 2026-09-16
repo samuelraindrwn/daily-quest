@@ -12,5 +12,19 @@ public sealed class UpcomingQuestViewModel
 
     public required string ScheduleLabel { get; init; }
 
+    public int? PlannedDurationMinutes { get; init; }
+
+    public bool HasTimer => PlannedDurationMinutes.HasValue;
+
+    public string? DurationText { get; init; }
+
+    public Guid? LabelId { get; init; }
+
+    public bool HasLabel => LabelId.HasValue;
+
+    public string? LabelName { get; init; }
+
+    public string? LabelColorHex { get; init; }
+
     public required string DisplayDate { get; init; }
 }

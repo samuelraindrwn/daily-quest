@@ -23,8 +23,9 @@ public sealed class WpfThemeService(Application application) : IThemeService
     private void ApplyCore(string themeCode)
     {
         var dictionaries = _application.Resources.MergedDictionaries;
+        var assemblyName = typeof(WpfThemeService).Assembly.GetName().Name;
         var source = new Uri(
-            $"Themes/{(themeCode == ThemeCatalog.DarkCode ? "Dark" : "Light")}Theme.xaml",
+            $"/{assemblyName};component/Themes/{(themeCode == ThemeCatalog.DarkCode ? "Dark" : "Light")}Theme.xaml",
             UriKind.Relative);
 
         var currentIndex = -1;

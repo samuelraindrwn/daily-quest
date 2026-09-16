@@ -3,12 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{Binding Copy.WindowTitle}"
         Icon="Assets/DailyQuest.ico"
-        Width="430"
-        Height="610"
-        MinWidth="430"
-        MinHeight="480"
-        MaxWidth="760"
-        MaxHeight="1000"
+        Width="520"
+        Height="680"
+        MinWidth="390"
+        MinHeight="500"
+        MaxWidth="1200"
+        MaxHeight="1200"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -20,6 +20,7 @@
         SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
         Loaded="Window_Loaded"
+        SizeChanged="Window_SizeChanged"
         Closing="Window_Closing">
     <Grid>
     <Grid x:Name="ExpandedWidget"
@@ -321,6 +322,12 @@
                                     <DataTrigger Binding="{Binding IsOpen, ElementName=SchedulePopup}" Value="True">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsOpen, ElementName=DurationPopup}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsOpen, ElementName=LabelPopup}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
@@ -334,11 +341,76 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding ProgressText}"
                                            FontWeight="SemiBold"
                                            FontSize="13" />
-                                <TextBlock Grid.Column="1"
+                                <ToggleButton x:Name="SortPickerButton"
+                                              Grid.Column="1"
+                                              Height="26"
+                                              MaxWidth="122"
+                                              Margin="8,-4,8,-4"
+                                              Padding="9,0"
+                                              Cursor="Hand"
+                                              FocusVisualStyle="{x:Null}"
+                                              PreviewMouseLeftButtonDown="SortPickerButton_PreviewMouseLeftButtonDown"
+                                              Click="SortPickerButton_Click"
+                                              ToolTip="{Binding Copy.SortQuests}"
+                                              AutomationProperties.Name="{Binding Copy.SortQuests}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="SortSurface"
+                                                    Padding="8,0"
+                                                    Background="{DynamicResource GlassSubtleBrush}"
+                                                    BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="11">
+                                                <StackPanel Orientation="Horizontal"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Margin="0,0,5,0"
+                                                               VerticalAlignment="Center"
+                                                               Text="&#x21C5;"
+                                                               Foreground="{DynamicResource AccentDarkBrush}"
+                                                               FontSize="11" />
+                                                    <TextBlock VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource InkBrush}"
+                                                               FontSize="10.5"
+                                                               FontWeight="SemiBold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{Binding Copy.SortManual}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsLabelSort}" Value="True">
+                                                                        <Setter Property="Text" Value="{Binding Copy.SortLabel}" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsDurationAscendingSort}" Value="True">
+                                                                        <Setter Property="Text" Value="{Binding Copy.SortShortest}" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsDurationDescendingSort}" Value="True">
+                                                                        <Setter Property="Text" Value="{Binding Copy.SortLongest}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="SortSurface" Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+                                                    <Setter TargetName="SortSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="SortSurface" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                                                    <Setter TargetName="SortSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <TextBlock Grid.Column="2"
                                            Text="{Binding ProgressPercent, StringFormat={}{0:0}%}"
                                            Foreground="{DynamicResource AccentDarkBrush}"
                                            FontWeight="Bold"
@@ -356,6 +428,116 @@
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource MutedInkBrush}"
                                        FontSize="12" />
+                            <Popup x:Name="SortPopup"
+                                   Grid.RowSpan="3"
+                                   Width="{Binding ActualWidth, ElementName=ProgressSummaryCard}"
+                                   DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                   PlacementTarget="{Binding ElementName=ProgressSummaryCard}"
+                                   Placement="Bottom"
+                                   VerticalOffset="8"
+                                   AllowsTransparency="True"
+                                   StaysOpen="False"
+                                   Opened="SortPopup_Opened"
+                                   Closed="SortPopup_Closed"
+                                   PopupAnimation="Fade">
+                                <Border Padding="14"
+                                        Background="{DynamicResource PopupSurfaceBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="18">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="24"
+                                                          Direction="270"
+                                                          Opacity="0.22"
+                                                          ShadowDepth="8"
+                                                          Color="{DynamicResource PopupShadowColor}" />
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <TextBlock Margin="3,0,3,9"
+                                                   Text="{Binding Copy.SortQuests}"
+                                                   FontSize="13.5"
+                                                   FontWeight="SemiBold" />
+                                        <UniformGrid Rows="2" Columns="2">
+                                            <Button Margin="3"
+                                                    MinHeight="38"
+                                                    Command="{Binding SetSortModeCommand}"
+                                                    CommandParameter="manual"
+                                                    Click="SortOption_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsManualSort}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.SortManual}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                            <Button Margin="3"
+                                                    MinHeight="38"
+                                                    Command="{Binding SetSortModeCommand}"
+                                                    CommandParameter="label"
+                                                    Click="SortOption_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLabelSort}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.SortLabel}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                            <Button Margin="3"
+                                                    MinHeight="38"
+                                                    Command="{Binding SetSortModeCommand}"
+                                                    CommandParameter="duration-asc"
+                                                    Click="SortOption_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDurationAscendingSort}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.SortShortest}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                            <Button Margin="3"
+                                                    MinHeight="38"
+                                                    Command="{Binding SetSortModeCommand}"
+                                                    CommandParameter="duration-desc"
+                                                    Click="SortOption_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDurationDescendingSort}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.SortLongest}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
                         </Grid>
                     </Border>
 
@@ -377,7 +559,7 @@
                                                 MinHeight="54"
                                                 BorderThickness="1"
                                                 CornerRadius="16"
-                                                AllowDrop="True"
+                                                AllowDrop="{Binding DataContext.IsManualSort, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
                                                 DragOver="QuestCard_DragOver"
                                                 DragLeave="QuestCard_DragLeave"
                                                 Drop="QuestCard_Drop">
@@ -386,6 +568,10 @@
                                                     <Setter Property="Background" Value="{DynamicResource GlassCardBrush}" />
                                                     <Setter Property="BorderBrush" Value="{DynamicResource GlassEdgeBrush}" />
                                                     <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsTimerRunning}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                        </DataTrigger>
                                                         <Trigger Property="IsMouseOver" Value="True">
                                                             <Setter Property="Background" Value="{DynamicResource CardHoverBrush}" />
                                                             <Setter Property="BorderBrush" Value="{DynamicResource CardHoverEdgeBrush}" />
@@ -400,17 +586,28 @@
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <Border Width="24"
+                                                 <Border Width="24"
                                                         Height="36"
                                                         Margin="0,0,3,0"
                                                         VerticalAlignment="Center"
                                                         Background="Transparent"
                                                         Cursor="SizeAll"
-                                                        ToolTip="{Binding DataContext.Copy.ReorderActivity, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                         ToolTip="{Binding DataContext.Copy.ReorderActivity, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
                                                         AutomationProperties.Name="{Binding DataContext.Copy.ReorderActivity, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
                                                         PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown"
-                                                        PreviewMouseMove="DragHandle_PreviewMouseMove"
-                                                        PreviewMouseLeftButtonUp="DragHandle_PreviewMouseLeftButtonUp">
+                                                         PreviewMouseMove="DragHandle_PreviewMouseMove"
+                                                         PreviewMouseLeftButtonUp="DragHandle_PreviewMouseLeftButtonUp">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.IsManualSort, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                             Value="False">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
                                                     <UniformGrid Width="10"
                                                                  Height="17"
                                                                  Rows="3"
@@ -430,24 +627,215 @@
                                                           Style="{StaticResource StickyCheckBoxStyle}"
                                                           IsChecked="{Binding IsCompleted, Mode=TwoWay}"
                                                           AutomationProperties.Name="{Binding Text}" />
-                                                <TextBlock Grid.Column="2"
-                                                           Margin="10,0,7,0"
-                                                           VerticalAlignment="Center"
-                                                           Text="{Binding Text}"
-                                                           TextWrapping="Wrap"
-                                                           FontSize="15">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                    <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                                    <Setter Property="Foreground" Value="{DynamicResource CompletedBrush}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
+                                                <Grid Grid.Column="2"
+                                                      Margin="10,0,7,0"
+                                                      VerticalAlignment="Center">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Text="{Binding Text}"
+                                                               TextWrapping="Wrap"
+                                                               FontSize="15">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource CompletedBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <Button Grid.Row="1"
+                                                            MaxWidth="116"
+                                                            Height="22"
+                                                            Margin="0,5,0,0"
+                                                            Padding="0"
+                                                            HorizontalAlignment="Left"
+                                                            Background="Transparent"
+                                                            BorderThickness="0"
+                                                            Cursor="Hand"
+                                                            FocusVisualStyle="{x:Null}"
+                                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                            PreviewMouseLeftButtonDown="ItemLabelButton_PreviewMouseLeftButtonDown"
+                                                            Click="ItemLabelButton_Click"
+                                                            ToolTip="{Binding DataContext.Copy.ChangeQuestLabel, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                            AutomationProperties.Name="{Binding DataContext.Copy.ChangeQuestLabel, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="QuestLabelSurface"
+                                                                        MinWidth="58"
+                                                                        Padding="8,2"
+                                                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                                                        BorderThickness="1"
+                                                                        CornerRadius="10">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding HasLabel}" Value="True">
+                                                                                    <Setter Property="Background" Value="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}}" />
+                                                                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                                                                </DataTrigger>
+                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                    <Setter Property="Opacity" Value="0.82" />
+                                                                                </Trigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
+                                                                    <TextBlock HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               FontSize="10"
+                                                                               FontWeight="SemiBold">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Text" Value="{Binding DataContext.Copy.NoLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+                                                                                <Setter Property="Foreground" Value="{DynamicResource MutedInkBrush}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding HasLabel}" Value="True">
+                                                                                        <Setter Property="Text" Value="{Binding LabelName}" />
+                                                                                        <Setter Property="Foreground" Value="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}, ConverterParameter=foreground}" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                    <Grid Grid.Row="2"
+                                                          Margin="0,7,0,0"
+                                                          Visibility="{Binding HasTimer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Width="58"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding RemainingTimeText}"
+                                                                   Typography.NumeralAlignment="Tabular"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource AccentDarkBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsTimerExpired}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsOvertime}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <ProgressBar Grid.Column="1"
+                                                                     Height="4"
+                                                                     MinWidth="44"
+                                                                     Margin="8,0"
+                                                                     VerticalAlignment="Center"
+                                                                     Minimum="0"
+                                                                     Maximum="100"
+                                                                     Value="{Binding TimerProgressPercent, Mode=OneWay}">
+                                                            <ProgressBar.Style>
+                                                                <Style TargetType="ProgressBar" BasedOn="{StaticResource GlassProgressBarStyle}">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding CanStartOvertime}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </ProgressBar.Style>
+                                                        </ProgressBar>
+                                                        <Button Grid.Column="2"
+                                                                Height="26"
+                                                                Margin="0,0,5,0"
+                                                                Padding="9,0"
+                                                                Command="{Binding DataContext.StartOvertimeCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="{Binding DataContext.Copy.StartOvertime, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                AutomationProperties.Name="{Binding DataContext.Copy.StartOvertime, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Setter Property="Background" Value="{DynamicResource DangerButtonBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                                    <Setter Property="BorderThickness" Value="0" />
+                                                                    <Style.Triggers>
+                                                                        <MultiDataTrigger>
+                                                                            <MultiDataTrigger.Conditions>
+                                                                                <Condition Binding="{Binding CanStartOvertime}" Value="True" />
+                                                                                <Condition Binding="{Binding DataContext.OvertimeEnabled, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}" Value="True" />
+                                                                            </MultiDataTrigger.Conditions>
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </MultiDataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <TextBlock Text="{Binding DataContext.Copy.OvertimeButton, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                       Foreground="{DynamicResource IvoryBrush}"
+                                                                       FontSize="9.5"
+                                                                       FontWeight="SemiBold" />
+                                                        </Button>
+                                                        <Button Grid.Column="3"
+                                                                Width="28"
+                                                                Height="26"
+                                                                Padding="0"
+                                                                ToolTip="{Binding DataContext.Copy.ToggleTimer, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                AutomationProperties.Name="{Binding DataContext.Copy.ToggleTimer, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                Command="{Binding DataContext.ToggleTimerCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                CommandParameter="{Binding}">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding CanStartOvertime}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <TextBlock FontFamily="Segoe UI Symbol"
+                                                                       FontSize="11"
+                                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="&#x25B6;" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsTimerRunning}" Value="True">
+                                                                                <Setter Property="Text" Value="&#x2161;" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Button>
+                                                        <Button Grid.Column="4"
+                                                                Width="28"
+                                                                Height="26"
+                                                                Margin="5,0,0,0"
+                                                                Padding="0"
+                                                                Style="{StaticResource SoftButtonStyle}"
+                                                                ToolTip="{Binding DataContext.Copy.ResetTimer, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                AutomationProperties.Name="{Binding DataContext.Copy.ResetTimer, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                Command="{Binding DataContext.ResetTimerCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                CommandParameter="{Binding}">
+                                                            <TextBlock Text="&#x21BA;"
+                                                                       FontFamily="Segoe UI Symbol"
+                                                                       FontSize="13"
+                                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                                        </Button>
+                                                    </Grid>
+                                                </Grid>
                                                 <Button Grid.Column="3"
                                                         VerticalAlignment="Center"
                                                         Style="{StaticResource DeleteButtonStyle}"
@@ -529,15 +917,21 @@
                         </Border>
                     </Grid>
 
-                    <Grid Grid.Row="4"
+                    <Grid x:Name="ComposerGrid"
+                          Grid.Row="4"
                           Margin="20,8,20,10"
                           Visibility="{Binding IsTodayView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Border MinHeight="46"
+                        <Border Grid.Row="0"
+                                Grid.Column="0"
+                                MinHeight="46"
                                 BorderThickness="1"
                                 CornerRadius="16">
                             <Border.Style>
@@ -585,14 +979,21 @@
                                 </TextBlock>
                             </Grid>
                         </Border>
+                        <Grid Grid.Row="1"
+                              Grid.ColumnSpan="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                         <ToggleButton x:Name="SchedulePickerButton"
-                                      Grid.Column="1"
-                                      Width="96"
-                                      Height="46"
-                                      Margin="9,0,0,0"
+                                      Grid.Column="0"
+                                      Height="42"
+                                      Margin="0,8,3,0"
                                       Cursor="Hand"
                                       FocusVisualStyle="{x:Null}"
-                                      IsChecked="{Binding ElementName=SchedulePopup, Path=IsOpen, Mode=TwoWay}"
+                                      PreviewMouseLeftButtonDown="SchedulePickerButton_PreviewMouseLeftButtonDown"
+                                      Click="SchedulePickerButton_Click"
                                       ToolTip="{Binding Copy.ScheduleFor}"
                                       AutomationProperties.Name="{Binding Copy.ScheduleFor}">
                             <ToggleButton.Template>
@@ -640,17 +1041,169 @@
                                 </ControlTemplate>
                             </ToggleButton.Template>
                         </ToggleButton>
+                        <ToggleButton x:Name="DurationPickerButton"
+                                      Grid.Column="1"
+                                      Height="42"
+                                      Margin="3,8,3,0"
+                                      Cursor="Hand"
+                                      FocusVisualStyle="{x:Null}"
+                                      PreviewMouseLeftButtonDown="DurationPickerButton_PreviewMouseLeftButtonDown"
+                                      Click="DurationPickerButton_Click"
+                                      ToolTip="{Binding Copy.DurationPickerTitle}"
+                                      AutomationProperties.Name="{Binding Copy.DurationPickerTitle}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="DurationSurface"
+                                            Background="{DynamicResource GlassElevatedBrush}"
+                                            BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="15">
+                                        <Grid Margin="11,0,10,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Viewbox Width="14" Height="14" VerticalAlignment="Center">
+                                                <Grid Width="24" Height="24">
+                                                    <Ellipse Margin="2"
+                                                             Stroke="{DynamicResource AccentDarkBrush}"
+                                                             StrokeThickness="1.8" />
+                                                    <Path Data="M 12,6 L 12,12 L 16,14"
+                                                          Stroke="{DynamicResource AccentDarkBrush}"
+                                                          StrokeThickness="1.8"
+                                                          StrokeStartLineCap="Round"
+                                                          StrokeEndLineCap="Round" />
+                                                </Grid>
+                                            </Viewbox>
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="8,0,6,0"
+                                                       VerticalAlignment="Center"
+                                                       Text="{Binding SelectedDurationLabel}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource InkBrush}"
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold" />
+                                            <Path Grid.Column="2"
+                                                  Width="9"
+                                                  Height="5"
+                                                  VerticalAlignment="Center"
+                                                  Data="M 1,1 L 4.5,4.5 L 8,1"
+                                                  Stroke="{DynamicResource AccentDarkBrush}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Stretch="Uniform" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="DurationSurface" Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+                                            <Setter TargetName="DurationSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="DurationSurface" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                                            <Setter TargetName="DurationSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ToggleButton x:Name="LabelPickerButton"
+                                      Grid.Column="2"
+                                      Height="42"
+                                      Margin="3,8,0,0"
+                                      Cursor="Hand"
+                                      FocusVisualStyle="{x:Null}"
+                                      PreviewMouseLeftButtonDown="LabelPickerButton_PreviewMouseLeftButtonDown"
+                                      Click="LabelPickerButton_Click"
+                                      ToolTip="{Binding Copy.LabelPickerTitle}"
+                                      AutomationProperties.Name="{Binding Copy.LabelPickerTitle}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="LabelSurface"
+                                            Background="{DynamicResource GlassElevatedBrush}"
+                                            BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="15">
+                                        <Grid Margin="10,0,9,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Width="9"
+                                                     Height="9"
+                                                     VerticalAlignment="Center"
+                                                     Fill="{Binding SelectedLabelColorHex, Converter={StaticResource HexColorBrushConverter}}">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasSelectedLabel}" Value="False">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="7,0,5,0"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource InkBrush}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="{Binding SelectedLabelName}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasSelectedLabel}" Value="False">
+                                                                <Setter Property="Text" Value="{Binding Copy.NoLabel}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <Path Grid.Column="2"
+                                                  Width="9"
+                                                  Height="5"
+                                                  VerticalAlignment="Center"
+                                                  Data="M 1,1 L 4.5,4.5 L 8,1"
+                                                  Stroke="{DynamicResource AccentDarkBrush}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Stretch="Uniform" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="LabelSurface" Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+                                            <Setter TargetName="LabelSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="LabelSurface" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                                            <Setter TargetName="LabelSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
                         <Popup x:Name="SchedulePopup"
+                               Width="{Binding ActualWidth, ElementName=ComposerGrid}"
                                DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
-                               PlacementTarget="{Binding ElementName=SchedulePickerButton}"
+                               PlacementTarget="{Binding ElementName=ComposerGrid}"
                                Placement="Top"
-                               HorizontalOffset="-214"
                                VerticalOffset="-8"
                                AllowsTransparency="True"
                                StaysOpen="False"
+                               Opened="SchedulePopup_Opened"
+                               Closed="SchedulePopup_Closed"
                                PopupAnimation="Fade">
-                            <Border Width="342"
-                                    Padding="14"
+                            <Border Padding="14"
                                     Background="{DynamicResource PopupSurfaceBrush}"
                                     BorderBrush="{DynamicResource GlassEdgeBrush}"
                                     BorderThickness="1"
@@ -713,7 +1266,234 @@
                                 </StackPanel>
                             </Border>
                         </Popup>
-                        <Button Grid.Column="2"
+                        <Popup x:Name="DurationPopup"
+                               Width="{Binding ActualWidth, ElementName=ComposerGrid}"
+                               DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                               PlacementTarget="{Binding ElementName=ComposerGrid}"
+                               Placement="Top"
+                               VerticalOffset="-8"
+                               AllowsTransparency="True"
+                               StaysOpen="False"
+                               Opened="DurationPopup_Opened"
+                               Closed="DurationPopup_Closed"
+                               PopupAnimation="Fade">
+                            <Border Padding="14"
+                                    Background="{DynamicResource PopupSurfaceBrush}"
+                                    BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="20">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="24"
+                                                      Direction="270"
+                                                      Opacity="0.22"
+                                                      ShadowDepth="8"
+                                                      Color="{DynamicResource PopupShadowColor}" />
+                                </Border.Effect>
+                                <StackPanel>
+                                    <TextBlock Margin="3,0,3,3"
+                                               Text="{Binding Copy.DurationPickerTitle}"
+                                               FontSize="14"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Margin="3,0,3,9"
+                                               Text="{Binding Copy.CustomDurationHint}"
+                                               Foreground="{DynamicResource MutedInkBrush}"
+                                               FontSize="10.5" />
+                                    <ItemsControl ItemsSource="{Binding DurationOptions}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Rows="2" Columns="4" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button MinHeight="38"
+                                                        Margin="3"
+                                                        Padding="7,5"
+                                                        Style="{StaticResource SoftButtonStyle}"
+                                                        Click="DurationOption_Click">
+                                                    <Grid>
+                                                        <TextBlock x:Name="TimedDurationLabel"
+                                                                   HorizontalAlignment="Center"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}">
+                                                            <Run Text="{Binding Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding DataContext.Copy.DurationMinuteSuffix, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}, Mode=OneWay}" />
+                                                        </TextBlock>
+                                                        <TextBlock x:Name="NoTimerDurationLabel"
+                                                                   HorizontalAlignment="Center"
+                                                                   Text="{Binding DataContext.Copy.NoTimer, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                                   Visibility="Collapsed" />
+                                                    </Grid>
+                                                </Button>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding}" Value="0">
+                                                        <Setter TargetName="TimedDurationLabel" Property="Visibility" Value="Collapsed" />
+                                                        <Setter TargetName="NoTimerDurationLabel" Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Grid Margin="3,9,3,1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border MinHeight="38"
+                                                Background="{DynamicResource GlassElevatedBrush}"
+                                                BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="12">
+                                            <Grid>
+                                                <TextBox x:Name="CustomDurationTextBox"
+                                                         MaxLength="3"
+                                                         Padding="11,7"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         Foreground="{DynamicResource InkBrush}"
+                                                         CaretBrush="{DynamicResource AccentDarkBrush}"
+                                                         PreviewTextInput="CustomDurationTextBox_PreviewTextInput"
+                                                         KeyDown="CustomDurationTextBox_KeyDown" />
+                                                <TextBlock Margin="12,0"
+                                                           VerticalAlignment="Center"
+                                                           IsHitTestVisible="False"
+                                                           Text="{Binding Copy.CustomDuration}"
+                                                           Foreground="{DynamicResource PlaceholderBrush}"
+                                                           FontSize="11.5">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ElementName=CustomDurationTextBox, Path=Text.Length}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+                                        </Border>
+                                        <Button Grid.Column="1"
+                                                MinWidth="80"
+                                                Margin="8,0,0,0"
+                                                Padding="12,7"
+                                                Style="{StaticResource SoftButtonStyle}"
+                                                Click="ApplyCustomDuration_Click"
+                                                Content="{Binding Copy.ApplyDuration}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                        <Popup x:Name="LabelPopup"
+                               Width="{Binding ActualWidth, ElementName=ComposerGrid}"
+                               DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                               PlacementTarget="{Binding ElementName=ComposerGrid}"
+                               Placement="Top"
+                               VerticalOffset="-8"
+                               AllowsTransparency="True"
+                               StaysOpen="False"
+                               Opened="LabelPopup_Opened"
+                               Closed="LabelPopup_Closed"
+                               PopupAnimation="Fade">
+                            <Border Padding="14"
+                                    Background="{DynamicResource PopupSurfaceBrush}"
+                                    BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="20">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="24"
+                                                      Direction="270"
+                                                      Opacity="0.22"
+                                                      ShadowDepth="8"
+                                                      Color="{DynamicResource PopupShadowColor}" />
+                                </Border.Effect>
+                                <StackPanel>
+                                    <TextBlock Margin="3,0,3,9"
+                                               Text="{Binding Copy.LabelPickerTitle}"
+                                               FontSize="14"
+                                               FontWeight="SemiBold" />
+                                    <Button MinHeight="38"
+                                            Margin="3"
+                                            Padding="10,6"
+                                            HorizontalContentAlignment="Left"
+                                            Command="{Binding SetSelectedLabelCommand}"
+                                            CommandParameter="{x:Null}"
+                                            Click="LabelOption_Click">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasSelectedLabel}" Value="False">
+                                                        <Setter Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <TextBlock Text="{Binding Copy.NoLabel}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                   FontWeight="SemiBold" />
+                                    </Button>
+                                    <ItemsControl ItemsSource="{Binding Labels}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="2" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button MinHeight="38"
+                                                        Margin="3"
+                                                        Padding="10,6"
+                                                        HorizontalContentAlignment="Left"
+                                                        Command="{Binding DataContext.SetSelectedLabelCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                        CommandParameter="{Binding}"
+                                                        Click="LabelOption_Click">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Ellipse Width="10"
+                                                                 Height="10"
+                                                                 VerticalAlignment="Center"
+                                                                 Fill="{Binding ColorHex, Converter={StaticResource HexColorBrushConverter}}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Margin="8,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding Name}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                                   FontWeight="SemiBold" />
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Button Margin="3,9,3,1"
+                                            MinHeight="36"
+                                            Style="{StaticResource SoftButtonStyle}"
+                                            Click="ManageLabels_Click">
+                                        <TextBlock Text="{Binding Copy.ManageLabels}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                   FontWeight="SemiBold" />
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                        </Grid>
+                        <Button Grid.Row="0"
+                                Grid.Column="1"
                                 Width="46"
                                 Height="46"
                                 Margin="10,0,0,0"
@@ -901,12 +1681,36 @@
                                                                        FontSize="9.5" />
                                                         </StackPanel>
                                                     </Border>
-                                                    <TextBlock Grid.Column="1"
-                                                               Margin="12,0,8,0"
-                                                               VerticalAlignment="Center"
-                                                               Text="{Binding Text}"
-                                                               TextWrapping="Wrap"
-                                                               FontSize="14" />
+                                                    <StackPanel Grid.Column="1"
+                                                                Margin="12,0,8,0"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Text}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="14" />
+                                                        <StackPanel Margin="0,4,0,0"
+                                                                    Orientation="Horizontal">
+                                                            <Border Height="18"
+                                                                    MaxWidth="90"
+                                                                    Margin="0,0,7,0"
+                                                                    Padding="7,1"
+                                                                    Background="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}}"
+                                                                    CornerRadius="9"
+                                                                    Visibility="{Binding HasLabel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <TextBlock VerticalAlignment="Center"
+                                                                           Text="{Binding LabelName}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           Foreground="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}, ConverterParameter=foreground}"
+                                                                           FontSize="9"
+                                                                           FontWeight="SemiBold" />
+                                                            </Border>
+                                                            <TextBlock VerticalAlignment="Center"
+                                                                       Text="{Binding DurationText}"
+                                                                       Foreground="{DynamicResource AccentDarkBrush}"
+                                                                       FontSize="10.5"
+                                                                       FontWeight="SemiBold"
+                                                                       Visibility="{Binding HasTimer, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                        </StackPanel>
+                                                    </StackPanel>
                                                     <Button Grid.Column="2"
                                                             VerticalAlignment="Center"
                                                             Style="{StaticResource DeleteButtonStyle}"
@@ -1072,22 +1876,34 @@
                                                                        Foreground="{DynamicResource AccentBrush}"
                                                                        FontWeight="Bold"
                                                                        FontSize="14" />
-                                                            <TextBlock Grid.Column="1"
-                                                                       Text="{Binding Text}"
-                                                                       TextWrapping="Wrap"
-                                                                       FontSize="13">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock">
-                                                                        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                                <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                                                <Setter Property="Foreground" Value="{DynamicResource CompletedBrush}" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock Text="{Binding Text}"
+                                                                           TextWrapping="Wrap"
+                                                                           FontSize="13">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                                    <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource CompletedBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <Border Margin="0,4,0,0"
+                                                                        Padding="7,2"
+                                                                        HorizontalAlignment="Left"
+                                                                        Background="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}}"
+                                                                        CornerRadius="9"
+                                                                        Visibility="{Binding HasLabel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                    <TextBlock Text="{Binding LabelName}"
+                                                                               Foreground="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}, ConverterParameter=foreground}"
+                                                                               FontSize="9.5"
+                                                                               FontWeight="SemiBold" />
+                                                                </Border>
+                                                            </StackPanel>
                                                         </Grid>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
@@ -1232,6 +2048,287 @@
                                     </StackPanel>
                                 </Border>
 
+                                <Border x:Name="LabelSettingsCard"
+                                        Margin="0,0,0,10"
+                                        Padding="15"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="18">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Copy.LabelSettingsTitle}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding LabelCountText}"
+                                                       Foreground="{DynamicResource MutedInkBrush}"
+                                                       FontSize="11" />
+                                        </Grid>
+                                        <TextBlock Margin="0,4,0,11"
+                                                   Text="{Binding Copy.LabelSettingsHint}"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource MutedInkBrush}"
+                                                   FontSize="11" />
+
+                                        <ItemsControl x:Name="LabelSettingsList"
+                                                      ItemsSource="{Binding Labels}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="LabelEditorRow"
+                                                            Margin="0,0,0,8"
+                                                            Padding="10"
+                                                            Background="{DynamicResource GlassSubtleBrush}"
+                                                            BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="13">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto" />
+                                                                <RowDefinition Height="Auto" />
+                                                            </Grid.RowDefinitions>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Button Width="34"
+                                                                    Height="34"
+                                                                    Margin="0,0,8,0"
+                                                                    Padding="0"
+                                                                    Style="{StaticResource SoftButtonStyle}"
+                                                                    Click="PickExistingLabelColor_Click"
+                                                                    ToolTip="{Binding DataContext.Copy.PickLabelColor, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                    AutomationProperties.Name="{Binding DataContext.Copy.PickLabelColor, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                                                                <Ellipse Width="18"
+                                                                         Height="18"
+                                                                         Fill="{Binding ElementName=LabelColorEditor, Path=Text, Converter={StaticResource HexColorBrushConverter}}" />
+                                                            </Button>
+                                                            <TextBox x:Name="LabelNameEditor"
+                                                                     Grid.Column="1"
+                                                                     Height="34"
+                                                                     Padding="9,5"
+                                                                     VerticalContentAlignment="Center"
+                                                                     MaxLength="24"
+                                                                     Text="{Binding Name, Mode=OneWay}"
+                                                                     ToolTip="{Binding DataContext.Copy.LabelName, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+                                                            <Button Grid.Column="2"
+                                                                    Width="34"
+                                                                    Height="34"
+                                                                    Margin="8,0,0,0"
+                                                                    Padding="0"
+                                                                    Style="{StaticResource SoftButtonStyle}"
+                                                                    Click="SaveLabel_Click"
+                                                                    ToolTip="{Binding DataContext.Copy.SaveLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                    AutomationProperties.Name="{Binding DataContext.Copy.SaveLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                                                                <TextBlock Text="&#x2713;"
+                                                                           FontSize="14"
+                                                                           FontWeight="Bold"
+                                                                           Foreground="{DynamicResource AccentDarkBrush}" />
+                                                            </Button>
+
+                                                            <TextBox x:Name="LabelColorEditor"
+                                                                     Grid.Row="1"
+                                                                     Grid.ColumnSpan="2"
+                                                                     Height="32"
+                                                                     Margin="0,8,8,0"
+                                                                     Padding="9,4"
+                                                                     VerticalContentAlignment="Center"
+                                                                     MaxLength="7"
+                                                                     Text="{Binding ColorHex, Mode=OneWay}"
+                                                                     ToolTip="{Binding DataContext.Copy.LabelColor, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+                                                            <StackPanel Grid.Row="1"
+                                                                        Grid.Column="2"
+                                                                        Margin="0,8,0,0"
+                                                                        Orientation="Horizontal">
+                                                                <Button Width="30"
+                                                                        Height="32"
+                                                                        Padding="0"
+                                                                        Style="{StaticResource SoftButtonStyle}"
+                                                                        Command="{Binding DataContext.MoveLabelUpCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        ToolTip="{Binding DataContext.Copy.MoveLabelUp, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                        AutomationProperties.Name="{Binding DataContext.Copy.MoveLabelUp, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                                                                    <TextBlock Text="&#x2191;"
+                                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                                                </Button>
+                                                                <Button Width="30"
+                                                                        Height="32"
+                                                                        Margin="5,0,0,0"
+                                                                        Padding="0"
+                                                                        Style="{StaticResource SoftButtonStyle}"
+                                                                        Command="{Binding DataContext.MoveLabelDownCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        ToolTip="{Binding DataContext.Copy.MoveLabelDown, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                        AutomationProperties.Name="{Binding DataContext.Copy.MoveLabelDown, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                                                                    <TextBlock Text="&#x2193;"
+                                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                                                </Button>
+                                                                <Button Width="30"
+                                                                        Height="32"
+                                                                        Margin="5,0,0,0"
+                                                                        Padding="0"
+                                                                        Click="DeleteLabel_Click"
+                                                                        ToolTip="{Binding DataContext.Copy.DeleteLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                        AutomationProperties.Name="{Binding DataContext.Copy.DeleteLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                                            <Setter Property="Background" Value="{DynamicResource DangerButtonBrush}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                                            <Setter Property="BorderThickness" Value="0" />
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                    <TextBlock Text="&#x00D7;"
+                                                                               Foreground="{DynamicResource IvoryBrush}"
+                                                                               FontSize="15"
+                                                                               FontWeight="SemiBold" />
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Border Margin="0,2,0,0"
+                                                Padding="10"
+                                                Background="{DynamicResource GlassSubtleBrush}"
+                                                BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="13"
+                                                IsEnabled="{Binding CanAddMoreLabels}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Button Width="34"
+                                                        Height="34"
+                                                        Margin="0,0,8,0"
+                                                        Padding="0"
+                                                        Style="{StaticResource SoftButtonStyle}"
+                                                        Click="PickNewLabelColor_Click"
+                                                        ToolTip="{Binding Copy.PickLabelColor}"
+                                                        AutomationProperties.Name="{Binding Copy.PickLabelColor}">
+                                                    <Ellipse Width="18"
+                                                             Height="18"
+                                                             Fill="{Binding ElementName=NewLabelColorTextBox, Path=Text, Converter={StaticResource HexColorBrushConverter}}" />
+                                                </Button>
+                                                <TextBox x:Name="NewLabelNameTextBox"
+                                                         Grid.Column="1"
+                                                         Height="34"
+                                                         Padding="9,5"
+                                                         VerticalContentAlignment="Center"
+                                                         MaxLength="24"
+                                                         KeyDown="NewLabelNameTextBox_KeyDown"
+                                                         ToolTip="{Binding Copy.LabelName}" />
+                                                <Button Grid.Column="2"
+                                                        Width="38"
+                                                        Height="34"
+                                                        Margin="8,0,0,0"
+                                                        Padding="0"
+                                                        Style="{StaticResource SoftButtonStyle}"
+                                                        Click="AddLabel_Click"
+                                                        ToolTip="{Binding Copy.AddLabel}"
+                                                        AutomationProperties.Name="{Binding Copy.AddLabel}">
+                                                    <TextBlock Text="+"
+                                                               FontSize="18"
+                                                               Foreground="{DynamicResource AccentDarkBrush}" />
+                                                </Button>
+                                                <TextBox x:Name="NewLabelColorTextBox"
+                                                         Grid.Row="1"
+                                                         Grid.Column="1"
+                                                         Grid.ColumnSpan="2"
+                                                         Height="32"
+                                                         Margin="0,8,0,0"
+                                                         Padding="9,4"
+                                                         VerticalContentAlignment="Center"
+                                                         MaxLength="7"
+                                                         Text="#5B8A72"
+                                                         ToolTip="{Binding Copy.LabelColor}" />
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock x:Name="LabelEditorErrorText"
+                                                   Margin="3,8,3,0"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource DangerBrush}"
+                                                   FontSize="10.5"
+                                                   Visibility="Collapsed" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Margin="0,0,0,10"
+                                        Padding="15"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="18">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Copy.OvertimeSetting}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   Text="{Binding Copy.OvertimeHint}"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource MutedInkBrush}"
+                                                   FontSize="11" />
+                                        <Grid Margin="0,11,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Button Height="38"
+                                                    Margin="0,0,5,0"
+                                                    Command="{Binding SetOvertimeCommand}"
+                                                    CommandParameter="false">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding OvertimeEnabled}" Value="False">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.OvertimeOff}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                            <Button Grid.Column="1"
+                                                    Height="38"
+                                                    Margin="5,0,0,0"
+                                                    Command="{Binding SetOvertimeCommand}"
+                                                    CommandParameter="true">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding OvertimeEnabled}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.OvertimeOn}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
                                 <Border Margin="0,0,0,10"
                                         Padding="15"
                                         Background="{DynamicResource GlassCardBrush}"
@@ -1288,6 +2385,33 @@
                                                     </Style>
                                                 </Button.Style>
                                                 <TextBlock Text="{Binding Copy.DarkTheme}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                        </Grid>
+                                        <Border Height="1"
+                                                Margin="0,13,0,0"
+                                                Background="{DynamicResource GlassEdgeBrush}" />
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Margin="0,0,12,0">
+                                                <TextBlock Text="{Binding Copy.WindowSizeSetting}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBlock Margin="0,3,0,0"
+                                                           Text="{Binding Copy.WindowSizeHint}"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource MutedInkBrush}"
+                                                           FontSize="10.5" />
+                                            </StackPanel>
+                                            <Button Grid.Column="1"
+                                                    Padding="12,7"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource SoftButtonStyle}"
+                                                    Click="ResetWindowSize_Click">
+                                                <TextBlock Text="{Binding Copy.ResetWindowSize}"
                                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                                            FontWeight="SemiBold" />
                                             </Button>
@@ -1519,7 +2643,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <ContentControl Content="{Binding NextPendingItem}"
+                    <ContentControl Content="{Binding CompactDisplayItem}"
                                     VerticalAlignment="Center">
                         <ContentControl.Style>
                             <Style TargetType="ContentControl">
@@ -1544,13 +2668,48 @@
                                               Command="{Binding DataContext.CompleteItemCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                               CommandParameter="{Binding}"
                                               AutomationProperties.Name="{Binding Text}" />
-                                    <TextBlock Grid.Column="1"
-                                               Margin="7,0,6,0"
-                                               VerticalAlignment="Center"
-                                               Text="{Binding Text}"
-                                               TextTrimming="CharacterEllipsis"
-                                               FontSize="13.5"
-                                               FontWeight="SemiBold" />
+                                    <StackPanel Grid.Column="1"
+                                                Margin="7,0,6,0"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Text}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="13.5"
+                                                   FontWeight="SemiBold" />
+                                        <StackPanel Margin="0,2,0,0"
+                                                    Orientation="Horizontal">
+                                            <Border Height="16"
+                                                    MaxWidth="72"
+                                                    Margin="0,0,6,0"
+                                                    Padding="6,0"
+                                                    Background="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}}"
+                                                    CornerRadius="8"
+                                                    Visibility="{Binding HasLabel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBlock VerticalAlignment="Center"
+                                                           Text="{Binding LabelName}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}, ConverterParameter=foreground}"
+                                                           FontSize="8.5"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Text="{Binding RemainingTimeText}"
+                                                       Typography.NumeralAlignment="Tabular"
+                                                       FontSize="9.5"
+                                                       FontWeight="SemiBold"
+                                                       Visibility="{Binding HasTimer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource AccentDarkBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsOvertime}" Value="True">
+                                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
@@ -1634,5 +2793,76 @@
             </Grid>
         </Border>
     </Grid>
+    <Popup x:Name="ItemLabelPopup"
+           Width="250"
+           DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}"
+           Placement="Bottom"
+           VerticalOffset="6"
+           AllowsTransparency="True"
+           StaysOpen="False"
+           PopupAnimation="Fade">
+        <Border Padding="12"
+                Background="{DynamicResource PopupSurfaceBrush}"
+                BorderBrush="{DynamicResource GlassEdgeBrush}"
+                BorderThickness="1"
+                CornerRadius="16">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="22"
+                                  Direction="270"
+                                  Opacity="0.22"
+                                  ShadowDepth="7"
+                                  Color="{DynamicResource PopupShadowColor}" />
+            </Border.Effect>
+            <StackPanel>
+                <TextBlock Margin="3,0,3,8"
+                           Text="{Binding Copy.ChangeQuestLabel}"
+                           FontSize="13"
+                           FontWeight="SemiBold" />
+                <Button MinHeight="36"
+                        Margin="3"
+                        Padding="10,6"
+                        HorizontalContentAlignment="Left"
+                        Style="{StaticResource SoftButtonStyle}"
+                        Click="ItemLabelNoneOption_Click">
+                    <TextBlock Text="{Binding Copy.NoLabel}"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                               FontWeight="SemiBold" />
+                </Button>
+                <ScrollViewer MaxHeight="250"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Labels}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button MinHeight="36"
+                                        Margin="3"
+                                        Padding="10,6"
+                                        HorizontalContentAlignment="Left"
+                                        Style="{StaticResource SoftButtonStyle}"
+                                        Click="ItemLabelOption_Click">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Ellipse Width="10"
+                                                 Height="10"
+                                                 VerticalAlignment="Center"
+                                                 Fill="{Binding ColorHex, Converter={StaticResource HexColorBrushConverter}}" />
+                                        <TextBlock Grid.Column="1"
+                                                   Margin="8,0,0,0"
+                                                   Text="{Binding Name}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                   FontWeight="SemiBold" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+    </Popup>
     </Grid>
 </Window>

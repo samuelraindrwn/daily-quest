@@ -8,16 +8,19 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using DailyQuest.Models;
 using DailyQuest.ViewModels;
+using Forms = System.Windows.Forms;
 
 namespace DailyQuest;
 
 public partial class MainWindow : Window
 {
     private const double ScreenEdgeGap = 24;
-    private const double ExpandedMinWidth = 430;
-    private const double ExpandedMinHeight = 480;
-    private const double ExpandedMaxWidth = 760;
-    private const double ExpandedMaxHeight = 1000;
+    private const double ExpandedDefaultWidth = 520;
+    private const double ExpandedDefaultHeight = 680;
+    private const double ExpandedMinWidth = 390;
+    private const double ExpandedMinHeight = 500;
+    private const double ExpandedMaxWidth = 1200;
+    private const double ExpandedMaxHeight = 1200;
     private const double CompactWidth = 300;
     private const double CompactHeight = 76;
     private const string QuestDragFormat = "DailyQuest.ChecklistItem";
@@ -28,12 +31,19 @@ public partial class MainWindow : Window
 
     private readonly MainViewModel _viewModel;
     private readonly DispatcherTimer _dayChangeTimer;
+    private readonly DispatcherTimer _timerTickTimer;
     private bool _isCompact;
-    private double _expandedWidth = 430;
-    private double _expandedHeight = 610;
+    private double _expandedWidth = ExpandedDefaultWidth;
+    private double _expandedHeight = ExpandedDefaultHeight;
     private Point _dragStart;
     private ChecklistItem? _dragCandidate;
     private Border? _dropTarget;
+    private bool? _schedulePopupWasOpenOnPointerDown;
+    private bool? _durationPopupWasOpenOnPointerDown;
+    private bool? _labelPopupWasOpenOnPointerDown;
+    private bool? _sortPopupWasOpenOnPointerDown;
+    private bool? _itemLabelPopupWasOpenOnPointerDown;
+    private ChecklistItem? _itemLabelTarget;
 
     public MainWindow()
         : this(new MainViewModel())
@@ -53,6 +63,13 @@ public partial class MainWindow : Window
         };
         _dayChangeTimer.Tick += (_, _) => _viewModel.RollOverToCurrentDay();
         _dayChangeTimer.Start();
+
+        _timerTickTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _timerTickTimer.Tick += (_, _) => _viewModel.TickTimers();
+        _timerTickTimer.Start();
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -82,6 +99,34 @@ public partial class MainWindow : Window
             workArea.Left + ScreenEdgeGap,
             workArea.Right - Width - ScreenEdgeGap);
         Top = workArea.Top + ScreenEdgeGap;
+    }
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (SchedulePopup is not null)
+        {
+            SchedulePopup.IsOpen = false;
+        }
+
+        if (DurationPopup is not null)
+        {
+            DurationPopup.IsOpen = false;
+        }
+
+        if (LabelPopup is not null)
+        {
+            LabelPopup.IsOpen = false;
+        }
+
+        if (SortPopup is not null)
+        {
+            SortPopup.IsOpen = false;
+        }
+
+        if (ItemLabelPopup is not null)
+        {
+            ItemLabelPopup.IsOpen = false;
+        }
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -126,6 +171,322 @@ public partial class MainWindow : Window
 
         SchedulePopup.IsOpen = false;
         NewItemTextBox.Focus();
+    }
+
+    private void SchedulePickerButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // A StaysOpen="False" popup can close before this button receives its
+        // Click event. Preserve the state from this pointer gesture so Click
+        // can still distinguish "open" from "close" reliably.
+        _schedulePopupWasOpenOnPointerDown =
+            SchedulePopup.IsOpen || SchedulePickerButton.IsChecked == true;
+    }
+
+    private void SchedulePickerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var shouldOpen = _schedulePopupWasOpenOnPointerDown is bool wasOpen
+            ? !wasOpen
+            : SchedulePickerButton.IsChecked == true;
+
+        _schedulePopupWasOpenOnPointerDown = null;
+        if (shouldOpen)
+        {
+            DurationPopup.IsOpen = false;
+            LabelPopup.IsOpen = false;
+            SortPopup.IsOpen = false;
+            ItemLabelPopup.IsOpen = false;
+        }
+
+        SchedulePopup.IsOpen = shouldOpen;
+        SchedulePickerButton.IsChecked = shouldOpen;
+    }
+
+    private void SchedulePopup_Opened(object? sender, EventArgs e)
+    {
+        DurationPopup.IsOpen = false;
+        LabelPopup.IsOpen = false;
+        SortPopup.IsOpen = false;
+        ItemLabelPopup.IsOpen = false;
+        SchedulePickerButton.IsChecked = true;
+    }
+
+    private void SchedulePopup_Closed(object? sender, EventArgs e)
+    {
+        // StaysOpen="False" can close the popup on mouse-down before the
+        // ToggleButton processes the same click. Defer the visual reset so a
+        // second click still toggles from checked to unchecked instead of
+        // immediately reopening the popup.
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () =>
+            {
+                if (!SchedulePopup.IsOpen)
+                {
+                    SchedulePickerButton.IsChecked = false;
+                }
+            });
+    }
+
+    private void DurationPickerButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _durationPopupWasOpenOnPointerDown =
+            DurationPopup.IsOpen || DurationPickerButton.IsChecked == true;
+    }
+
+    private void DurationPickerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var shouldOpen = _durationPopupWasOpenOnPointerDown is bool wasOpen
+            ? !wasOpen
+            : DurationPickerButton.IsChecked == true;
+
+        _durationPopupWasOpenOnPointerDown = null;
+        if (shouldOpen)
+        {
+            SchedulePopup.IsOpen = false;
+            LabelPopup.IsOpen = false;
+            SortPopup.IsOpen = false;
+            ItemLabelPopup.IsOpen = false;
+        }
+
+        DurationPopup.IsOpen = shouldOpen;
+        DurationPickerButton.IsChecked = shouldOpen;
+    }
+
+    private void DurationPopup_Opened(object? sender, EventArgs e)
+    {
+        SchedulePopup.IsOpen = false;
+        LabelPopup.IsOpen = false;
+        SortPopup.IsOpen = false;
+        ItemLabelPopup.IsOpen = false;
+        DurationPickerButton.IsChecked = true;
+    }
+
+    private void DurationPopup_Closed(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () =>
+            {
+                if (!DurationPopup.IsOpen)
+                {
+                    DurationPickerButton.IsChecked = false;
+                }
+            });
+    }
+
+    private void DurationOption_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: int minutes })
+        {
+            _viewModel.SetDurationCommand.Execute(minutes);
+        }
+
+        DurationPopup.IsOpen = false;
+        NewItemTextBox.Focus();
+    }
+
+    private void ApplyCustomDuration_Click(object sender, RoutedEventArgs e) =>
+        ApplyCustomDuration();
+
+    private void CustomDurationTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            ApplyCustomDuration();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            DurationPopup.IsOpen = false;
+            NewItemTextBox.Focus();
+            e.Handled = true;
+        }
+    }
+
+    private void CustomDurationTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
+        e.Handled = e.Text.Any(character => !char.IsDigit(character));
+
+    private void ApplyCustomDuration()
+    {
+        if (!int.TryParse(CustomDurationTextBox.Text, out var minutes) ||
+            minutes < 1 || minutes > _viewModel.MaximumDurationMinutes)
+        {
+            CustomDurationTextBox.Focus();
+            CustomDurationTextBox.SelectAll();
+            return;
+        }
+
+        _viewModel.SetDurationCommand.Execute(minutes);
+        CustomDurationTextBox.Clear();
+        DurationPopup.IsOpen = false;
+        NewItemTextBox.Focus();
+    }
+
+    private void LabelPickerButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _labelPopupWasOpenOnPointerDown =
+            LabelPopup.IsOpen || LabelPickerButton.IsChecked == true;
+    }
+
+    private void LabelPickerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var shouldOpen = _labelPopupWasOpenOnPointerDown is bool wasOpen
+            ? !wasOpen
+            : LabelPickerButton.IsChecked == true;
+
+        _labelPopupWasOpenOnPointerDown = null;
+        if (shouldOpen)
+        {
+            SchedulePopup.IsOpen = false;
+            DurationPopup.IsOpen = false;
+            SortPopup.IsOpen = false;
+            ItemLabelPopup.IsOpen = false;
+        }
+
+        LabelPopup.IsOpen = shouldOpen;
+        LabelPickerButton.IsChecked = shouldOpen;
+    }
+
+    private void LabelPopup_Opened(object? sender, EventArgs e)
+    {
+        SchedulePopup.IsOpen = false;
+        DurationPopup.IsOpen = false;
+        SortPopup.IsOpen = false;
+        ItemLabelPopup.IsOpen = false;
+        LabelPickerButton.IsChecked = true;
+    }
+
+    private void LabelPopup_Closed(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () =>
+            {
+                if (!LabelPopup.IsOpen)
+                {
+                    LabelPickerButton.IsChecked = false;
+                }
+            });
+    }
+
+    private void LabelOption_Click(object sender, RoutedEventArgs e)
+    {
+        LabelPopup.IsOpen = false;
+        NewItemTextBox.Focus();
+    }
+
+    private void ManageLabels_Click(object sender, RoutedEventArgs e)
+    {
+        LabelPopup.IsOpen = false;
+        _viewModel.ShowSettingsCommand.Execute(null);
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Loaded,
+            () => LabelSettingsCard.BringIntoView());
+    }
+
+    private void SortPickerButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _sortPopupWasOpenOnPointerDown =
+            SortPopup.IsOpen || SortPickerButton.IsChecked == true;
+    }
+
+    private void SortPickerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var shouldOpen = _sortPopupWasOpenOnPointerDown is bool wasOpen
+            ? !wasOpen
+            : SortPickerButton.IsChecked == true;
+
+        _sortPopupWasOpenOnPointerDown = null;
+        if (shouldOpen)
+        {
+            SchedulePopup.IsOpen = false;
+            DurationPopup.IsOpen = false;
+            LabelPopup.IsOpen = false;
+            ItemLabelPopup.IsOpen = false;
+        }
+
+        SortPopup.IsOpen = shouldOpen;
+        SortPickerButton.IsChecked = shouldOpen;
+    }
+
+    private void SortPopup_Opened(object? sender, EventArgs e)
+    {
+        SchedulePopup.IsOpen = false;
+        DurationPopup.IsOpen = false;
+        LabelPopup.IsOpen = false;
+        ItemLabelPopup.IsOpen = false;
+        SortPickerButton.IsChecked = true;
+    }
+
+    private void SortPopup_Closed(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () =>
+            {
+                if (!SortPopup.IsOpen)
+                {
+                    SortPickerButton.IsChecked = false;
+                }
+            });
+    }
+
+    private void SortOption_Click(object sender, RoutedEventArgs e) => SortPopup.IsOpen = false;
+
+    private void ItemLabelButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var item = (sender as FrameworkElement)?.DataContext as ChecklistItem;
+        _itemLabelPopupWasOpenOnPointerDown =
+            ItemLabelPopup.IsOpen && ReferenceEquals(_itemLabelTarget, item);
+    }
+
+    private void ItemLabelButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: ChecklistItem item } button)
+        {
+            return;
+        }
+
+        var shouldOpen = _itemLabelPopupWasOpenOnPointerDown is bool wasOpen
+            ? !wasOpen
+            : !ItemLabelPopup.IsOpen || !ReferenceEquals(_itemLabelTarget, item);
+        _itemLabelPopupWasOpenOnPointerDown = null;
+
+        if (!shouldOpen)
+        {
+            ItemLabelPopup.IsOpen = false;
+            return;
+        }
+
+        SchedulePopup.IsOpen = false;
+        DurationPopup.IsOpen = false;
+        LabelPopup.IsOpen = false;
+        SortPopup.IsOpen = false;
+        _itemLabelTarget = item;
+        ItemLabelPopup.PlacementTarget = button;
+        ItemLabelPopup.IsOpen = true;
+    }
+
+    private void ItemLabelNoneOption_Click(object sender, RoutedEventArgs e) =>
+        AssignItemLabelAndClose(null);
+
+    private void ItemLabelOption_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: QuestLabelViewModel label })
+        {
+            AssignItemLabelAndClose(label.Id);
+        }
+    }
+
+    private void AssignItemLabelAndClose(Guid? labelId)
+    {
+        if (_itemLabelTarget is not null)
+        {
+            _viewModel.AssignItemLabel(_itemLabelTarget, labelId);
+        }
+
+        ItemLabelPopup.IsOpen = false;
+        _itemLabelTarget = null;
     }
 
     private void Compact_Click(object sender, RoutedEventArgs e) => SetCompactMode(true);
@@ -221,7 +582,9 @@ public partial class MainWindow : Window
 
     private void DragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not FrameworkElement element || element.DataContext is not ChecklistItem item)
+        if (!_viewModel.IsManualSort ||
+            sender is not FrameworkElement element ||
+            element.DataContext is not ChecklistItem item)
         {
             return;
         }
@@ -273,7 +636,8 @@ public partial class MainWindow : Window
 
     private void QuestCard_DragOver(object sender, DragEventArgs e)
     {
-        if (sender is not Border card ||
+        if (!_viewModel.IsManualSort ||
+            sender is not Border card ||
             card.DataContext is not ChecklistItem target ||
             e.Data.GetData(QuestDragFormat) is not ChecklistItem source ||
             !_viewModel.Items.Contains(source) ||
@@ -303,7 +667,8 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (sender is not Border card ||
+            if (!_viewModel.IsManualSort ||
+                sender is not Border card ||
                 card.DataContext is not ChecklistItem target ||
                 e.Data.GetData(QuestDragFormat) is not ChecklistItem source)
             {
@@ -413,9 +778,156 @@ public partial class MainWindow : Window
         }
     }
 
+    private void AddLabel_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.TryAddLabel(NewLabelNameTextBox.Text, NewLabelColorTextBox.Text))
+        {
+            NewLabelNameTextBox.Clear();
+            NewLabelColorTextBox.Text = "#5B8A72";
+            HideLabelEditorError();
+            NewLabelNameTextBox.Focus();
+            return;
+        }
+
+        ShowLabelEditorError();
+        NewLabelNameTextBox.Focus();
+        NewLabelNameTextBox.SelectAll();
+    }
+
+    private void NewLabelNameTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            AddLabel_Click(sender, e);
+            e.Handled = true;
+        }
+    }
+
+    private void SaveLabel_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: QuestLabelViewModel label } element ||
+            !TryGetLabelEditorFields(element, out var nameEditor, out var colorEditor))
+        {
+            return;
+        }
+
+        if (_viewModel.TryUpdateLabel(label.Id, nameEditor.Text, colorEditor.Text))
+        {
+            HideLabelEditorError();
+            return;
+        }
+
+        ShowLabelEditorError();
+        nameEditor.Focus();
+        nameEditor.SelectAll();
+    }
+
+    private void DeleteLabel_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: QuestLabelViewModel label })
+        {
+            return;
+        }
+
+        var result = MessageBox.Show(
+            this,
+            _viewModel.Copy.DeleteLabelConfirmMessage,
+            _viewModel.Copy.DeleteLabelConfirmTitle,
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (result == MessageBoxResult.Yes)
+        {
+            _viewModel.DeleteLabel(label.Id);
+            HideLabelEditorError();
+        }
+    }
+
+    private void PickExistingLabelColor_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element ||
+            !TryGetLabelEditorFields(element, out _, out var colorEditor))
+        {
+            return;
+        }
+
+        PickColorInto(colorEditor);
+    }
+
+    private void PickNewLabelColor_Click(object sender, RoutedEventArgs e) =>
+        PickColorInto(NewLabelColorTextBox);
+
+    private bool TryGetLabelEditorFields(
+        DependencyObject element,
+        out TextBox nameEditor,
+        out TextBox colorEditor)
+    {
+        var container = ItemsControl.ContainerFromElement(LabelSettingsList, element);
+        nameEditor = container is null
+            ? null!
+            : FindVisualChildByName<TextBox>(container, "LabelNameEditor")!;
+        colorEditor = container is null
+            ? null!
+            : FindVisualChildByName<TextBox>(container, "LabelColorEditor")!;
+        return nameEditor is not null && colorEditor is not null;
+    }
+
+    private void PickColorInto(TextBox target)
+    {
+        using var dialog = new Forms.ColorDialog
+        {
+            AllowFullOpen = true,
+            AnyColor = true,
+            FullOpen = true
+        };
+
+        try
+        {
+            if (System.Windows.Media.ColorConverter.ConvertFromString(target.Text) is Color color)
+            {
+                dialog.Color = System.Drawing.Color.FromArgb(color.R, color.G, color.B);
+            }
+        }
+        catch (FormatException)
+        {
+            // Invalid text simply falls back to the native picker's default color.
+        }
+
+        if (dialog.ShowDialog() == Forms.DialogResult.OK)
+        {
+            target.Text = $"#{dialog.Color.R:X2}{dialog.Color.G:X2}{dialog.Color.B:X2}";
+            HideLabelEditorError();
+        }
+    }
+
+    private void ShowLabelEditorError()
+    {
+        LabelEditorErrorText.Text = _viewModel.Copy.InvalidLabel;
+        LabelEditorErrorText.Visibility = Visibility.Visible;
+    }
+
+    private void HideLabelEditorError()
+    {
+        LabelEditorErrorText.Visibility = Visibility.Collapsed;
+    }
+
     private void OpenQna_Click(object sender, RoutedEventArgs e) => OpenExternalUrl(QnaUrl);
 
     private void OpenBugReport_Click(object sender, RoutedEventArgs e) => OpenExternalUrl(BugReportUrl);
+
+    private void ResetWindowSize_Click(object sender, RoutedEventArgs e)
+    {
+        var workArea = SystemParameters.WorkArea;
+        var availableWidth = Math.Max(ExpandedMinWidth, workArea.Width - (ScreenEdgeGap * 2));
+        var availableHeight = Math.Max(ExpandedMinHeight, workArea.Height - (ScreenEdgeGap * 2));
+
+        _expandedWidth = Math.Min(ExpandedDefaultWidth, availableWidth);
+        _expandedHeight = Math.Min(ExpandedDefaultHeight, availableHeight);
+        Width = _expandedWidth;
+        Height = _expandedHeight;
+        PositionAtTopRight();
+        _viewModel.SaveWindowSize(_expandedWidth, _expandedHeight);
+    }
 
     private static void OpenExternalUrl(string url)
     {
@@ -438,6 +950,7 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _dayChangeTimer.Stop();
+        _timerTickTimer.Stop();
         _viewModel.SaveWindowSize(
             _isCompact ? _expandedWidth : ActualWidth,
             _isCompact ? _expandedHeight : ActualHeight);
