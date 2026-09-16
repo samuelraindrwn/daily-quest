@@ -34,7 +34,7 @@ Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi
 - Buka riwayat hari sebelumnya; klik kartu tanggal untuk melihat detail aktivitasnya.
 - Pertahankan aktivitas selesai di riwayat setelah dibersihkan dari daftar aktif hari ini.
 - Atur urutan quest hari ini dengan menarik handle khusus; urutan tersimpan juga menentukan quest berikutnya di mode ringkas.
-- Ringkas widget di pojok kanan atas agar hanya menampilkan satu quest yang belum selesai.
+- Ringkas widget menjadi lebih kecil di pojok kanan atas agar hanya menampilkan satu quest yang belum selesai, dengan tombol pin dan perluas selalu tersedia.
 - Instalasi baru dimulai dalam English; pilih English atau Bahasa Indonesia melalui Pengaturan tanpa mengubah preferensi pengguna lama.
 - Pilih tema Terang atau Gelap melalui Pengaturan; preferensinya disimpan secara lokal.
 - Sematkan widget di atas jendela lain, minimalkan ke taskbar, pindahkan, atau ubah ukurannya.
@@ -69,7 +69,8 @@ Rilis ini portable dan self-contained untuk Windows 10/11 64-bit, jadi tidak ada
 | **Mendatang** | Tinjau atau batalkan quest yang dijadwalkan untuk tanggal mendatang. |
 | **Riwayat** | Lihat ringkasan progres per hari. Klik kartunya untuk membuka detail. |
 | Tombol Pengaturan | Buka pilihan tema, bahasa, penyimpanan, riwayat, Q&A, dan laporan bug. |
-| Tombol mode ringkas | Ringkas widget di pojok kanan atas dan tampilkan hanya quest berikutnya yang belum selesai. Selesaikan quest itu untuk lanjut ke quest berikutnya. |
+| Tombol mode ringkas | Ringkas widget secara langsung di pojok kanan atas dan tampilkan hanya quest berikutnya yang belum selesai. Selesaikan quest itu untuk lanjut ke quest berikutnya dalam kondisi belum dicentang. |
+| Tombol pin di mode ringkas | Pertahankan widget ringkas di atas jendela lain atau kembalikan ke urutan jendela normal. |
 | Tombol perluas | Kembali dari mode ringkas ke widget penuh. |
 | Tombol pin | Aktifkan atau nonaktifkan mode selalu di atas. |
 | Tombol `−` | Minimalkan jendela ke taskbar Windows. Fungsi ini terpisah dari mode ringkas. |
@@ -80,6 +81,7 @@ Saat tanggal berganti, Daily Quest mengarsipkan hari sebelumnya, mempertahankan 
 ### Menjadwalkan quest mendatang
 
 - Composer menyediakan pilihan **Hari ini** dan delapan tanggal berikutnya berdasarkan tanggal lokal Windows.
+- Ringkasan progres disembunyikan selama pemilih tanggal terbuka agar jadwal tetap jelas.
 - Quest mendatang disimpan dalam antrean terpisah. Sebelum jatuh tempo, quest tersebut tidak memengaruhi checklist Hari ini, progres, mode ringkas, atau Riwayat.
 - Saat tanggalnya tiba, quest ditambahkan ke Hari ini tanpa centang setelah hari sebelumnya diarsipkan. Setelah itu, quest berperilaku seperti quest aktif biasa dan mengikuti reset harian sampai kamu menghapusnya.
 - Jika Daily Quest tidak dibuka pada tanggal target, quest yang lewat jatuh tempo akan diaktifkan saat aplikasi berikutnya dibuka. Setiap quest hanya diaktifkan satu kali.

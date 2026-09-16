@@ -20,7 +20,7 @@ The app does not send this file to a server and does not include telemetry. The 
 
 ### What is the difference between compact mode and minimize?
 
-Compact mode keeps a small Daily Quest window in the top-right corner and shows only the first unfinished quest in your saved order. Completing it advances the view to the next unfinished quest. Use the expand control to return to the full widget.
+Compact mode instantly switches to a smaller Daily Quest window in the top-right corner and shows only the first unfinished quest in your saved order. Completing it advances to an unchecked next quest. Pin and expand controls remain available in the compact card.
 
 The `−` button keeps the native Windows behavior: it minimizes Daily Quest to the taskbar. Compact mode has its own separate button. Compact mode is temporary for the current session; a new launch starts in the full view.
 
@@ -104,7 +104,7 @@ Aplikasi tidak mengirim file ini ke server dan tidak memiliki telemetri. State t
 
 ### Apa perbedaan mode ringkas dan minimize?
 
-Mode ringkas mempertahankan jendela kecil Daily Quest di pojok kanan atas dan hanya menampilkan quest belum selesai pertama berdasarkan urutan tersimpan. Menyelesaikannya akan menampilkan quest belum selesai berikutnya. Gunakan kontrol perluas untuk kembali ke widget penuh.
+Mode ringkas langsung mengubah Daily Quest menjadi jendela yang lebih kecil di pojok kanan atas dan hanya menampilkan quest belum selesai pertama berdasarkan urutan tersimpan. Menyelesaikannya akan menampilkan quest berikutnya dalam kondisi belum dicentang. Tombol pin dan perluas tetap tersedia pada kartu ringkas.
 
 Tombol `−` tetap menjalankan fungsi bawaan Windows: meminimalkan Daily Quest ke taskbar. Mode ringkas memiliki tombolnya sendiri. Mode ringkas hanya berlaku sementara selama sesi berjalan; aplikasi dibuka kembali dalam tampilan penuh pada peluncuran berikutnya.
 

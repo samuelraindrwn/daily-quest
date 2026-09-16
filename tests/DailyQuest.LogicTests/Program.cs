@@ -24,6 +24,8 @@ internal static class Program
         ("scheduled quests stay outside today's checklist until due", ScheduledQuestsStayOutsideTodayUntilDue),
         ("upcoming quests can be canceled without changing today", UpcomingQuestsCanBeCanceledWithoutChangingToday),
         ("next pending item follows quest order and completion", NextPendingItemFollowsQuestOrderAndCompletion),
+        ("compact completion advances once without checking the next quest", CompactCompletionAdvancesOnceWithoutCheckingNextQuest),
+        ("pin toggle persists and updates its presentation", PinTogglePersistsAndUpdatesPresentation),
         ("quest reorder persists to active state and current history", QuestReorderPersistsToActiveStateAndCurrentHistory),
         ("quest reorder retains completed history-only items", QuestReorderRetainsCompletedHistoryOnlyItems),
         ("quest reorder rejects foreign and unchanged moves", QuestReorderRejectsForeignAndUnchangedMoves),
@@ -759,6 +761,7 @@ internal static class Program
         AssertEx.Equal(secondId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
 
         var second = viewModel.Items.Single(item => item.Id == secondId);
+        AssertEx.False(second.IsCompleted, "The newly exposed compact quest must remain unchecked.");
         second.IsCompleted = true;
         AssertEx.Null(viewModel.NextPendingItem);
         AssertEx.False(viewModel.HasPendingItem, "No pending quest should remain after every quest is complete.");
@@ -767,6 +770,73 @@ internal static class Program
         first.IsCompleted = false;
         AssertEx.Equal(firstId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
         AssertEx.True(viewModel.HasPendingItem);
+    }
+
+    private static void CompactCompletionAdvancesOnceWithoutCheckingNextQuest()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(firstId, "Quest pertama", false, 0, now.AddMinutes(-2)),
+                CreateItemState(secondId, "Quest berikutnya", false, 1, now.AddMinutes(-1))
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var first = AssertEx.NotNull(viewModel.NextPendingItem);
+
+        viewModel.CompleteItemCommand.Execute(first);
+
+        var second = AssertEx.NotNull(viewModel.NextPendingItem);
+        AssertEx.Equal(firstId, first.Id);
+        AssertEx.True(first.IsCompleted, "The clicked compact quest should be completed.");
+        AssertEx.Equal(secondId, second.Id);
+        AssertEx.False(second.IsCompleted, "Advancing compact mode must not complete the next quest.");
+        AssertEx.Equal(1, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.SequenceEqual([true, false], saved.Items.Select(item => item.IsCompleted));
+        AssertEx.SequenceEqual(
+            [true, false],
+            HistoryFor(saved, "2026-09-16").Items.Select(item => item.IsCompleted));
+
+        viewModel.CompleteItemCommand.Execute(first);
+        viewModel.CompleteItemCommand.Execute(
+            new ChecklistItem(Guid.NewGuid(), "Quest asing", false, now));
+        viewModel.CompleteItemCommand.Execute(null);
+
+        AssertEx.False(second.IsCompleted, "Stale commands must not affect the current compact quest.");
+        AssertEx.Equal(1, store.SaveCount);
+    }
+
+    private static void PinTogglePersistsAndUpdatesPresentation()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings
+            {
+                AlwaysOnTop = true,
+                LanguageCode = "en-US"
+            }
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var changedProperties = new HashSet<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) => changedProperties.Add(eventArgs.PropertyName);
+
+        viewModel.TogglePinCommand.Execute(null);
+
+        AssertEx.False(viewModel.AlwaysOnTop);
+        AssertEx.Equal("Always on top", viewModel.PinTooltip);
+        AssertEx.False(AssertEx.NotNull(store.Snapshot).Settings.AlwaysOnTop);
+        AssertEx.Equal(1, store.SaveCount);
+        AssertEx.True(changedProperties.Contains(nameof(MainViewModel.AlwaysOnTop)));
+        AssertEx.True(changedProperties.Contains(nameof(MainViewModel.PinTooltip)));
     }
 
     private static void QuestReorderPersistsToActiveStateAndCurrentHistory()

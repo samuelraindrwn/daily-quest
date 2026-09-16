@@ -21,7 +21,7 @@
 Daily Quest keeps today's priorities visible without turning them into a complicated project-management system. It combines quick check-ins, automatic local saving, progress tracking, and expandable daily history in a compact desktop widget.
 
 <p align="center">
-  <img src="docs/images/daily-quest.png" width="360" alt="Daily Quest main window showing an empty checklist">
+  <img src="docs/images/daily-quest-en.png" width="360" alt="Daily Quest main window in English showing an empty checklist">
 </p>
 
 ## Highlights
@@ -34,7 +34,7 @@ Daily Quest keeps today's priorities visible without turning them into a complic
 - Review previous days in History; select a date card to reveal its activity details.
 - Preserve completed entries in history after clearing them from today's active list.
 - Reorder today's quests by dragging their dedicated handles; the saved order also controls which quest appears next in compact mode.
-- Shrink the widget into a top-right compact view that shows one unfinished quest at a time.
+- Shrink the widget into a smaller top-right compact view that shows one unfinished quest at a time, with pin and expand controls always available.
 - Start new installations in English, then choose English or Indonesian from Settings; existing saved preferences stay unchanged.
 - Choose a Light or Dark theme from Settings; the preference is saved locally.
 - Pin the widget above other windows, minimize it to the taskbar, or move and resize it freely.
@@ -69,7 +69,8 @@ The release is portable and self-contained for 64-bit Windows 10/11, so there is
 | **Upcoming** | Review or cancel quests scheduled for a future date. |
 | **History** | View daily completion summaries. Select a card to expand its details. |
 | Settings button | Open theme, language, storage, history, Q&A, and bug-report options. |
-| Compact button | Shrink the widget at the top-right and show only the next unfinished quest. Complete it to advance to the next quest. |
+| Compact button | Instantly shrink the widget at the top-right and show only the next unfinished quest. Complete it to advance to an unchecked next quest. |
+| Pin button in compact mode | Keep the compact widget above other windows or return it to normal stacking. |
 | Expand button | Return from compact mode to the full widget. |
 | Pin button | Toggle always-on-top mode. |
 | `−` button | Minimize the window to the Windows taskbar. This is separate from compact mode. |
@@ -80,6 +81,7 @@ When the date changes, Daily Quest archives the previous day, keeps the activity
 ### Scheduling future quests
 
 - The composer offers **Today** plus the next eight dates, based on the local date reported by Windows.
+- The progress summary hides while the date picker is open so the schedule remains visually clear.
 - A future quest is stored in a separate upcoming queue. Before it is due, it does not affect Today's checklist, progress, compact mode, or History.
 - When its date arrives, the quest is added to Today unchecked after the previous day has been archived. It then behaves like a regular active quest and follows the normal daily reset until you remove it.
 - If Daily Quest was closed on the scheduled date, the overdue quest is activated the next time the app opens. It is activated only once.

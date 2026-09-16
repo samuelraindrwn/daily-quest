@@ -23,11 +23,7 @@
         Closing="Window_Closing">
     <Grid>
     <Grid x:Name="ExpandedWidget"
-          Margin="14"
-          RenderTransformOrigin="1,0">
-        <Grid.RenderTransform>
-            <ScaleTransform ScaleX="1" ScaleY="1" />
-        </Grid.RenderTransform>
+          Margin="14">
         <Border Background="{DynamicResource WindowBackingBrush}"
                 CornerRadius="28">
             <Border.Effect>
@@ -309,14 +305,25 @@
                         </Button>
                     </Grid>
 
-                    <Border Grid.Row="2"
+                    <Border x:Name="ProgressSummaryCard"
+                            Grid.Row="2"
                             Margin="20,0,20,14"
                             Padding="16,14"
                             Background="{DynamicResource GlassCardBrush}"
                             BorderBrush="{DynamicResource GlassEdgeBrush}"
                             BorderThickness="1"
-                            CornerRadius="18"
-                            Visibility="{Binding IsTodayView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            CornerRadius="18">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility"
+                                        Value="{Binding IsTodayView, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsOpen, ElementName=SchedulePopup}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -1471,47 +1478,43 @@
         </Border>
     </Grid>
     <Grid x:Name="CompactWidget"
-          Width="344"
-          Height="92"
-          Margin="8"
+          Width="288"
+          Height="64"
+          Margin="6"
           HorizontalAlignment="Right"
           VerticalAlignment="Top"
-          RenderTransformOrigin="1,0"
           Visibility="Collapsed">
-        <Grid.RenderTransform>
-            <ScaleTransform ScaleX="1" ScaleY="1" />
-        </Grid.RenderTransform>
         <Border Background="{DynamicResource WindowBackingBrush}"
-                CornerRadius="24">
+                CornerRadius="20">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="28"
+                <DropShadowEffect BlurRadius="20"
                                   Direction="270"
                                   Opacity="0.25"
-                                  ShadowDepth="8"
+                                  ShadowDepth="5"
                                   Color="{DynamicResource WindowShadowColor}" />
             </Border.Effect>
         </Border>
         <Border Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource EdgeBrush}"
                 BorderThickness="1"
-                CornerRadius="24"
+                CornerRadius="20"
                 MouseLeftButtonDown="Header_MouseLeftButtonDown">
             <Grid ClipToBounds="True">
-                <Ellipse Width="170"
-                         Height="170"
-                         Margin="0,-65,-12,0"
+                <Ellipse Width="125"
+                         Height="125"
+                         Margin="0,-48,-10,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Top"
                          Fill="{DynamicResource AmbientBlueBrush}"
                          IsHitTestVisible="False" />
-                <Ellipse Width="150"
-                         Height="150"
-                         Margin="-18,0,0,-75"
+                <Ellipse Width="105"
+                         Height="105"
+                         Margin="-14,0,0,-52"
                          HorizontalAlignment="Left"
                          VerticalAlignment="Bottom"
                          Fill="{DynamicResource AmbientMintBrush}"
                          IsHitTestVisible="False" />
-                <Grid Margin="15,12,12,12">
+                <Grid Margin="10,7,8,7">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -1537,24 +1540,26 @@
                                     </Grid.ColumnDefinitions>
                                     <CheckBox VerticalAlignment="Center"
                                               Style="{StaticResource StickyCheckBoxStyle}"
-                                              IsChecked="{Binding IsCompleted, Mode=TwoWay}"
+                                              IsChecked="{Binding IsCompleted, Mode=OneWay}"
+                                              Command="{Binding DataContext.CompleteItemCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                              CommandParameter="{Binding}"
                                               AutomationProperties.Name="{Binding Text}" />
                                     <TextBlock Grid.Column="1"
-                                               Margin="10,0,10,0"
+                                               Margin="7,0,6,0"
                                                VerticalAlignment="Center"
                                                Text="{Binding Text}"
                                                TextTrimming="CharacterEllipsis"
-                                               FontSize="14.5"
+                                               FontSize="13.5"
                                                FontWeight="SemiBold" />
                                 </Grid>
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
-                    <TextBlock Margin="6,0,10,0"
+                    <TextBlock Margin="4,0,6,0"
                                VerticalAlignment="Center"
                                Text="{Binding Copy.CompactAllDone}"
                                Foreground="{DynamicResource MutedInkBrush}"
-                               FontSize="14"
+                               FontSize="13"
                                FontWeight="SemiBold">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -1567,30 +1572,64 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <Button Grid.Column="1"
-                            Width="40"
-                            Height="40"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource IconButtonStyle}"
-                            Background="{DynamicResource GlassCardBrush}"
-                            Click="Expand_Click"
-                            ToolTip="{Binding Copy.ExpandMode}"
-                            AutomationProperties.Name="{Binding Copy.ExpandMode}">
-                        <Viewbox Width="17" Height="17">
-                            <Path Data="M 2,8 L 2,2 L 8,2 M 2,2 L 8,8 M 16,10 L 16,16 L 10,16 M 16,16 L 10,10"
-                                  Stroke="{DynamicResource AccentDarkBrush}"
-                                  StrokeThickness="1.7"
-                                  StrokeStartLineCap="Round"
-                                  StrokeEndLineCap="Round"
-                                  StrokeLineJoin="Round"
-                                  Stretch="Uniform" />
-                        </Viewbox>
-                    </Button>
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <Button Width="32"
+                                Height="32"
+                                Margin="0,0,5,0"
+                                Command="{Binding TogglePinCommand}"
+                                ToolTip="{Binding PinTooltip}"
+                                AutomationProperties.Name="{Binding Copy.PinWidgetAutomation}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                    <Setter Property="Background" Value="{DynamicResource GlassCardBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding AlwaysOnTop}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource AccentTintBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Viewbox Width="13" Height="13">
+                                <Path Data="M 16,9 L 16,4 L 17,3 L 17,2 L 7,2 L 7,3 L 8,4 L 8,9 C 8,10.66 6.66,12 5,12 L 5,14 L 11,14 L 11,21 L 13,21 L 13,14 L 19,14 L 19,12 C 17.34,12 16,10.66 16,9 Z">
+                                    <Path.Style>
+                                        <Style TargetType="Path">
+                                            <Setter Property="Fill" Value="{DynamicResource MutedInkBrush}" />
+                                            <Setter Property="Stretch" Value="Uniform" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AlwaysOnTop}" Value="True">
+                                                    <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Path.Style>
+                                </Path>
+                            </Viewbox>
+                        </Button>
+                        <Button Width="32"
+                                Height="32"
+                                Style="{StaticResource IconButtonStyle}"
+                                Background="{DynamicResource GlassCardBrush}"
+                                Click="Expand_Click"
+                                ToolTip="{Binding Copy.ExpandMode}"
+                                AutomationProperties.Name="{Binding Copy.ExpandMode}">
+                            <Viewbox Width="14" Height="14">
+                                <Path Data="M 2,8 L 2,2 L 8,2 M 2,2 L 8,8 M 16,10 L 16,16 L 10,16 M 16,16 L 10,10"
+                                      Stroke="{DynamicResource AccentDarkBrush}"
+                                      StrokeThickness="1.7"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Stretch="Uniform" />
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
                 </Grid>
                 <Border Margin="1"
                         BorderBrush="{DynamicResource InnerHighlightBrush}"
                         BorderThickness="1"
-                        CornerRadius="23"
+                        CornerRadius="19"
                         IsHitTestVisible="False" />
             </Grid>
         </Border>

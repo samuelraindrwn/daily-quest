@@ -75,6 +75,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         AddItemCommand = new RelayCommand(AddItem, CanAddItem);
         RemoveItemCommand = new RelayCommand(RemoveItem, parameter => parameter is ChecklistItem);
+        CompleteItemCommand = new RelayCommand(CompleteItem);
         RemoveScheduledQuestCommand = new RelayCommand(
             RemoveScheduledQuest,
             CanRemoveScheduledQuest);
@@ -120,6 +121,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand AddItemCommand { get; }
 
     public ICommand RemoveItemCommand { get; }
+
+    public ICommand CompleteItemCommand { get; }
 
     public ICommand RemoveScheduledQuestCommand { get; }
 
@@ -741,6 +744,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         NotifyProgressChanged();
         RefreshHistoryEntries();
         Save();
+    }
+
+    private void CompleteItem(object? parameter)
+    {
+        if (parameter is not ChecklistItem item ||
+            item.IsCompleted ||
+            !Items.Contains(item))
+        {
+            return;
+        }
+
+        item.IsCompleted = true;
     }
 
     private void ResetToday()

@@ -11,7 +11,7 @@
     <AssemblyTitle>Daily Quest</AssemblyTitle>
     <Product>Daily Quest</Product>
     <Description>Daily checklist and history widget for Windows.</Description>
-    <Version>1.3.2</Version>
+    <Version>1.3.3</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\DailyQuest.ico</ApplicationIcon>
     <DebugType>embedded</DebugType>
@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
+    <Compile Remove="artifacts\**\*.cs" />
     <None Remove="Assets\DailyQuest.ico" />
     <Resource Include="Assets\DailyQuest.ico" />
   </ItemGroup>
