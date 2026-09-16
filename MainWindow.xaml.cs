@@ -39,10 +39,15 @@ public partial class MainWindow : Window
     private Border? _dropTarget;
 
     public MainWindow()
+        : this(new MainViewModel())
     {
+    }
+
+    public MainWindow(MainViewModel viewModel)
+    {
+        _viewModel = viewModel;
         InitializeComponent();
 
-        _viewModel = new MainViewModel();
         DataContext = _viewModel;
 
         _dayChangeTimer = new DispatcherTimer

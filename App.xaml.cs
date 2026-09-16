@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
+using DailyQuest.Services;
+using DailyQuest.ViewModels;
 
 namespace DailyQuest;
 
@@ -30,6 +32,12 @@ public partial class App : Application
 
         _ownsSingleInstanceMutex = true;
         base.OnStartup(e);
+
+        var themeService = new WpfThemeService(this);
+        var viewModel = new MainViewModel(themeService: themeService);
+        var mainWindow = new MainWindow(viewModel);
+        MainWindow = mainWindow;
+        mainWindow.Show();
     }
 
     protected override void OnExit(ExitEventArgs e)

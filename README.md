@@ -36,8 +36,9 @@ Daily Quest keeps today's priorities visible without turning them into a complic
 - Reorder today's quests by dragging their dedicated handles; the saved order also controls which quest appears next in compact mode.
 - Shrink the widget into a top-right compact view that shows one unfinished quest at a time.
 - Choose English or Indonesian from Settings.
+- Choose a Light or Dark theme from Settings; the preference is saved locally.
 - Pin the widget above other windows, minimize it to the taskbar, or move and resize it freely.
-- Open at the top-right of the primary work area with a comfortable edge gap, while restoring the saved size, language, and pin preference.
+- Open at the top-right of the primary work area with a comfortable edge gap, while restoring the saved size, language, theme, and pin preference.
 - Check local storage usage, clear history, open the Q&A, or report a bug from Settings.
 - See the application identity and version in the main-view footer.
 - Run a single instance entirely offline, with no account, telemetry, or network connection required.
@@ -67,7 +68,7 @@ The release is portable and self-contained for 64-bit Windows 10/11, so there is
 | **Today** | Return to the active checklist. |
 | **Upcoming** | Review or cancel quests scheduled for a future date. |
 | **History** | View daily completion summaries. Select a card to expand its details. |
-| Settings button | Open language, storage, history, Q&A, and bug-report options. |
+| Settings button | Open theme, language, storage, history, Q&A, and bug-report options. |
 | Compact button | Shrink the widget at the top-right and show only the next unfinished quest. Complete it to advance to the next quest. |
 | Expand button | Return from compact mode to the full widget. |
 | Pin button | Toggle always-on-top mode. |
@@ -88,6 +89,7 @@ Scheduling does not create a Windows notification, run a background service, or 
 
 ### Settings and support
 
+- **Theme:** choose Light or Dark. The change applies immediately and is saved locally for the next launch.
 - **Language:** choose Indonesian or English explicitly. The choice is saved locally.
 - **Storage:** view the size of the application executable, Daily Quest's local data folder, and the serialized history data. These values are local estimates and may be rounded in the interface.
 - **Clear history:** permanently removes archived history while leaving active and scheduled quests intact. A new current-day history entry can be created after the checklist changes again.
@@ -115,7 +117,7 @@ All data stays on the device in:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-The state file contains active and scheduled quest text and order, scheduled target dates, daily history, language, always-on-top preference, and window size. Daily Quest does not require an account, include telemetry, or upload this data anywhere. Compact mode does not replace the native minimize action and is not stored as a separate checklist state.
+The state file contains active and scheduled quest text and order, scheduled target dates, daily history, theme, language, always-on-top preference, and window size. Daily Quest does not require an account, include telemetry, or upload this data anywhere. Compact mode does not replace the native minimize action and is not stored as a separate checklist state.
 
 The storage panel reads file sizes from the local application and data locations. **Saved data** includes the future-quest queue, while **History** estimates only serialized history records. **Clear history** removes history records only; it does not remove active or scheduled quests. The current day's history may be generated again after a later checklist change.
 
@@ -151,7 +153,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-The dependency-free test harness covers checklist mutations and ordering, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, date rollover, history retention and clearing, language settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
+The dependency-free test harness covers checklist mutations and ordering, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, date rollover, history retention and clearing, theme and language settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
 
 ## Create a portable build
 

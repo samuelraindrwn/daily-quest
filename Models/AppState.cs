@@ -2,7 +2,7 @@ namespace DailyQuest.Models;
 
 public sealed class AppState
 {
-    public int SchemaVersion { get; set; } = 3;
+    public int SchemaVersion { get; set; } = 4;
 
     public string CurrentDate { get; set; } = string.Empty;
 
@@ -66,4 +66,6 @@ public sealed class AppSettings
     public bool AlwaysOnTop { get; set; } = true;
 
     public string LanguageCode { get; set; } = "id-ID";
+
+    public string ThemeCode { get; set; } = "light";
 }

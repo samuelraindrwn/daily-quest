@@ -6,7 +6,7 @@
 
 ### Does Daily Quest require an account or internet connection?
 
-No. The checklist, future-quest schedule, history, language setting, and window preferences work locally without an account or internet connection. The optional **Q&A** and **Report a bug** actions open GitHub in your default browser, so those links require internet access.
+No. The checklist, future-quest schedule, history, theme and language settings, and window preferences work locally without an account or internet connection. The optional **Q&A** and **Report a bug** actions open GitHub in your default browser, so those links require internet access.
 
 ### Where is my data stored?
 
@@ -16,7 +16,7 @@ Daily Quest stores its state in:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-The app does not send this file to a server and does not include telemetry.
+The app does not send this file to a server and does not include telemetry. The state includes the saved Light or Dark theme preference.
 
 ### What is the difference between compact mode and minimize?
 
@@ -58,6 +58,10 @@ Displayed values may be rounded and do not represent Windows filesystem allocati
 
 Open Settings and choose **Indonesian** or **English**. The selection is saved locally and applies immediately.
 
+### How do I change the appearance?
+
+Open Settings, find **Theme**, and choose **Light** or **Dark**. The change applies immediately across the full and compact views and is saved for the next launch. This version does not automatically follow the Windows theme.
+
 ### What is shown in the footer?
 
 The footer identifies Daily Quest and its installed version.
@@ -86,7 +90,7 @@ Use **Report a bug** in Settings or open the [bug report form](https://github.co
 
 ### Apakah Daily Quest membutuhkan akun atau koneksi internet?
 
-Tidak. Checklist, jadwal quest mendatang, riwayat, pilihan bahasa, dan preferensi jendela bekerja secara lokal tanpa akun atau koneksi internet. Tindakan opsional **Q&A** dan **Laporkan bug** membuka GitHub melalui browser bawaan sehingga kedua tautan tersebut membutuhkan internet.
+Tidak. Checklist, jadwal quest mendatang, riwayat, pilihan tema dan bahasa, serta preferensi jendela bekerja secara lokal tanpa akun atau koneksi internet. Tindakan opsional **Q&A** dan **Laporkan bug** membuka GitHub melalui browser bawaan sehingga kedua tautan tersebut membutuhkan internet.
 
 ### Di mana data saya disimpan?
 
@@ -96,7 +100,7 @@ Daily Quest menyimpan state di:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-Aplikasi tidak mengirim file ini ke server dan tidak memiliki telemetri.
+Aplikasi tidak mengirim file ini ke server dan tidak memiliki telemetri. State tersebut mencakup preferensi tema Terang atau Gelap yang tersimpan.
 
 ### Apa perbedaan mode ringkas dan minimize?
 
@@ -137,6 +141,10 @@ Nilai yang ditampilkan dapat dibulatkan dan tidak sama persis dengan alokasi fil
 ### Bagaimana cara mengganti bahasa?
 
 Buka Pengaturan lalu pilih **Bahasa Indonesia** atau **English**. Pilihan disimpan secara lokal dan langsung diterapkan.
+
+### Bagaimana cara mengganti tampilan?
+
+Buka Pengaturan, cari bagian **Tema**, lalu pilih **Terang** atau **Gelap**. Perubahan langsung diterapkan pada tampilan penuh dan mode ringkas serta disimpan untuk peluncuran berikutnya. Versi ini belum mengikuti tema Windows secara otomatis.
 
 ### Apa yang ditampilkan pada footer?
 

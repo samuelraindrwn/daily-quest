@@ -28,19 +28,19 @@
         <Grid.RenderTransform>
             <ScaleTransform ScaleX="1" ScaleY="1" />
         </Grid.RenderTransform>
-        <Border Background="#FFF4F7FB"
+        <Border Background="{DynamicResource WindowBackingBrush}"
                 CornerRadius="28">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="34"
                                   Direction="270"
                                   Opacity="0.26"
                                   ShadowDepth="10"
-                                  Color="#45121B2A" />
+                                  Color="{DynamicResource WindowShadowColor}" />
             </Border.Effect>
         </Border>
 
-        <Border Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource EdgeBrush}"
+        <Border Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource EdgeBrush}"
                 BorderThickness="1"
                 CornerRadius="28">
             <Grid ClipToBounds="True">
@@ -49,21 +49,21 @@
                          Margin="0,54,18,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Top"
-                         Fill="{StaticResource AmbientBlueBrush}"
+                         Fill="{DynamicResource AmbientBlueBrush}"
                          IsHitTestVisible="False" />
                 <Ellipse Width="230"
                          Height="230"
                          Margin="18,0,0,62"
                          HorizontalAlignment="Left"
                          VerticalAlignment="Bottom"
-                         Fill="{StaticResource AmbientMintBrush}"
+                         Fill="{DynamicResource AmbientMintBrush}"
                          IsHitTestVisible="False" />
                 <Ellipse Width="150"
                          Height="150"
                          Margin="0,0,48,32"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Bottom"
-                         Fill="{StaticResource AmbientLilacBrush}"
+                         Fill="{DynamicResource AmbientLilacBrush}"
                          IsHitTestVisible="False" />
 
                 <Grid>
@@ -94,7 +94,7 @@
                             <TextBlock Margin="1,3,0,0"
                                        Text="{Binding FriendlyDate}"
                                        TextTrimming="CharacterEllipsis"
-                                       Foreground="{StaticResource MutedInkBrush}"
+                                       Foreground="{DynamicResource MutedInkBrush}"
                                        FontSize="13" />
                         </StackPanel>
 
@@ -109,11 +109,11 @@
                                     <Path Data="M 16,9 L 16,4 L 17,3 L 17,2 L 7,2 L 7,3 L 8,4 L 8,9 C 8,10.66 6.66,12 5,12 L 5,14 L 11,14 L 11,21 L 13,21 L 13,14 L 19,14 L 19,12 C 17.34,12 16,10.66 16,9 Z">
                                         <Path.Style>
                                             <Style TargetType="Path">
-                                                <Setter Property="Fill" Value="{StaticResource MutedInkBrush}" />
+                                                <Setter Property="Fill" Value="{DynamicResource MutedInkBrush}" />
                                                 <Setter Property="Stretch" Value="Uniform" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AlwaysOnTop}" Value="True">
-                                                        <Setter Property="Fill" Value="{StaticResource AccentBrush}" />
+                                                        <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -127,7 +127,7 @@
                                     AutomationProperties.Name="{Binding Copy.CompactMode}">
                                 <Viewbox Width="16" Height="16">
                                     <Path Data="M 2,2 L 8,8 M 8,4 L 8,8 L 4,8 M 16,16 L 10,10 M 10,14 L 10,10 L 14,10"
-                                          Stroke="{StaticResource MutedInkBrush}"
+                                          Stroke="{DynamicResource MutedInkBrush}"
                                           StrokeThickness="1.8"
                                           StrokeStartLineCap="Round"
                                           Stretch="Uniform" />
@@ -146,8 +146,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
                                         <Style.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
-                                                <Setter Property="Background" Value="#18FF3B30" />
+                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource DangerTintBrush}" />
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -164,8 +164,8 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Padding="3"
-                                Background="#66FFFFFF"
-                                BorderBrush="{StaticResource GlassEdgeBrush}"
+                                Background="{DynamicResource SegmentTrayBrush}"
+                                BorderBrush="{DynamicResource GlassEdgeBrush}"
                                 BorderThickness="1"
                                 CornerRadius="18">
                             <StackPanel Orientation="Horizontal">
@@ -176,8 +176,8 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource SegmentButtonStyle}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsTodayView}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                                    <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -185,10 +185,10 @@
                                     <TextBlock Text="{Binding Copy.TodayTab}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{StaticResource MutedInkBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MutedInkBrush}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsTodayView}" Value="True">
-                                                        <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -202,8 +202,8 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource SegmentButtonStyle}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsHistoryView}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                                    <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -211,10 +211,10 @@
                                     <TextBlock Text="{Binding Copy.HistoryTab}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{StaticResource MutedInkBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MutedInkBrush}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsHistoryView}" Value="True">
-                                                        <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -227,8 +227,8 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource SegmentButtonStyle}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsUpcomingView}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                                    <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -238,10 +238,10 @@
                                                    Text="{Binding Copy.UpcomingTab}">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{StaticResource MutedInkBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource MutedInkBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsUpcomingView}" Value="True">
-                                                            <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -255,13 +255,13 @@
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Visible" />
-                                                    <Setter Property="Background" Value="#263A715A" />
+                                                    <Setter Property="Background" Value="{DynamicResource AccentTintBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding UpcomingQuests.Count}" Value="0">
                                                             <Setter Property="Visibility" Value="Collapsed" />
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsUpcomingView}" Value="True">
-                                                            <Setter Property="Background" Value="#32FFFFFF" />
+                                                            <Setter Property="Background" Value="{DynamicResource ActiveBadgeBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -269,7 +269,7 @@
                                             <TextBlock HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
                                                        Text="{Binding UpcomingQuests.Count}"
-                                                       Foreground="{StaticResource AccentDarkBrush}"
+                                                       Foreground="{DynamicResource AccentDarkBrush}"
                                                        FontSize="9.5"
                                                        FontWeight="Bold" />
                                         </Border>
@@ -287,14 +287,14 @@
                                 AutomationProperties.Name="{Binding Copy.SettingsTab}">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-                                    <Setter Property="Background" Value="{StaticResource GlassCardBrush}" />
-                                    <Setter Property="Foreground" Value="{StaticResource MutedInkBrush}" />
+                                    <Setter Property="Background" Value="{DynamicResource GlassCardBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource MutedInkBrush}" />
                                     <Setter Property="FontFamily" Value="Segoe UI Symbol" />
                                     <Setter Property="FontSize" Value="16" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsSettingsView}" Value="True">
-                                            <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                            <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                            <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -312,8 +312,8 @@
                     <Border Grid.Row="2"
                             Margin="20,0,20,14"
                             Padding="16,14"
-                            Background="{StaticResource GlassCardBrush}"
-                            BorderBrush="{StaticResource GlassEdgeBrush}"
+                            Background="{DynamicResource GlassCardBrush}"
+                            BorderBrush="{DynamicResource GlassEdgeBrush}"
                             BorderThickness="1"
                             CornerRadius="18"
                             Visibility="{Binding IsTodayView, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -333,7 +333,7 @@
                                            FontSize="13" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding ProgressPercent, StringFormat={}{0:0}%}"
-                                           Foreground="{StaticResource AccentDarkBrush}"
+                                           Foreground="{DynamicResource AccentDarkBrush}"
                                            FontWeight="Bold"
                                            FontSize="13" />
                             </Grid>
@@ -347,7 +347,7 @@
                                        Margin="0,9,0,0"
                                        Text="{Binding EncouragementText}"
                                        TextWrapping="Wrap"
-                                       Foreground="{StaticResource MutedInkBrush}"
+                                       Foreground="{DynamicResource MutedInkBrush}"
                                        FontSize="12" />
                         </Grid>
                     </Border>
@@ -376,12 +376,12 @@
                                                 Drop="QuestCard_Drop">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="{StaticResource GlassCardBrush}" />
-                                                    <Setter Property="BorderBrush" Value="{StaticResource GlassEdgeBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource GlassCardBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource GlassEdgeBrush}" />
                                                     <Style.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter Property="Background" Value="#D2FFFFFF" />
-                                                            <Setter Property="BorderBrush" Value="#E8FFFFFF" />
+                                                            <Setter Property="Background" Value="{DynamicResource CardHoverBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource CardHoverEdgeBrush}" />
                                                         </Trigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -410,12 +410,12 @@
                                                                  Columns="2"
                                                                  HorizontalAlignment="Center"
                                                                  VerticalAlignment="Center">
-                                                        <Ellipse Width="3" Height="3" Fill="{StaticResource TertiaryInkBrush}" />
-                                                        <Ellipse Width="3" Height="3" Fill="{StaticResource TertiaryInkBrush}" />
-                                                        <Ellipse Width="3" Height="3" Fill="{StaticResource TertiaryInkBrush}" />
-                                                        <Ellipse Width="3" Height="3" Fill="{StaticResource TertiaryInkBrush}" />
-                                                        <Ellipse Width="3" Height="3" Fill="{StaticResource TertiaryInkBrush}" />
-                                                        <Ellipse Width="3" Height="3" Fill="{StaticResource TertiaryInkBrush}" />
+                                                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TertiaryInkBrush}" />
                                                     </UniformGrid>
                                                 </Border>
                                                 <CheckBox Grid.Column="1"
@@ -431,11 +431,11 @@
                                                            FontSize="15">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsCompleted}" Value="True">
                                                                     <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                                    <Setter Property="Foreground" Value="{StaticResource CompletedBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource CompletedBrush}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -455,7 +455,7 @@
                                                         Margin="10,-11,10,0"
                                                         HorizontalAlignment="Stretch"
                                                         VerticalAlignment="Top"
-                                                        Background="{StaticResource AccentBrush}"
+                                                        Background="{DynamicResource AccentBrush}"
                                                         CornerRadius="2"
                                                         IsHitTestVisible="False"
                                                         Visibility="Collapsed" />
@@ -465,7 +465,7 @@
                                                         Margin="10,0,10,-11"
                                                         HorizontalAlignment="Stretch"
                                                         VerticalAlignment="Bottom"
-                                                        Background="{StaticResource AccentBrush}"
+                                                        Background="{DynamicResource AccentBrush}"
                                                         CornerRadius="2"
                                                         IsHitTestVisible="False"
                                                         Visibility="Collapsed" />
@@ -494,14 +494,14 @@
                                 <Border Width="52"
                                         Height="52"
                                         HorizontalAlignment="Center"
-                                        Background="{StaticResource GlassCardBrush}"
-                                        BorderBrush="{StaticResource GlassEdgeBrush}"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
                                         BorderThickness="1"
                                         CornerRadius="26"
                                         IsHitTestVisible="False">
                                     <Viewbox Width="23" Height="23">
                                         <Path Data="M 12,1 L 14.3,9.7 L 23,12 L 14.3,14.3 L 12,23 L 9.7,14.3 L 1,12 L 9.7,9.7 Z"
-                                              Fill="{StaticResource AccentBrush}"
+                                              Fill="{DynamicResource AccentBrush}"
                                               Stretch="Uniform" />
                                     </Viewbox>
                                 </Border>
@@ -516,7 +516,7 @@
                                            TextWrapping="Wrap"
                                            TextAlignment="Center"
                                            HorizontalAlignment="Center"
-                                           Foreground="{StaticResource MutedInkBrush}"
+                                           Foreground="{DynamicResource MutedInkBrush}"
                                            FontSize="12" />
                             </StackPanel>
                         </Border>
@@ -535,11 +535,11 @@
                                 CornerRadius="16">
                             <Border.Style>
                                 <Style TargetType="Border">
-                                    <Setter Property="Background" Value="{StaticResource GlassElevatedBrush}" />
-                                    <Setter Property="BorderBrush" Value="{StaticResource GlassEdgeBrush}" />
+                                    <Setter Property="Background" Value="{DynamicResource GlassElevatedBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource GlassEdgeBrush}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ElementName=NewItemTextBox, Path=IsKeyboardFocused}" Value="True">
-                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -550,8 +550,10 @@
                                          MaxLength="120"
                                          Background="Transparent"
                                          BorderThickness="0"
-                                         Foreground="{StaticResource InkBrush}"
-                                         CaretBrush="{StaticResource AccentDarkBrush}"
+                                         Foreground="{DynamicResource InkBrush}"
+                                         CaretBrush="{DynamicResource AccentDarkBrush}"
+                                         SelectionBrush="{DynamicResource AccentBrush}"
+                                         SelectionOpacity="0.42"
                                          FontFamily="{StaticResource AppFont}"
                                          FontSize="14"
                                          Text="{Binding NewItemText, UpdateSourceTrigger=PropertyChanged}"
@@ -561,7 +563,7 @@
                                            VerticalAlignment="Center"
                                            IsHitTestVisible="False"
                                            Text="{Binding Copy.NewItemPlaceholder}"
-                                           Foreground="{StaticResource PlaceholderBrush}"
+                                           Foreground="{DynamicResource PlaceholderBrush}"
                                            FontSize="14">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -578,7 +580,7 @@
                         </Border>
                         <ToggleButton x:Name="SchedulePickerButton"
                                       Grid.Column="1"
-                                      Width="118"
+                                      Width="96"
                                       Height="46"
                                       Margin="9,0,0,0"
                                       Cursor="Hand"
@@ -589,8 +591,8 @@
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Border x:Name="ScheduleSurface"
-                                            Background="{StaticResource GlassElevatedBrush}"
-                                            BorderBrush="{StaticResource GlassEdgeBrush}"
+                                            Background="{DynamicResource GlassElevatedBrush}"
+                                            BorderBrush="{DynamicResource GlassEdgeBrush}"
                                             BorderThickness="1"
                                             CornerRadius="16">
                                         <Grid Margin="11,0,10,0">
@@ -601,7 +603,7 @@
                                             <TextBlock VerticalAlignment="Center"
                                                        Text="{Binding SelectedScheduleLabel}"
                                                        TextTrimming="CharacterEllipsis"
-                                                       Foreground="{StaticResource InkBrush}"
+                                                       Foreground="{DynamicResource InkBrush}"
                                                        FontSize="11.5"
                                                        FontWeight="SemiBold" />
                                             <Path Grid.Column="1"
@@ -610,7 +612,7 @@
                                                   Margin="7,0,0,0"
                                                   VerticalAlignment="Center"
                                                   Data="M 1,1 L 4.5,4.5 L 8,1"
-                                                  Stroke="{StaticResource AccentDarkBrush}"
+                                                  Stroke="{DynamicResource AccentDarkBrush}"
                                                   StrokeThickness="1.5"
                                                   StrokeStartLineCap="Round"
                                                   StrokeEndLineCap="Round"
@@ -620,12 +622,12 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ScheduleSurface" Property="Background" Value="#E7FFFFFF" />
-                                            <Setter TargetName="ScheduleSurface" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                            <Setter TargetName="ScheduleSurface" Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+                                            <Setter TargetName="ScheduleSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                         </Trigger>
                                         <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="ScheduleSurface" Property="Background" Value="#EFFFFFFF" />
-                                            <Setter TargetName="ScheduleSurface" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                            <Setter TargetName="ScheduleSurface" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                                            <Setter TargetName="ScheduleSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -642,8 +644,8 @@
                                PopupAnimation="Fade">
                             <Border Width="342"
                                     Padding="14"
-                                    Background="#F4F8FBFF"
-                                    BorderBrush="{StaticResource GlassEdgeBrush}"
+                                    Background="{DynamicResource PopupSurfaceBrush}"
+                                    BorderBrush="{DynamicResource GlassEdgeBrush}"
                                     BorderThickness="1"
                                     CornerRadius="20">
                                 <Border.Effect>
@@ -651,7 +653,7 @@
                                                       Direction="270"
                                                       Opacity="0.22"
                                                       ShadowDepth="8"
-                                                      Color="#55121B2A" />
+                                                      Color="{DynamicResource PopupShadowColor}" />
                                 </Border.Effect>
                                 <StackPanel>
                                     <TextBlock Margin="3,0,3,10"
@@ -672,12 +674,12 @@
                                                         Click="ScheduleOption_Click">
                                                     <Button.Style>
                                                         <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-                                                            <Setter Property="Background" Value="{StaticResource GlassSubtleBrush}" />
-                                                            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                    <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                                                    <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                                    <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -708,8 +710,8 @@
                                 Width="46"
                                 Height="46"
                                 Margin="10,0,0,0"
-                                Background="{StaticResource AccentGradientBrush}"
-                                Foreground="{StaticResource IvoryBrush}"
+                                Background="{DynamicResource AccentGradientBrush}"
+                                Foreground="{DynamicResource IvoryBrush}"
                                 BorderThickness="0"
                                 Cursor="Hand"
                                 FocusVisualStyle="{x:Null}"
@@ -720,12 +722,12 @@
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="AddSurface"
                                             Background="{TemplateBinding Background}"
-                                            BorderBrush="#72FFFFFF"
+                                            BorderBrush="{DynamicResource OnAccentEdgeBrush}"
                                             BorderThickness="1"
                                             CornerRadius="16">
                                         <Grid>
                                             <Border x:Name="InteractionShade"
-                                                    Background="#160F172A"
+                                                    Background="{DynamicResource AddInteractionBrush}"
                                                     CornerRadius="15"
                                                     IsHitTestVisible="False"
                                                     Opacity="0" />
@@ -740,7 +742,7 @@
                                                   StrokeEndLineCap="Round"
                                                   SnapsToDevicePixels="True" />
                                             <Border x:Name="FocusRing"
-                                                    BorderBrush="{StaticResource IvoryBrush}"
+                                                    BorderBrush="{DynamicResource IvoryBrush}"
                                                     BorderThickness="2"
                                                     CornerRadius="15"
                                                     IsHitTestVisible="False"
@@ -752,7 +754,7 @@
                                             <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                                         </Trigger>
                                         <Trigger Property="IsPressed" Value="True">
-                                            <Setter TargetName="InteractionShade" Property="Background" Value="#300F172A" />
+                                            <Setter TargetName="InteractionShade" Property="Background" Value="{DynamicResource AddInteractionPressedBrush}" />
                                             <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                                         </Trigger>
                                         <Trigger Property="IsKeyboardFocused" Value="True">
@@ -780,7 +782,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock VerticalAlignment="Center"
                                    Text="{Binding Copy.AutoSaveStatus}"
-                                   Foreground="{StaticResource MutedInkBrush}"
+                                   Foreground="{DynamicResource MutedInkBrush}"
                                    Margin="0,0,8,0"
                                    TextTrimming="CharacterEllipsis"
                                    FontSize="11" />
@@ -789,13 +791,13 @@
                                     Margin="0,0,6,0"
                                     Padding="12,6"
                                     Style="{StaticResource SoftButtonStyle}"
-                                    Background="{StaticResource GlassSubtleBrush}"
+                                    Background="{DynamicResource GlassSubtleBrush}"
                                     Content="{Binding Copy.ClearCompleted}"
                                     Command="{Binding ClearCompletedCommand}" />
                             <Button Height="34"
                                     Padding="12,6"
                                     Style="{StaticResource SoftButtonStyle}"
-                                    Background="{StaticResource GlassSubtleBrush}"
+                                    Background="{DynamicResource GlassSubtleBrush}"
                                     Content="{Binding Copy.Reset}"
                                     Command="{Binding ResetTodayCommand}"
                                     ToolTip="{Binding Copy.ResetTooltip}" />
@@ -805,7 +807,7 @@
                                    Margin="0,10,0,0"
                                    HorizontalAlignment="Center"
                                    Text="{Binding FooterText}"
-                                   Foreground="{StaticResource TertiaryInkBrush}"
+                                   Foreground="{DynamicResource TertiaryInkBrush}"
                                    FontSize="10.5" />
                     </Grid>
 
@@ -830,7 +832,7 @@
                                 <TextBlock Margin="0,4,0,0"
                                            Text="{Binding Copy.UpcomingHint}"
                                            TextWrapping="Wrap"
-                                           Foreground="{StaticResource MutedInkBrush}"
+                                           Foreground="{DynamicResource MutedInkBrush}"
                                            FontSize="11.5" />
                             </StackPanel>
                             <Border Grid.Column="1"
@@ -838,12 +840,12 @@
                                     Height="28"
                                     Padding="9,0"
                                     VerticalAlignment="Top"
-                                    Background="{StaticResource AccentTintBrush}"
+                                    Background="{DynamicResource AccentTintBrush}"
                                     CornerRadius="14">
                                 <TextBlock HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
                                            Text="{Binding UpcomingQuests.Count}"
-                                           Foreground="{StaticResource AccentDarkBrush}"
+                                           Foreground="{DynamicResource AccentDarkBrush}"
                                            FontWeight="SemiBold"
                                            FontSize="11" />
                             </Border>
@@ -862,8 +864,8 @@
                                         <DataTemplate>
                                             <Border Margin="5,4,8,6"
                                                     Padding="12,11"
-                                                    Background="{StaticResource GlassCardBrush}"
-                                                    BorderBrush="{StaticResource GlassEdgeBrush}"
+                                                    Background="{DynamicResource GlassCardBrush}"
+                                                    BorderBrush="{DynamicResource GlassEdgeBrush}"
                                                     BorderThickness="1"
                                                     CornerRadius="17">
                                                 <Grid>
@@ -875,20 +877,20 @@
                                                     <Border MinWidth="76"
                                                             Padding="9,6"
                                                             VerticalAlignment="Center"
-                                                            Background="{StaticResource AccentTintBrush}"
+                                                            Background="{DynamicResource AccentTintBrush}"
                                                             CornerRadius="12">
                                                         <StackPanel>
                                                             <TextBlock HorizontalAlignment="Center"
                                                                        Text="{Binding ScheduleLabel}"
                                                                        TextTrimming="CharacterEllipsis"
-                                                                       Foreground="{StaticResource AccentDarkBrush}"
+                                                                       Foreground="{DynamicResource AccentDarkBrush}"
                                                                        FontWeight="SemiBold"
                                                                        FontSize="11" />
                                                             <TextBlock Margin="0,2,0,0"
                                                                        HorizontalAlignment="Center"
                                                                        Text="{Binding DateText}"
                                                                        TextTrimming="CharacterEllipsis"
-                                                                       Foreground="{StaticResource MutedInkBrush}"
+                                                                       Foreground="{DynamicResource MutedInkBrush}"
                                                                        FontSize="9.5" />
                                                         </StackPanel>
                                                     </Border>
@@ -931,8 +933,8 @@
                                     <Border Width="52"
                                             Height="52"
                                             HorizontalAlignment="Center"
-                                            Background="{StaticResource GlassCardBrush}"
-                                            BorderBrush="{StaticResource GlassEdgeBrush}"
+                                            Background="{DynamicResource GlassCardBrush}"
+                                            BorderBrush="{DynamicResource GlassEdgeBrush}"
                                             BorderThickness="1"
                                             CornerRadius="26"
                                             IsHitTestVisible="False">
@@ -941,10 +943,10 @@
                                                 <Rectangle Margin="3,5,3,3"
                                                            RadiusX="3"
                                                            RadiusY="3"
-                                                           Stroke="{StaticResource AccentBrush}"
+                                                           Stroke="{DynamicResource AccentBrush}"
                                                            StrokeThickness="1.7" />
                                                 <Path Data="M 7,2 L 7,8 M 17,2 L 17,8 M 3,9 L 21,9 M 8,14 L 16,14 M 12,11 L 12,17"
-                                                      Stroke="{StaticResource AccentBrush}"
+                                                      Stroke="{DynamicResource AccentBrush}"
                                                       StrokeThickness="1.7"
                                                       StrokeStartLineCap="Round"
                                                       StrokeEndLineCap="Round" />
@@ -962,7 +964,7 @@
                                                TextWrapping="Wrap"
                                                TextAlignment="Center"
                                                HorizontalAlignment="Center"
-                                               Foreground="{StaticResource MutedInkBrush}"
+                                               Foreground="{DynamicResource MutedInkBrush}"
                                                FontSize="12" />
                                 </StackPanel>
                             </Border>
@@ -1005,7 +1007,7 @@
                                                         <TextBlock Grid.Column="1"
                                                                    Margin="8,0,0,0"
                                                                    Text="{Binding SummaryText}"
-                                                                   Foreground="{StaticResource AccentDarkBrush}"
+                                                                   Foreground="{DynamicResource AccentDarkBrush}"
                                                                    FontSize="12"
                                                                    FontWeight="SemiBold" />
                                                         <Path Grid.Column="2"
@@ -1015,7 +1017,7 @@
                                                               VerticalAlignment="Center"
                                                               Data="M 1,1 L 6,6 L 11,1"
                                                               RenderTransformOrigin="0.5,0.5"
-                                                              Stroke="{StaticResource MutedInkBrush}"
+                                                              Stroke="{DynamicResource MutedInkBrush}"
                                                               StrokeThickness="1.7"
                                                               StrokeStartLineCap="Round"
                                                               StrokeEndLineCap="Round"
@@ -1060,7 +1062,7 @@
                                                                 <ColumnDefinition Width="*" />
                                                             </Grid.ColumnDefinitions>
                                                             <TextBlock Text="{Binding StatusGlyph}"
-                                                                       Foreground="{StaticResource AccentBrush}"
+                                                                       Foreground="{DynamicResource AccentBrush}"
                                                                        FontWeight="Bold"
                                                                        FontSize="14" />
                                                             <TextBlock Grid.Column="1"
@@ -1069,11 +1071,11 @@
                                                                        FontSize="13">
                                                                 <TextBlock.Style>
                                                                     <Style TargetType="TextBlock">
-                                                                        <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding IsCompleted}" Value="True">
                                                                                 <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                                                <Setter Property="Foreground" Value="{StaticResource CompletedBrush}" />
+                                                                                <Setter Property="Foreground" Value="{DynamicResource CompletedBrush}" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
                                                                     </Style>
@@ -1107,18 +1109,18 @@
                                 <Border Width="52"
                                         Height="52"
                                         HorizontalAlignment="Center"
-                                        Background="{StaticResource GlassCardBrush}"
-                                        BorderBrush="{StaticResource GlassEdgeBrush}"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
                                         BorderThickness="1"
                                         CornerRadius="26"
                                         IsHitTestVisible="False">
                                     <Viewbox Width="25" Height="25">
                                         <Grid Width="24" Height="24">
                                             <Ellipse Margin="2"
-                                                     Stroke="{StaticResource AccentBrush}"
+                                                     Stroke="{DynamicResource AccentBrush}"
                                                      StrokeThickness="1.8" />
                                             <Path Data="M 12,6 L 12,12 L 16.5,14.5"
-                                                  Stroke="{StaticResource AccentBrush}"
+                                                  Stroke="{DynamicResource AccentBrush}"
                                                   StrokeThickness="1.8"
                                                   StrokeStartLineCap="Round"
                                                   StrokeEndLineCap="Round"
@@ -1137,7 +1139,7 @@
                                            TextWrapping="Wrap"
                                            TextAlignment="Center"
                                            HorizontalAlignment="Center"
-                                           Foreground="{StaticResource MutedInkBrush}"
+                                           Foreground="{DynamicResource MutedInkBrush}"
                                            FontSize="12" />
                             </StackPanel>
                         </Border>
@@ -1162,13 +1164,13 @@
                                 <TextBlock Margin="2,4,2,14"
                                            Text="{Binding Copy.SettingsSubtitle}"
                                            TextWrapping="Wrap"
-                                           Foreground="{StaticResource MutedInkBrush}"
+                                           Foreground="{DynamicResource MutedInkBrush}"
                                            FontSize="12" />
 
                                 <Border Margin="0,0,0,10"
                                         Padding="15"
-                                        Background="{StaticResource GlassCardBrush}"
-                                        BorderBrush="{StaticResource GlassEdgeBrush}"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
                                         BorderThickness="1"
                                         CornerRadius="18">
                                     <StackPanel>
@@ -1186,11 +1188,11 @@
                                                     CommandParameter="id-ID">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-                                                        <Setter Property="Background" Value="{StaticResource GlassSubtleBrush}" />
+                                                        <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsIndonesian}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                                                <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -1206,11 +1208,11 @@
                                                     CommandParameter="en-US">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-                                                        <Setter Property="Background" Value="{StaticResource GlassSubtleBrush}" />
+                                                        <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsEnglish}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                                                <Setter Property="Foreground" Value="{StaticResource IvoryBrush}" />
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -1225,8 +1227,71 @@
 
                                 <Border Margin="0,0,0,10"
                                         Padding="15"
-                                        Background="{StaticResource GlassCardBrush}"
-                                        BorderBrush="{StaticResource GlassEdgeBrush}"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="18">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Copy.AppearanceSetting}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   Text="{Binding Copy.AppearanceHint}"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource MutedInkBrush}"
+                                                   FontSize="11" />
+                                        <Grid Margin="0,11,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Button Height="38"
+                                                    Margin="0,0,5,0"
+                                                    Command="{Binding SetThemeCommand}"
+                                                    CommandParameter="light">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLightTheme}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.LightTheme}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                            <Button Grid.Column="1"
+                                                    Height="38"
+                                                    Margin="5,0,0,0"
+                                                    Command="{Binding SetThemeCommand}"
+                                                    CommandParameter="dark">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
+                                                        <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Copy.DarkTheme}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                           FontWeight="SemiBold" />
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Margin="0,0,0,10"
+                                        Padding="15"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
                                         BorderThickness="1"
                                         CornerRadius="18">
                                     <StackPanel>
@@ -1244,14 +1309,14 @@
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
                                             <TextBlock Text="{Binding Copy.ApplicationStorage}"
-                                                       Foreground="{StaticResource MutedInkBrush}" />
+                                                       Foreground="{DynamicResource MutedInkBrush}" />
                                             <TextBlock Grid.Column="1"
                                                        Text="{Binding ApplicationStorageText}"
                                                        FontWeight="SemiBold" />
                                             <TextBlock Grid.Row="1"
                                                        Margin="0,8,0,0"
                                                        Text="{Binding Copy.DataStorage}"
-                                                       Foreground="{StaticResource MutedInkBrush}" />
+                                                       Foreground="{DynamicResource MutedInkBrush}" />
                                             <TextBlock Grid.Row="1" Grid.Column="1"
                                                        Margin="0,8,0,0"
                                                        Text="{Binding DataStorageText}"
@@ -1259,7 +1324,7 @@
                                             <TextBlock Grid.Row="2"
                                                        Margin="0,8,0,0"
                                                        Text="{Binding Copy.HistoryStorage}"
-                                                       Foreground="{StaticResource MutedInkBrush}" />
+                                                       Foreground="{DynamicResource MutedInkBrush}" />
                                             <TextBlock Grid.Row="2" Grid.Column="1"
                                                        Margin="0,8,0,0"
                                                        Text="{Binding HistoryStorageText}"
@@ -1268,15 +1333,15 @@
                                         <TextBlock Margin="0,11,0,0"
                                                    Text="{Binding Copy.StorageHint}"
                                                    TextWrapping="Wrap"
-                                                   Foreground="{StaticResource TertiaryInkBrush}"
+                                                   Foreground="{DynamicResource TertiaryInkBrush}"
                                                    FontSize="11" />
                                     </StackPanel>
                                 </Border>
 
                                 <Border Margin="0,0,0,10"
                                         Padding="15"
-                                        Background="{StaticResource GlassCardBrush}"
-                                        BorderBrush="{StaticResource GlassEdgeBrush}"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
                                         BorderThickness="1"
                                         CornerRadius="18">
                                     <Grid>
@@ -1291,7 +1356,7 @@
                                             <TextBlock Margin="0,4,0,0"
                                                        Text="{Binding Copy.ClearHistoryHint}"
                                                        TextWrapping="Wrap"
-                                                       Foreground="{StaticResource MutedInkBrush}"
+                                                       Foreground="{DynamicResource MutedInkBrush}"
                                                        FontSize="11" />
                                         </StackPanel>
                                         <Button Grid.Column="1"
@@ -1301,7 +1366,9 @@
                                                 Click="ClearHistory_Click">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
-                                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource DangerButtonBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource IvoryBrush}" />
+                                                    <Setter Property="BorderThickness" Value="0" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding HistoryEntries.Count}" Value="0">
                                                             <Setter Property="IsEnabled" Value="False" />
@@ -1314,8 +1381,8 @@
                                 </Border>
 
                                 <Border Padding="15"
-                                        Background="{StaticResource GlassCardBrush}"
-                                        BorderBrush="{StaticResource GlassEdgeBrush}"
+                                        Background="{DynamicResource GlassCardBrush}"
+                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
                                         BorderThickness="1"
                                         CornerRadius="18">
                                     <StackPanel>
@@ -1338,14 +1405,14 @@
                                                     <TextBlock Margin="0,2,0,0"
                                                                Text="{Binding Copy.QnaHint}"
                                                                TextWrapping="Wrap"
-                                                               Foreground="{StaticResource MutedInkBrush}"
+                                                               Foreground="{DynamicResource MutedInkBrush}"
                                                                FontSize="10.5" />
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="1"
                                                            Margin="10,0,0,0"
                                                            VerticalAlignment="Center"
                                                            Text="&#x2197;"
-                                                           Foreground="{StaticResource AccentDarkBrush}" />
+                                                           Foreground="{DynamicResource AccentDarkBrush}" />
                                             </Grid>
                                         </Button>
                                         <Button Padding="12,9"
@@ -1363,14 +1430,14 @@
                                                     <TextBlock Margin="0,2,0,0"
                                                                Text="{Binding Copy.ReportBugHint}"
                                                                TextWrapping="Wrap"
-                                                               Foreground="{StaticResource MutedInkBrush}"
+                                                               Foreground="{DynamicResource MutedInkBrush}"
                                                                FontSize="10.5" />
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="1"
                                                            Margin="10,0,0,0"
                                                            VerticalAlignment="Center"
                                                            Text="&#x2197;"
-                                                           Foreground="{StaticResource AccentDarkBrush}" />
+                                                           Foreground="{DynamicResource AccentDarkBrush}" />
                                             </Grid>
                                         </Button>
                                     </StackPanel>
@@ -1379,14 +1446,14 @@
                                 <TextBlock Margin="0,16,0,0"
                                            HorizontalAlignment="Center"
                                            Text="{Binding FooterText}"
-                                           Foreground="{StaticResource TertiaryInkBrush}"
+                                           Foreground="{DynamicResource TertiaryInkBrush}"
                                            FontSize="10.5" />
                                 <TextBlock Margin="12,4,12,5"
                                            HorizontalAlignment="Center"
                                            Text="{Binding Copy.SettingsFooter}"
                                            TextAlignment="Center"
                                            TextWrapping="Wrap"
-                                           Foreground="{StaticResource TertiaryInkBrush}"
+                                           Foreground="{DynamicResource TertiaryInkBrush}"
                                            FontSize="10.5" />
                             </StackPanel>
                         </ScrollViewer>
@@ -1394,7 +1461,7 @@
                 </Grid>
 
                 <Border Margin="1"
-                        BorderBrush="#AFFFFFFF"
+                        BorderBrush="{DynamicResource InnerHighlightBrush}"
                         BorderThickness="1"
                         CornerRadius="27"
                         IsHitTestVisible="False" />
@@ -1412,18 +1479,18 @@
         <Grid.RenderTransform>
             <ScaleTransform ScaleX="1" ScaleY="1" />
         </Grid.RenderTransform>
-        <Border Background="#FFF4F7FB"
+        <Border Background="{DynamicResource WindowBackingBrush}"
                 CornerRadius="24">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="28"
                                   Direction="270"
                                   Opacity="0.25"
                                   ShadowDepth="8"
-                                  Color="#45121B2A" />
+                                  Color="{DynamicResource WindowShadowColor}" />
             </Border.Effect>
         </Border>
-        <Border Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource EdgeBrush}"
+        <Border Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource EdgeBrush}"
                 BorderThickness="1"
                 CornerRadius="24"
                 MouseLeftButtonDown="Header_MouseLeftButtonDown">
@@ -1433,14 +1500,14 @@
                          Margin="0,-65,-12,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Top"
-                         Fill="{StaticResource AmbientBlueBrush}"
+                         Fill="{DynamicResource AmbientBlueBrush}"
                          IsHitTestVisible="False" />
                 <Ellipse Width="150"
                          Height="150"
                          Margin="-18,0,0,-75"
                          HorizontalAlignment="Left"
                          VerticalAlignment="Bottom"
-                         Fill="{StaticResource AmbientMintBrush}"
+                         Fill="{DynamicResource AmbientMintBrush}"
                          IsHitTestVisible="False" />
                 <Grid Margin="15,12,12,12">
                     <Grid.ColumnDefinitions>
@@ -1484,7 +1551,7 @@
                     <TextBlock Margin="6,0,10,0"
                                VerticalAlignment="Center"
                                Text="{Binding Copy.CompactAllDone}"
-                               Foreground="{StaticResource MutedInkBrush}"
+                               Foreground="{DynamicResource MutedInkBrush}"
                                FontSize="14"
                                FontWeight="SemiBold">
                         <TextBlock.Style>
@@ -1503,13 +1570,13 @@
                             Height="40"
                             VerticalAlignment="Center"
                             Style="{StaticResource IconButtonStyle}"
-                            Background="{StaticResource GlassCardBrush}"
+                            Background="{DynamicResource GlassCardBrush}"
                             Click="Expand_Click"
                             ToolTip="{Binding Copy.ExpandMode}"
                             AutomationProperties.Name="{Binding Copy.ExpandMode}">
                         <Viewbox Width="17" Height="17">
                             <Path Data="M 2,8 L 2,2 L 8,2 M 2,2 L 8,8 M 16,10 L 16,16 L 10,16 M 16,16 L 10,10"
-                                  Stroke="{StaticResource AccentDarkBrush}"
+                                  Stroke="{DynamicResource AccentDarkBrush}"
                                   StrokeThickness="1.7"
                                   StrokeStartLineCap="Round"
                                   StrokeEndLineCap="Round"
@@ -1519,7 +1586,7 @@
                     </Button>
                 </Grid>
                 <Border Margin="1"
-                        BorderBrush="#AFFFFFFF"
+                        BorderBrush="{DynamicResource InnerHighlightBrush}"
                         BorderThickness="1"
                         CornerRadius="23"
                         IsHitTestVisible="False" />

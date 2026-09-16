@@ -29,6 +29,17 @@ body:
       required: true
 
   - type: dropdown
+    id: theme
+    attributes:
+      label: Theme / Tema
+      options:
+        - Light / Terang
+        - Dark / Gelap
+        - Both / Keduanya
+    validations:
+      required: true
+
+  - type: dropdown
     id: package
     attributes:
       label: App package / Paket aplikasi

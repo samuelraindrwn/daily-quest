@@ -14,9 +14,11 @@ internal static class Program
         ("saving window size clears stored position", SavingWindowSizeClearsStoredPosition),
         ("language toggle updates copy and persists", LanguageToggleUpdatesCopyAndPersists),
         ("explicit language selection validates aliases and no-ops", ExplicitLanguageSelectionValidatesAliasesAndNoOps),
+        ("explicit theme selection applies validates and persists", ExplicitThemeSelectionAppliesValidatesAndPersists),
         ("today, upcoming, history, and settings navigation is mutually exclusive", ViewNavigationIsMutuallyExclusive),
         ("unknown language falls back to Indonesian", UnknownLanguageFallsBackToIndonesian),
         ("language normalization preserves history-only completed items", LanguageNormalizationPreservesHistoryOnlyCompletedItems),
+        ("invalid theme falls back to light without data loss", InvalidThemeFallsBackToLightWithoutDataLoss),
         ("current-day history tracks add, toggle, remove, and clear", CurrentDayHistoryTracksChecklistMutations),
         ("composer schedules only today through H plus eight", ComposerSchedulesOnlyTodayThroughEightDays),
         ("scheduled quests stay outside today's checklist until due", ScheduledQuestsStayOutsideTodayUntilDue),
@@ -32,10 +34,11 @@ internal static class Program
         ("daily rollover archives once without duplicates", DailyRolloverArchivesOnceWithoutDuplicates),
         ("daily rollover activates due quests after archiving", DailyRolloverActivatesDueQuestsAfterArchiving),
         ("overdue quests activate once on the next launch", OverdueQuestsActivateOnceOnNextLaunch),
+        ("legacy v3 state migrates to the light theme", LegacyV3StateMigratesToLightTheme),
         ("legacy v2 state migrates with an empty future queue", LegacyV2StateMigratesWithEmptyFutureQueue),
         ("legacy v1 state migrates without history loss", LegacyV1StateMigratesWithoutHistoryLoss),
         ("future schema is rejected without saving", FutureSchemaIsRejectedWithoutSaving),
-        ("JSON state store round-trips history and language", JsonStateStoreRoundTripsHistoryAndLanguage),
+        ("JSON state store round-trips history language and theme", JsonStateStoreRoundTripsHistoryLanguageAndTheme),
         ("JSON state store recovers from corrupt state", JsonStateStoreRecoversFromCorruptState),
         ("JSON state store backs up and recovers from null root", JsonStateStoreRecoversFromNullRootState),
         ("JSON state store migrates valid legacy bytes and preserves source", JsonStateStoreMigratesValidLegacyBytesAndPreservesSource),
@@ -80,8 +83,9 @@ internal static class Program
     {
         var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore();
+        var theme = new RecordingThemeService();
 
-        var viewModel = new MainViewModel(store, () => now);
+        var viewModel = new MainViewModel(store, () => now, null, theme);
 
         AssertEx.Equal(0, viewModel.TotalCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
@@ -92,20 +96,28 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(3, saved.SchemaVersion);
+        AssertEx.Equal(4, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal(0, saved.Items.Count);
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.Equal(0, saved.History.Count);
         AssertEx.True(saved.Settings.AlwaysOnTop, "Always-on-top should default to enabled.");
         AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
+        AssertEx.Equal("light", saved.Settings.ThemeCode);
+        AssertEx.Equal("light", viewModel.ThemeCode);
+        AssertEx.True(viewModel.IsLightTheme, "First run should use the light theme.");
+        AssertEx.False(viewModel.IsDarkTheme);
+        AssertEx.SequenceEqual(["light"], theme.AppliedThemes);
 
         var reloadStore = new InMemoryStateStore(saved);
-        var reloaded = new MainViewModel(reloadStore, () => now);
+        var reloadTheme = new RecordingThemeService();
+        var reloaded = new MainViewModel(reloadStore, () => now, null, reloadTheme);
 
         AssertEx.Equal(0, reloaded.TotalCount);
         AssertEx.Equal(0, reloaded.Items.Count);
         AssertEx.Equal(0, reloaded.HistoryEntries.Count);
+        AssertEx.Equal("light", reloaded.ThemeCode);
+        AssertEx.SequenceEqual(["light"], reloadTheme.AppliedThemes);
         AssertEx.Equal(0, reloadStore.SaveCount);
     }
 
@@ -252,6 +264,80 @@ internal static class Program
         AssertEx.Equal("id-ID", AssertEx.NotNull(store.Snapshot).Settings.LanguageCode);
     }
 
+    private static void ExplicitThemeSelectionAppliesValidatesAndPersists()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 4,
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings
+            {
+                LanguageCode = "id-ID",
+                ThemeCode = "light"
+            }
+        });
+        var theme = new RecordingThemeService();
+        var viewModel = new MainViewModel(store, () => now, null, theme);
+        var changedProperties = new HashSet<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) => changedProperties.Add(eventArgs.PropertyName);
+
+        AssertEx.SequenceEqual(["light"], theme.AppliedThemes);
+        viewModel.SetThemeCommand.Execute(" DARK ");
+
+        AssertEx.Equal("dark", viewModel.ThemeCode);
+        AssertEx.True(viewModel.IsDarkTheme, "The dark selection should become active.");
+        AssertEx.False(viewModel.IsLightTheme, "The light selection should become inactive.");
+        AssertEx.SequenceEqual(["light", "dark"], theme.AppliedThemes);
+        AssertEx.True(
+            changedProperties.Contains(nameof(MainViewModel.ThemeCode)),
+            "Changing the theme should notify ThemeCode.");
+        AssertEx.True(
+            changedProperties.Contains(nameof(MainViewModel.IsLightTheme)),
+            "Changing the theme should notify IsLightTheme.");
+        AssertEx.True(
+            changedProperties.Contains(nameof(MainViewModel.IsDarkTheme)),
+            "Changing the theme should notify IsDarkTheme.");
+        AssertEx.Equal(1, store.SaveCount);
+
+        viewModel.SetThemeCommand.Execute("dark");
+        viewModel.SetThemeCommand.Execute("system");
+        viewModel.SetThemeCommand.Execute("sepia");
+        viewModel.SetThemeCommand.Execute(null);
+
+        AssertEx.Equal("dark", viewModel.ThemeCode);
+        AssertEx.SequenceEqual(["light", "dark"], theme.AppliedThemes);
+        AssertEx.Equal(1, store.SaveCount);
+
+        viewModel.SetLanguageCommand.Execute("en-US");
+
+        AssertEx.Equal("en-US", viewModel.LanguageCode);
+        AssertEx.Equal("dark", viewModel.ThemeCode);
+        AssertEx.SequenceEqual(["light", "dark"], theme.AppliedThemes);
+        AssertEx.Equal(2, store.SaveCount);
+
+        var darkSnapshot = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal("dark", darkSnapshot.Settings.ThemeCode);
+        AssertEx.Equal("en-US", darkSnapshot.Settings.LanguageCode);
+        var reloadStore = new InMemoryStateStore(darkSnapshot);
+        var reloadTheme = new RecordingThemeService();
+        var reloaded = new MainViewModel(reloadStore, () => now, null, reloadTheme);
+
+        AssertEx.Equal("dark", reloaded.ThemeCode);
+        AssertEx.True(reloaded.IsDarkTheme);
+        AssertEx.SequenceEqual(["dark"], reloadTheme.AppliedThemes);
+        AssertEx.Equal(0, reloadStore.SaveCount);
+
+        viewModel.SetThemeCommand.Execute("LIGHT");
+
+        AssertEx.Equal("light", viewModel.ThemeCode);
+        AssertEx.True(viewModel.IsLightTheme);
+        AssertEx.False(viewModel.IsDarkTheme);
+        AssertEx.SequenceEqual(["light", "dark", "light"], theme.AppliedThemes);
+        AssertEx.Equal(3, store.SaveCount);
+        AssertEx.Equal("light", AssertEx.NotNull(store.Snapshot).Settings.ThemeCode);
+    }
+
     private static void ViewNavigationIsMutuallyExclusive()
     {
         var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
@@ -327,7 +413,7 @@ internal static class Program
         var orphanCreatedAt = now.AddMinutes(-20);
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-16",
             Items = [],
             History =
@@ -367,6 +453,75 @@ internal static class Program
         AssertEx.True(retainedOrphan.IsCompleted, "Language normalization must not erase a completed history-only item.");
         AssertEx.Equal(orphanCreatedAt, retainedOrphan.CreatedAt);
         AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
+    }
+
+    private static void InvalidThemeFallsBackToLightWithoutDataLoss()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
+        var activeId = Guid.NewGuid();
+        var historicalId = Guid.NewGuid();
+        var scheduledId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 4,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(activeId, "Quest aktif", false, 0, now.AddMinutes(-2))
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    scheduledId,
+                    "Quest mendatang",
+                    "2026-09-18",
+                    0,
+                    now.AddMinutes(-1))
+            ],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-15",
+                    Items =
+                    [
+                        CreateItemState(
+                            historicalId,
+                            "Quest historis",
+                            true,
+                            0,
+                            now.AddDays(-1))
+                    ]
+                }
+            ],
+            Settings = new AppSettings
+            {
+                AlwaysOnTop = false,
+                LanguageCode = "en-US",
+                ThemeCode = "sepia"
+            }
+        });
+        var theme = new RecordingThemeService();
+
+        var viewModel = new MainViewModel(store, () => now, null, theme);
+
+        AssertEx.Equal("light", viewModel.ThemeCode);
+        AssertEx.True(viewModel.IsLightTheme);
+        AssertEx.False(viewModel.IsDarkTheme);
+        AssertEx.SequenceEqual(["light"], theme.AppliedThemes);
+        AssertEx.SequenceEqual([activeId], viewModel.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([scheduledId], viewModel.UpcomingQuests.Select(item => item.Id));
+        AssertEx.Equal(1, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal("light", saved.Settings.ThemeCode);
+        AssertEx.Equal("en-US", saved.Settings.LanguageCode);
+        AssertEx.False(saved.Settings.AlwaysOnTop, "Theme normalization must preserve the pin preference.");
+        AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([scheduledId], saved.ScheduledQuests.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [historicalId],
+            HistoryFor(saved, "2026-09-15").Items.Select(item => item.Id));
     }
 
     private static void CurrentDayHistoryTracksChecklistMutations()
@@ -437,7 +592,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 23, 45, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-16"
         });
         var viewModel = new MainViewModel(store, () => now);
@@ -488,7 +643,7 @@ internal static class Program
         var activeState = CreateItemState(activeId, "Quest hari ini", false, 0, now.AddMinutes(-1));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-16",
             Items = [activeState],
             History =
@@ -527,7 +682,7 @@ internal static class Program
         var scheduledId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -959,7 +1114,7 @@ internal static class Program
         var pendingId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-15",
             Items =
             [
@@ -1007,7 +1162,7 @@ internal static class Program
         var laterId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1065,7 +1220,7 @@ internal static class Program
         var futureId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1112,6 +1267,97 @@ internal static class Program
             AssertEx.NotNull(reloadStore.Snapshot).ScheduledQuests.Select(item => item.Id));
     }
 
+    private static void LegacyV3StateMigratesToLightTheme()
+    {
+        WithTemporaryDirectory(directory =>
+        {
+            var now = new DateTimeOffset(2026, 9, 16, 9, 0, 0, TimeSpan.FromHours(7));
+            var statePath = Path.Combine(directory, "state.json");
+            var activeId = Guid.NewGuid();
+            var scheduledId = Guid.NewGuid();
+            var historicalId = Guid.NewGuid();
+            var legacyJson = $$"""
+                {
+                  "SchemaVersion": 3,
+                  "CurrentDate": "2026-09-16",
+                  "Items": [
+                    {
+                      "Id": "{{activeId}}",
+                      "Text": "Quest aktif v3",
+                      "IsCompleted": false,
+                      "SortOrder": 0,
+                      "CreatedAt": "2026-09-16T08:55:00+07:00"
+                    }
+                  ],
+                  "History": [
+                    {
+                      "Date": "2026-09-15",
+                      "Items": [
+                        {
+                          "Id": "{{historicalId}}",
+                          "Text": "Riwayat v3",
+                          "IsCompleted": true,
+                          "SortOrder": 0,
+                          "CreatedAt": "2026-09-15T08:55:00+07:00"
+                        }
+                      ]
+                    }
+                  ],
+                  "ScheduledQuests": [
+                    {
+                      "Id": "{{scheduledId}}",
+                      "Text": "Quest mendatang v3",
+                      "ScheduledDate": "2026-09-18",
+                      "SortOrder": 0,
+                      "CreatedAt": "2026-09-16T08:56:00+07:00"
+                    }
+                  ],
+                  "Window": { "Left": 120, "Top": 80, "Width": 430, "Height": 650 },
+                  "Settings": { "AlwaysOnTop": false, "LanguageCode": "en-US" }
+                }
+                """;
+            WriteUtf8File(statePath, legacyJson);
+            var durableStore = new JsonStateStore(statePath);
+            var store = new RecordingStateStore(durableStore);
+            var theme = new RecordingThemeService();
+
+            var viewModel = new MainViewModel(store, () => now, null, theme);
+
+            AssertEx.Equal("light", viewModel.ThemeCode);
+            AssertEx.True(viewModel.IsLightTheme);
+            AssertEx.SequenceEqual(["light"], theme.AppliedThemes);
+            AssertEx.SequenceEqual([activeId], viewModel.Items.Select(item => item.Id));
+            AssertEx.SequenceEqual([scheduledId], viewModel.UpcomingQuests.Select(item => item.Id));
+            AssertEx.Equal(1, store.SaveCount);
+
+            var migrated = AssertEx.NotNull(durableStore.Load());
+            AssertEx.Equal(4, migrated.SchemaVersion);
+            AssertEx.Equal("light", migrated.Settings.ThemeCode);
+            AssertEx.Equal("en-US", migrated.Settings.LanguageCode);
+            AssertEx.False(migrated.Settings.AlwaysOnTop, "Migration should preserve the pin preference.");
+            AssertEx.Equal(120d, migrated.Window.Left);
+            AssertEx.Equal(80d, migrated.Window.Top);
+            AssertEx.Equal(430d, migrated.Window.Width);
+            AssertEx.Equal(650d, migrated.Window.Height);
+            AssertEx.SequenceEqual([activeId], migrated.Items.Select(item => item.Id));
+            AssertEx.SequenceEqual([scheduledId], migrated.ScheduledQuests.Select(item => item.Id));
+            AssertEx.SequenceEqual(
+                [historicalId],
+                HistoryFor(migrated, "2026-09-15").Items.Select(item => item.Id));
+            AssertEx.True(
+                File.ReadAllText(statePath).Contains("\"ThemeCode\": \"light\"", StringComparison.Ordinal),
+                "The migrated state should persist the normalized theme explicitly.");
+
+            var reloadStore = new RecordingStateStore(durableStore);
+            var reloadTheme = new RecordingThemeService();
+            var reloaded = new MainViewModel(reloadStore, () => now, null, reloadTheme);
+
+            AssertEx.Equal("light", reloaded.ThemeCode);
+            AssertEx.SequenceEqual(["light"], reloadTheme.AppliedThemes);
+            AssertEx.Equal(0, reloadStore.SaveCount);
+        });
+    }
+
     private static void LegacyV2StateMigratesWithEmptyFutureQueue()
     {
         var now = new DateTimeOffset(2026, 9, 16, 9, 0, 0, TimeSpan.FromHours(7));
@@ -1145,7 +1391,8 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(3, saved.SchemaVersion);
+        AssertEx.Equal(4, saved.SchemaVersion);
+        AssertEx.Equal("light", saved.Settings.ThemeCode);
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));
         AssertEx.SequenceEqual(
@@ -1190,9 +1437,10 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(3, saved.SchemaVersion);
+        AssertEx.Equal(4, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
+        AssertEx.Equal("light", saved.Settings.ThemeCode);
         AssertEx.False(saved.Settings.AlwaysOnTop, "Pin preference should survive migration.");
         AssertEx.Equal(120d, saved.Window.Left);
         AssertEx.Equal(80d, saved.Window.Top);
@@ -1223,7 +1471,7 @@ internal static class Program
         var itemId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 4,
+            SchemaVersion = 5,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1231,7 +1479,8 @@ internal static class Program
             ],
             Settings = new AppSettings
             {
-                LanguageCode = "en-US"
+                LanguageCode = "en-US",
+                ThemeCode = "dark"
             }
         });
 
@@ -1239,18 +1488,19 @@ internal static class Program
             () => _ = new MainViewModel(store, () => now));
 
         AssertEx.True(
-            exception.Message.Contains("schema 4", StringComparison.Ordinal),
+            exception.Message.Contains("schema 5", StringComparison.Ordinal),
             "The error should identify the unsupported future schema.");
         AssertEx.Equal(0, store.SaveCount);
 
         var untouched = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(4, untouched.SchemaVersion);
+        AssertEx.Equal(5, untouched.SchemaVersion);
         AssertEx.Equal(itemId, untouched.Items.Single().Id);
         AssertEx.True(untouched.Items.Single().IsCompleted, "Rejected future state must remain untouched.");
         AssertEx.Equal("en-US", untouched.Settings.LanguageCode);
+        AssertEx.Equal("dark", untouched.Settings.ThemeCode);
     }
 
-    private static void JsonStateStoreRoundTripsHistoryAndLanguage()
+    private static void JsonStateStoreRoundTripsHistoryLanguageAndTheme()
     {
         WithTemporaryDirectory(directory =>
         {
@@ -1261,7 +1511,7 @@ internal static class Program
             var historicalItemId = Guid.NewGuid();
             var expected = new AppState
             {
-                SchemaVersion = 3,
+                SchemaVersion = 4,
                 CurrentDate = "2026-09-16",
                 Items =
                 [
@@ -1297,7 +1547,8 @@ internal static class Program
                 Settings = new AppSettings
                 {
                     AlwaysOnTop = false,
-                    LanguageCode = "en-US"
+                    LanguageCode = "en-US",
+                    ThemeCode = "dark"
                 }
             };
             var store = new JsonStateStore(statePath);
@@ -1330,6 +1581,7 @@ internal static class Program
             AssertEx.Equal(640d, actual.Window.Height);
             AssertEx.False(actual.Settings.AlwaysOnTop, "Settings should round-trip.");
             AssertEx.Equal("en-US", actual.Settings.LanguageCode);
+            AssertEx.Equal("dark", actual.Settings.ThemeCode);
             AssertEx.False(File.Exists(statePath + ".tmp"), "Atomic-save temporary file should be cleaned up.");
         });
     }
@@ -1379,21 +1631,23 @@ internal static class Program
 
             var recovered = new AppState
             {
-                SchemaVersion = 3,
+                SchemaVersion = 4,
                 CurrentDate = "2026-09-16",
                 Items = [],
                 History = [],
                 Settings = new AppSettings
                 {
-                    LanguageCode = "id-ID"
+                    LanguageCode = "id-ID",
+                    ThemeCode = "dark"
                 }
             };
             store.Save(recovered);
 
             var reloaded = AssertEx.NotNull(store.Load());
-            AssertEx.Equal(3, reloaded.SchemaVersion);
+            AssertEx.Equal(4, reloaded.SchemaVersion);
             AssertEx.Equal("2026-09-16", reloaded.CurrentDate);
             AssertEx.Equal("id-ID", reloaded.Settings.LanguageCode);
+            AssertEx.Equal("dark", reloaded.Settings.ThemeCode);
             AssertEx.Equal(0, reloaded.Items.Count);
             AssertEx.Equal(0, reloaded.History.Count);
             AssertEx.Equal(nullJson, File.ReadAllText(backups[0]));
@@ -1639,6 +1893,26 @@ internal sealed class InMemoryStateStore : IStateStore
         return JsonSerializer.Deserialize<AppState>(json, CloneOptions)
             ?? throw new InvalidOperationException("Could not clone state for the in-memory test store.");
     }
+}
+
+internal sealed class RecordingStateStore(IStateStore inner) : IStateStore
+{
+    public int SaveCount { get; private set; }
+
+    public AppState? Load() => inner.Load();
+
+    public void Save(AppState state)
+    {
+        inner.Save(state);
+        SaveCount++;
+    }
+}
+
+internal sealed class RecordingThemeService : IThemeService
+{
+    public List<string> AppliedThemes { get; } = [];
+
+    public void Apply(string themeCode) => AppliedThemes.Add(themeCode);
 }
 
 internal sealed class FakeStorageUsageService(

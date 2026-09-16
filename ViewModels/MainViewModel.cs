@@ -9,18 +9,20 @@ using DailyQuest.Infrastructure;
 using DailyQuest.Localization;
 using DailyQuest.Models;
 using DailyQuest.Services;
+using DailyQuest.Theming;
 
 namespace DailyQuest.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private const int CurrentSchemaVersion = 3;
+    private const int CurrentSchemaVersion = 4;
     private const int MaximumScheduleOffset = 8;
     private static readonly string AppVersion =
         typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     private readonly IStateStore _stateStore;
     private readonly IStorageUsageService _storageUsageService;
+    private readonly IThemeService _themeService;
     private readonly Func<DateTimeOffset> _now;
     private readonly AppState _state;
     private string _newItemText = string.Empty;
@@ -37,10 +39,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public MainViewModel(
         IStateStore? stateStore = null,
         Func<DateTimeOffset>? now = null,
-        IStorageUsageService? storageUsageService = null)
+        IStorageUsageService? storageUsageService = null,
+        IThemeService? themeService = null)
     {
         _stateStore = stateStore ?? new JsonStateStore();
         _storageUsageService = storageUsageService ?? new StorageUsageService();
+        _themeService = themeService ?? NullThemeService.Instance;
         _now = now ?? (() => DateTimeOffset.Now);
 
         var loadedState = _stateStore.Load();
@@ -49,6 +53,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         var needsV1HistoryMigration = _state.SchemaVersion < 2;
         var didNormalize = NormalizeState();
+        _themeService.Apply(_state.Settings.ThemeCode);
         Items = new ObservableCollection<ChecklistItem>(
             _state.Items
                 .OrderBy(item => item.SortOrder)
@@ -78,6 +83,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         TogglePinCommand = new RelayCommand(TogglePin);
         ToggleLanguageCommand = new RelayCommand(ToggleLanguage);
         SetLanguageCommand = new RelayCommand(SetLanguage);
+        SetThemeCommand = new RelayCommand(SetTheme);
         SetScheduleOffsetCommand = new RelayCommand(
             SetScheduleOffset,
             parameter => TryGetScheduleOffset(parameter, out _));
@@ -127,6 +133,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ICommand SetLanguageCommand { get; }
 
+    public ICommand SetThemeCommand { get; }
+
     public ICommand SetScheduleOffsetCommand { get; }
 
     public ICommand ShowTodayCommand { get; }
@@ -150,6 +158,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool IsIndonesian => LanguageCode == UiCopyCatalog.IndonesianCode;
 
     public bool IsEnglish => LanguageCode == UiCopyCatalog.EnglishCode;
+
+    public string ThemeCode => _state.Settings.ThemeCode;
+
+    public bool IsLightTheme => ThemeCode == ThemeCatalog.LightCode;
+
+    public bool IsDarkTheme => ThemeCode == ThemeCatalog.DarkCode;
 
     public bool IsTodayView => !_isHistoryView && !_isUpcomingView && !_isSettingsView;
 
@@ -391,7 +405,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Settings = new AppSettings
         {
             AlwaysOnTop = true,
-            LanguageCode = UiCopyCatalog.IndonesianCode
+            LanguageCode = UiCopyCatalog.IndonesianCode,
+            ThemeCode = ThemeCatalog.LightCode
         }
     };
 
@@ -466,6 +481,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (!string.Equals(_state.Settings.LanguageCode, normalizedLanguage, StringComparison.Ordinal))
         {
             _state.Settings.LanguageCode = normalizedLanguage;
+            needsSave = true;
+        }
+
+        var normalizedTheme = ThemeCatalog.Normalize(_state.Settings.ThemeCode);
+        if (!string.Equals(_state.Settings.ThemeCode, normalizedTheme, StringComparison.Ordinal))
+        {
+            _state.Settings.ThemeCode = normalizedTheme;
             needsSave = true;
         }
 
@@ -793,6 +815,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         NotifyLanguageChanged();
         RefreshHistoryEntries();
+        Save();
+    }
+
+    private void SetTheme(object? parameter)
+    {
+        if (!ThemeCatalog.TryNormalizeSelection(parameter as string, out var themeCode) ||
+            string.Equals(ThemeCode, themeCode, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _themeService.Apply(themeCode);
+        _state.Settings.ThemeCode = themeCode;
+        OnPropertyChanged(nameof(ThemeCode));
+        OnPropertyChanged(nameof(IsLightTheme));
+        OnPropertyChanged(nameof(IsDarkTheme));
         Save();
     }
 
@@ -1173,7 +1211,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Settings = new AppSettings
         {
             AlwaysOnTop = AlwaysOnTop,
-            LanguageCode = LanguageCode
+            LanguageCode = LanguageCode,
+            ThemeCode = ThemeCode
         }
     };
 

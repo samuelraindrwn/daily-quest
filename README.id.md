@@ -36,8 +36,9 @@ Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi
 - Atur urutan quest hari ini dengan menarik handle khusus; urutan tersimpan juga menentukan quest berikutnya di mode ringkas.
 - Ringkas widget di pojok kanan atas agar hanya menampilkan satu quest yang belum selesai.
 - Pilih Bahasa Indonesia atau English melalui Pengaturan.
+- Pilih tema Terang atau Gelap melalui Pengaturan; preferensinya disimpan secara lokal.
 - Sematkan widget di atas jendela lain, minimalkan ke taskbar, pindahkan, atau ubah ukurannya.
-- Buka di pojok kanan atas area kerja utama dengan jarak yang nyaman dari tepi, sekaligus memulihkan ukuran, bahasa, dan preferensi pin.
+- Buka di pojok kanan atas area kerja utama dengan jarak yang nyaman dari tepi, sekaligus memulihkan ukuran, bahasa, tema, dan preferensi pin.
 - Periksa penggunaan penyimpanan lokal, hapus riwayat, buka Q&A, atau laporkan bug melalui Pengaturan.
 - Lihat identitas dan versi aplikasi pada footer tampilan utama.
 - Jalankan hanya satu instance sepenuhnya offline tanpa akun, telemetri, atau koneksi internet.
@@ -67,7 +68,7 @@ Rilis ini portable dan self-contained untuk Windows 10/11 64-bit, jadi tidak ada
 | **Hari ini** | Kembali ke checklist aktif. |
 | **Mendatang** | Tinjau atau batalkan quest yang dijadwalkan untuk tanggal mendatang. |
 | **Riwayat** | Lihat ringkasan progres per hari. Klik kartunya untuk membuka detail. |
-| Tombol Pengaturan | Buka pilihan bahasa, penyimpanan, riwayat, Q&A, dan laporan bug. |
+| Tombol Pengaturan | Buka pilihan tema, bahasa, penyimpanan, riwayat, Q&A, dan laporan bug. |
 | Tombol mode ringkas | Ringkas widget di pojok kanan atas dan tampilkan hanya quest berikutnya yang belum selesai. Selesaikan quest itu untuk lanjut ke quest berikutnya. |
 | Tombol perluas | Kembali dari mode ringkas ke widget penuh. |
 | Tombol pin | Aktifkan atau nonaktifkan mode selalu di atas. |
@@ -88,6 +89,7 @@ Penjadwalan tidak membuat notifikasi Windows, menjalankan layanan di latar belak
 
 ### Pengaturan dan bantuan
 
+- **Tema:** pilih Terang atau Gelap. Perubahan langsung diterapkan dan disimpan secara lokal untuk peluncuran berikutnya.
 - **Bahasa:** pilih Bahasa Indonesia atau English secara langsung. Pilihan disimpan secara lokal.
 - **Penyimpanan:** lihat ukuran executable aplikasi, folder data lokal Daily Quest, dan data riwayat yang diserialisasi. Nilai ini merupakan perkiraan lokal dan dapat dibulatkan pada antarmuka.
 - **Hapus riwayat:** menghapus permanen arsip riwayat tanpa menghapus quest aktif atau terjadwal. Entri riwayat untuk hari ini dapat dibuat kembali setelah checklist berubah lagi.
@@ -115,7 +117,7 @@ Semua data tetap tersimpan di perangkat pada:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-File state berisi teks dan urutan quest aktif maupun terjadwal, tanggal target, riwayat harian, bahasa, preferensi selalu di atas, serta ukuran jendela. Daily Quest tidak membutuhkan akun, tidak memiliki telemetri, dan tidak mengunggah data tersebut ke mana pun. Mode ringkas tidak menggantikan fungsi minimize bawaan dan tidak disimpan sebagai state checklist terpisah.
+File state berisi teks dan urutan quest aktif maupun terjadwal, tanggal target, riwayat harian, tema, bahasa, preferensi selalu di atas, serta ukuran jendela. Daily Quest tidak membutuhkan akun, tidak memiliki telemetri, dan tidak mengunggah data tersebut ke mana pun. Mode ringkas tidak menggantikan fungsi minimize bawaan dan tidak disimpan sebagai state checklist terpisah.
 
 Panel penyimpanan hanya membaca ukuran file dari lokasi aplikasi dan data lokal. **Data tersimpan** mencakup antrean quest mendatang, sedangkan **Riwayat** hanya memperkirakan ukuran catatan riwayat yang diserialisasi. **Hapus riwayat** hanya menghapus catatan riwayat; quest aktif dan terjadwal tetap ada. Riwayat hari ini dapat dibuat kembali setelah checklist diubah berikutnya.
 
@@ -151,7 +153,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-Test harness tanpa dependency eksternal ini mencakup perubahan dan urutan checklist, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, pergantian tanggal, penyimpanan dan penghapusan riwayat, pengaturan bahasa, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
+Test harness tanpa dependency eksternal ini mencakup perubahan dan urutan checklist, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, pergantian tanggal, penyimpanan dan penghapusan riwayat, pengaturan tema dan bahasa, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
 
 ## Buat build portable
 

@@ -59,6 +59,10 @@ public sealed record UiCopy
     public string LanguageSetting { get; init; } = "Bahasa";
     public string IndonesianLanguage { get; init; } = "Bahasa Indonesia";
     public string EnglishLanguage { get; init; } = "English";
+    public string AppearanceSetting { get; init; } = "Tampilan";
+    public string AppearanceHint { get; init; } = "Pilih tema yang paling nyaman dilihat.";
+    public string LightTheme { get; init; } = "Terang";
+    public string DarkTheme { get; init; } = "Gelap";
     public string StorageTitle { get; init; } = "Penyimpanan";
     public string ApplicationStorage { get; init; } = "Aplikasi";
     public string DataStorage { get; init; } = "Data tersimpan";
@@ -142,6 +146,10 @@ public static class UiCopyCatalog
         LanguageSetting = "Language",
         IndonesianLanguage = "Indonesian",
         EnglishLanguage = "English",
+        AppearanceSetting = "Appearance",
+        AppearanceHint = "Choose the theme that feels best to you.",
+        LightTheme = "Light",
+        DarkTheme = "Dark",
         StorageTitle = "Storage",
         ApplicationStorage = "Application",
         DataStorage = "Saved data",

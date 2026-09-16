@@ -1,78 +1,30 @@
 <Application x:Class="DailyQuest.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="Themes/LightTheme.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+
         <FontFamily x:Key="DisplayFont">Segoe UI Variable Display, Segoe UI</FontFamily>
         <FontFamily x:Key="AppFont">Segoe UI Variable Text, Segoe UI</FontFamily>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
-        <SolidColorBrush x:Key="InkBrush" Color="#17212B" />
-        <SolidColorBrush x:Key="MutedInkBrush" Color="#5F6B7A" />
-        <SolidColorBrush x:Key="TertiaryInkBrush" Color="#7D8896" />
-        <SolidColorBrush x:Key="IvoryBrush" Color="#FFFDF5" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#3A715A" />
-        <SolidColorBrush x:Key="AccentDarkBrush" Color="#315F4C" />
-        <SolidColorBrush x:Key="AccentPressedBrush" Color="#284E3F" />
-        <SolidColorBrush x:Key="AccentTintBrush" Color="#263A715A" />
-        <SolidColorBrush x:Key="GlassElevatedBrush" Color="#D9FFFFFF" />
-        <SolidColorBrush x:Key="GlassCardBrush" Color="#B8FFFFFF" />
-        <SolidColorBrush x:Key="GlassSubtleBrush" Color="#78FFFFFF" />
-        <SolidColorBrush x:Key="GlassEdgeBrush" Color="#C7FFFFFF" />
-        <SolidColorBrush x:Key="GlassLowerEdgeBrush" Color="#24364758" />
-        <SolidColorBrush x:Key="SurfaceLightBrush" Color="#D9FFFFFF" />
-        <SolidColorBrush x:Key="SurfaceDeepBrush" Color="#A8FFFFFF" />
-        <SolidColorBrush x:Key="EdgeBrush" Color="#C7FFFFFF" />
-        <SolidColorBrush x:Key="ProgressTrackBrush" Color="#243A715A" />
-        <SolidColorBrush x:Key="PlaceholderBrush" Color="#7D8795" />
-        <SolidColorBrush x:Key="CompletedBrush" Color="#5F6B7A" />
-        <SolidColorBrush x:Key="DangerBrush" Color="#D84646" />
-        <RadialGradientBrush x:Key="AmbientBlueBrush"
-                             Center="0.5,0.5"
-                             GradientOrigin="0.46,0.44">
-            <GradientStop Offset="0" Color="#4C77BFFF" />
-            <GradientStop Offset="0.62" Color="#2477BFFF" />
-            <GradientStop Offset="1" Color="#0077BFFF" />
-        </RadialGradientBrush>
-        <RadialGradientBrush x:Key="AmbientMintBrush"
-                             Center="0.5,0.5"
-                             GradientOrigin="0.44,0.52">
-            <GradientStop Offset="0" Color="#586DCFA9" />
-            <GradientStop Offset="0.64" Color="#286DCFA9" />
-            <GradientStop Offset="1" Color="#006DCFA9" />
-        </RadialGradientBrush>
-        <RadialGradientBrush x:Key="AmbientLilacBrush"
-                             Center="0.5,0.5"
-                             GradientOrigin="0.52,0.48">
-            <GradientStop Offset="0" Color="#42B39DDB" />
-            <GradientStop Offset="0.65" Color="#1FB39DDB" />
-            <GradientStop Offset="1" Color="#00B39DDB" />
-        </RadialGradientBrush>
-
-        <LinearGradientBrush x:Key="SurfaceBrush"
-                             StartPoint="0,0"
-                             EndPoint="1,1">
-            <GradientStop Offset="0" Color="#F7F9FCFF" />
-            <GradientStop Offset="0.52" Color="#EEF3F8FF" />
-            <GradientStop Offset="1" Color="#EEF8F4FF" />
-        </LinearGradientBrush>
-        <LinearGradientBrush x:Key="AccentGradientBrush"
-                             StartPoint="0,0"
-                             EndPoint="1,1">
-            <GradientStop Offset="0" Color="#477D67" />
-            <GradientStop Offset="1" Color="#2F6250" />
-        </LinearGradientBrush>
-        <LinearGradientBrush x:Key="AccentHoverGradientBrush"
-                             StartPoint="0,0"
-                             EndPoint="1,1">
-            <GradientStop Offset="0" Color="#3B6D59" />
-            <GradientStop Offset="1" Color="#285443" />
-        </LinearGradientBrush>
-
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+        </Style>
+
+        <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="Background" Value="{DynamicResource GlassElevatedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassEdgeBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+            <Setter Property="FontSize" Value="11" />
         </Style>
 
         <Style x:Key="IconButtonStyle" TargetType="Button">
@@ -81,7 +33,7 @@
             <Setter Property="Margin" Value="1,0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource MutedInkBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedInkBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
             <Setter Property="FontSize" Value="17" />
@@ -95,7 +47,7 @@
                                 CornerRadius="11">
                             <Grid>
                                 <Border x:Name="InteractionShade"
-                                        Background="#140F172A"
+                                        Background="{DynamicResource InteractionHoverBrush}"
                                         CornerRadius="11"
                                         IsHitTestVisible="False"
                                         Opacity="0" />
@@ -103,7 +55,7 @@
                                                   VerticalAlignment="Center"
                                                   TextElement.Foreground="{TemplateBinding Foreground}" />
                                 <Border x:Name="FocusRing"
-                                        BorderBrush="{StaticResource AccentBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}"
                                         BorderThickness="2"
                                         CornerRadius="11"
                                         IsHitTestVisible="False"
@@ -115,7 +67,7 @@
                                 <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="InteractionShade" Property="Background" Value="#240F172A" />
+                                <Setter TargetName="InteractionShade" Property="Background" Value="{DynamicResource InteractionPressedBrush}" />
                                 <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
@@ -132,9 +84,9 @@
 
         <Style x:Key="SoftButtonStyle" TargetType="Button">
             <Setter Property="Padding" Value="13,7" />
-            <Setter Property="Background" Value="{StaticResource GlassSubtleBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource GlassEdgeBrush}" />
+            <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassEdgeBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
             <Setter Property="FontSize" Value="12" />
@@ -151,16 +103,16 @@
                                 CornerRadius="12">
                             <Grid>
                                 <Border x:Name="InteractionShade"
-                                        Background="#140F172A"
+                                        Background="{DynamicResource InteractionHoverBrush}"
                                         CornerRadius="11"
                                         IsHitTestVisible="False"
                                         Opacity="0" />
-                                <ContentPresenter HorizontalAlignment="Center"
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                   VerticalAlignment="Center"
                                                   Margin="{TemplateBinding Padding}"
                                                   TextElement.Foreground="{TemplateBinding Foreground}" />
                                 <Border x:Name="FocusRing"
-                                        BorderBrush="{StaticResource AccentBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}"
                                         BorderThickness="2"
                                         CornerRadius="12"
                                         IsHitTestVisible="False"
@@ -172,7 +124,7 @@
                                 <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="InteractionShade" Property="Background" Value="#240F172A" />
+                                <Setter TargetName="InteractionShade" Property="Background" Value="{DynamicResource InteractionPressedBrush}" />
                                 <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
@@ -192,7 +144,7 @@
             <Setter Property="Height" Value="34" />
             <Setter Property="Padding" Value="14,5" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource MutedInkBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedInkBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
             <Setter Property="FontSize" Value="13" />
@@ -207,7 +159,7 @@
                                 CornerRadius="15">
                             <Grid>
                                 <Border x:Name="InteractionShade"
-                                        Background="#120F172A"
+                                        Background="{DynamicResource InteractionSubtleBrush}"
                                         CornerRadius="15"
                                         IsHitTestVisible="False"
                                         Opacity="0" />
@@ -222,7 +174,7 @@
                                 <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="InteractionShade" Property="Background" Value="#260F172A" />
+                                <Setter TargetName="InteractionShade" Property="Background" Value="{DynamicResource InteractionStrongBrush}" />
                                 <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
@@ -242,8 +194,8 @@
             <Setter Property="FontSize" Value="18" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
-                    <Setter Property="Background" Value="#18FF3B30" />
+                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource DangerTintBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -289,19 +241,19 @@
                                                             Width="4"
                                                             Margin="0,2"
                                                             HorizontalAlignment="Center"
-                                                            Background="#66758291"
+                                                            Background="{DynamicResource ScrollThumbBrush}"
                                                             CornerRadius="2" />
                                                 </Grid>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="ThumbSurface"
                                                                 Property="Background"
-                                                                Value="{StaticResource AccentBrush}" />
+                                                                Value="{DynamicResource AccentBrush}" />
                                                     </Trigger>
                                                     <Trigger Property="IsDragging" Value="True">
                                                         <Setter TargetName="ThumbSurface"
                                                                 Property="Background"
-                                                                Value="{StaticResource AccentPressedBrush}" />
+                                                                Value="{DynamicResource AccentPressedBrush}" />
                                                     </Trigger>
                                                     <Trigger Property="IsEnabled" Value="False">
                                                         <Setter TargetName="ThumbSurface" Property="Opacity" Value="0.35" />
@@ -333,8 +285,8 @@
         <Style x:Key="HistoryExpanderStyle" TargetType="{x:Type Expander}">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Focusable" Value="False" />
-            <Setter Property="Background" Value="{StaticResource GlassCardBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource GlassEdgeBrush}" />
+            <Setter Property="Background" Value="{DynamicResource GlassCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassEdgeBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
@@ -367,7 +319,7 @@
                                                     CornerRadius="18">
                                                 <Grid>
                                                     <Border x:Name="InteractionShade"
-                                                            Background="#120F172A"
+                                                            Background="{DynamicResource InteractionSubtleBrush}"
                                                             CornerRadius="18"
                                                             IsHitTestVisible="False"
                                                             Opacity="0" />
@@ -383,7 +335,7 @@
                                                     <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                                                 </Trigger>
                                                 <Trigger Property="IsPressed" Value="True">
-                                                    <Setter TargetName="InteractionShade" Property="Background" Value="#240F172A" />
+                                                    <Setter TargetName="InteractionShade" Property="Background" Value="{DynamicResource InteractionPressedBrush}" />
                                                     <Setter TargetName="InteractionShade" Property="Opacity" Value="1" />
                                                 </Trigger>
                                                 <Trigger Property="IsKeyboardFocused" Value="True">
@@ -397,7 +349,7 @@
                                         Grid.Row="1"
                                         Margin="16,0,16,14"
                                         Padding="0,13,0,0"
-                                        BorderBrush="#28364758"
+                                        BorderBrush="{DynamicResource HistoryDividerBrush}"
                                         BorderThickness="0,1,0,0"
                                         Visibility="Collapsed">
                                     <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -409,7 +361,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
                                 <Setter TargetName="DetailHost" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="CardSurface" Property="Background" Value="#D2FFFFFF" />
+                                <Setter TargetName="CardSurface" Property="Background" Value="{DynamicResource CardHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.52" />
@@ -422,8 +374,8 @@
 
         <Style x:Key="GlassProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="6" />
-            <Setter Property="Background" Value="{StaticResource ProgressTrackBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource AccentGradientBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ProgressTrackBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentGradientBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -456,8 +408,8 @@
                                     Height="24"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Background="{StaticResource GlassElevatedBrush}"
-                                    BorderBrush="#8094A3B8"
+                                    Background="{DynamicResource GlassElevatedBrush}"
+                                    BorderBrush="{DynamicResource CheckBoxBorderBrush}"
                                     BorderThickness="1.4"
                                     CornerRadius="8" />
                             <Path x:Name="CheckMark"
@@ -466,7 +418,7 @@
                                   HorizontalAlignment="Center"
                                   VerticalAlignment="Center"
                                   Data="M 1,6 L 5,10 L 13,1"
-                                  Stroke="{StaticResource IvoryBrush}"
+                                  Stroke="{DynamicResource IvoryBrush}"
                                   StrokeThickness="2.2"
                                   StrokeStartLineCap="Round"
                                   StrokeEndLineCap="Round"
@@ -478,7 +430,7 @@
                                     Height="30"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    BorderBrush="{StaticResource AccentBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
                                     BorderThickness="2"
                                     CornerRadius="10"
                                     IsHitTestVisible="False"
@@ -486,16 +438,16 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                                <Setter TargetName="Box" Property="Background" Value="#F0FFFFFF" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource CheckBoxHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Box" Property="Background" Value="#D8FFFFFF" />
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentDarkBrush}" />
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource CheckBoxPressedBrush}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentDarkBrush}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentGradientBrush}" />
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                 <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
@@ -509,13 +461,14 @@
                                     <Condition Property="IsChecked" Value="True" />
                                     <Condition Property="IsPressed" Value="True" />
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentPressedBrush}" />
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentPressedBrush}" />
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentPressedBrush}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentPressedBrush}" />
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>
