@@ -221,13 +221,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return true;
     }
 
-    public void SaveWindowState(double left, double top, double width, double height)
+    public void SaveWindowSize(double width, double height)
     {
-        if (double.IsFinite(left) && double.IsFinite(top))
-        {
-            _state.Window.Left = left;
-            _state.Window.Top = top;
-        }
+        _state.Window.Left = null;
+        _state.Window.Top = null;
 
         if (double.IsFinite(width) && width > 0)
         {

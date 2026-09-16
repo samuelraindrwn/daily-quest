@@ -8,6 +8,8 @@ namespace DailyQuest;
 
 public partial class MainWindow : Window
 {
+    private const double ScreenEdgeGap = 24;
+
     private readonly MainViewModel _viewModel;
     private readonly DispatcherTimer _dayChangeTimer;
 
@@ -29,40 +31,22 @@ public partial class MainWindow : Window
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         var saved = _viewModel.SavedWindow;
-        Width = Math.Clamp(saved.Width, MinWidth, MaxWidth);
-        Height = Math.Clamp(saved.Height, MinHeight, MaxHeight);
+        var workArea = SystemParameters.WorkArea;
+        var startupMaxWidth = Math.Max(
+            MinWidth,
+            Math.Min(MaxWidth, workArea.Width - (ScreenEdgeGap * 2)));
+        var startupMaxHeight = Math.Max(
+            MinHeight,
+            Math.Min(MaxHeight, workArea.Height - (ScreenEdgeGap * 2)));
 
-        if (saved.Left.HasValue &&
-            saved.Top.HasValue &&
-            IsPositionVisible(saved.Left.Value, saved.Top.Value, Width, Height))
-        {
-            Left = saved.Left.Value;
-            Top = saved.Top.Value;
-        }
-        else
-        {
-            var workArea = SystemParameters.WorkArea;
-            Left = Math.Max(workArea.Left + 16, workArea.Right - Width - 24);
-            Top = workArea.Top + 24;
-        }
+        Width = Math.Clamp(saved.Width, MinWidth, startupMaxWidth);
+        Height = Math.Clamp(saved.Height, MinHeight, startupMaxHeight);
+        Left = Math.Max(
+            workArea.Left + ScreenEdgeGap,
+            workArea.Right - Width - ScreenEdgeGap);
+        Top = workArea.Top + ScreenEdgeGap;
 
         NewItemTextBox.Focus();
-    }
-
-    private static bool IsPositionVisible(double left, double top, double width, double height)
-    {
-        const double minimumVisibleSize = 80;
-
-        var right = left + width;
-        var bottom = top + height;
-        var virtualLeft = SystemParameters.VirtualScreenLeft;
-        var virtualTop = SystemParameters.VirtualScreenTop;
-        var virtualRight = virtualLeft + SystemParameters.VirtualScreenWidth;
-        var virtualBottom = virtualTop + SystemParameters.VirtualScreenHeight;
-
-        var visibleWidth = Math.Min(right, virtualRight) - Math.Max(left, virtualLeft);
-        var visibleHeight = Math.Min(bottom, virtualBottom) - Math.Max(top, virtualTop);
-        return visibleWidth >= minimumVisibleSize && visibleHeight >= minimumVisibleSize;
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -103,6 +87,6 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _dayChangeTimer.Stop();
-        _viewModel.SaveWindowState(Left, Top, ActualWidth, ActualHeight);
+        _viewModel.SaveWindowSize(ActualWidth, ActualHeight);
     }
 }

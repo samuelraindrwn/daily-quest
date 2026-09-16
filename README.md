@@ -34,7 +34,7 @@ Daily Quest keeps today's priorities visible without turning them into a complic
 - Preserve completed entries in history after clearing them from today's active list.
 - Switch the interface between English and Indonesian.
 - Pin the widget above other windows, minimize it, or move and resize it freely.
-- Restore the saved window position, size, language, and pin preference automatically.
+- Open at the top-right of the primary work area with a comfortable edge gap, while restoring the saved size, language, and pin preference.
 - Run a single instance entirely offline, with no account, telemetry, or network connection required.
 
 ## Download and install
@@ -84,7 +84,7 @@ All data stays on the device in:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-The state file contains activity text, daily history, language, always-on-top preference, and window placement. Daily Quest does not require an account and does not upload this data anywhere.
+The state file contains activity text, daily history, language, always-on-top preference, and window size. Daily Quest does not require an account and does not upload this data anywhere.
 
 For a manual backup, close the app and copy the `%LOCALAPPDATA%\DailyQuest` folder. To start over without immediately deleting data, close the app and rename that folder; a clean one will be created on the next launch.
 

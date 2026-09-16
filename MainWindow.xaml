@@ -13,6 +13,7 @@
         AllowsTransparency="True"
         Background="Transparent"
         ResizeMode="CanResize"
+        WindowStartupLocation="Manual"
         ShowInTaskbar="True"
         Topmost="{Binding AlwaysOnTop, Mode=OneWay}"
         UseLayoutRounding="True"
@@ -71,6 +72,7 @@
 
                     <Grid Grid.Row="0"
                           Margin="22,19,14,8"
+                          Background="Transparent"
                           MouseLeftButtonDown="Header_MouseLeftButtonDown">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />

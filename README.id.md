@@ -34,7 +34,7 @@ Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi
 - Pertahankan aktivitas selesai di riwayat setelah dibersihkan dari daftar aktif hari ini.
 - Ganti tampilan antara Bahasa Indonesia dan English.
 - Sematkan widget di atas jendela lain, minimalkan, pindahkan, atau ubah ukurannya.
-- Pulihkan posisi, ukuran, bahasa, dan preferensi pin secara otomatis.
+- Buka di pojok kanan atas area kerja utama dengan jarak yang nyaman dari tepi, sekaligus memulihkan ukuran, bahasa, dan preferensi pin.
 - Jalankan hanya satu instance sepenuhnya offline tanpa akun, telemetri, atau koneksi internet.
 
 ## Unduh dan pasang
@@ -84,7 +84,7 @@ Semua data tetap tersimpan di perangkat pada:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-File state berisi teks aktivitas, riwayat harian, bahasa, preferensi selalu di atas, serta posisi jendela. Daily Quest tidak membutuhkan akun dan tidak mengunggah data tersebut ke mana pun.
+File state berisi teks aktivitas, riwayat harian, bahasa, preferensi selalu di atas, serta ukuran jendela. Daily Quest tidak membutuhkan akun dan tidak mengunggah data tersebut ke mana pun.
 
 Untuk membuat backup manual, tutup aplikasi lalu salin folder `%LOCALAPPDATA%\DailyQuest`. Jika ingin memulai dari awal tanpa langsung menghapus data, tutup aplikasi lalu ubah nama folder tersebut; folder bersih akan dibuat saat aplikasi dibuka kembali.
 

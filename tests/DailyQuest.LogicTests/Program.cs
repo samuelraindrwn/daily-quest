@@ -11,6 +11,7 @@ internal static class Program
     private static readonly (string Name, Action Test)[] Tests =
     [
         ("first run starts empty and persists defaults", FirstRunStartsEmptyAndPersistsDefaults),
+        ("saving window size clears stored position", SavingWindowSizeClearsStoredPosition),
         ("language toggle updates copy and persists", LanguageToggleUpdatesCopyAndPersists),
         ("unknown language falls back to Indonesian", UnknownLanguageFallsBackToIndonesian),
         ("language normalization preserves history-only completed items", LanguageNormalizationPreservesHistoryOnlyCompletedItems),
@@ -89,6 +90,32 @@ internal static class Program
         AssertEx.Equal(0, reloaded.Items.Count);
         AssertEx.Equal(0, reloaded.HistoryEntries.Count);
         AssertEx.Equal(0, reloadStore.SaveCount);
+    }
+
+    private static void SavingWindowSizeClearsStoredPosition()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Window = new WidgetWindowState
+            {
+                Left = 120,
+                Top = 80,
+                Width = 390,
+                Height = 610
+            }
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        viewModel.SaveWindowSize(430, 650);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.False(saved.Window.Left.HasValue, "Saved horizontal position should be cleared.");
+        AssertEx.False(saved.Window.Top.HasValue, "Saved vertical position should be cleared.");
+        AssertEx.Equal(430d, saved.Window.Width);
+        AssertEx.Equal(650d, saved.Window.Height);
+        AssertEx.Equal(1, store.SaveCount);
     }
 
     private static void LanguageToggleUpdatesCopyAndPersists()
