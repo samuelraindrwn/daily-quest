@@ -13,10 +13,26 @@ internal static class Program
         ("first run starts empty and persists defaults", FirstRunStartsEmptyAndPersistsDefaults),
         ("saving window size clears stored position", SavingWindowSizeClearsStoredPosition),
         ("language toggle updates copy and persists", LanguageToggleUpdatesCopyAndPersists),
+        ("explicit language selection validates aliases and no-ops", ExplicitLanguageSelectionValidatesAliasesAndNoOps),
+        ("today, upcoming, history, and settings navigation is mutually exclusive", ViewNavigationIsMutuallyExclusive),
         ("unknown language falls back to Indonesian", UnknownLanguageFallsBackToIndonesian),
         ("language normalization preserves history-only completed items", LanguageNormalizationPreservesHistoryOnlyCompletedItems),
         ("current-day history tracks add, toggle, remove, and clear", CurrentDayHistoryTracksChecklistMutations),
+        ("composer schedules only today through H plus eight", ComposerSchedulesOnlyTodayThroughEightDays),
+        ("scheduled quests stay outside today's checklist until due", ScheduledQuestsStayOutsideTodayUntilDue),
+        ("upcoming quests can be canceled without changing today", UpcomingQuestsCanBeCanceledWithoutChangingToday),
+        ("next pending item follows quest order and completion", NextPendingItemFollowsQuestOrderAndCompletion),
+        ("quest reorder persists to active state and current history", QuestReorderPersistsToActiveStateAndCurrentHistory),
+        ("quest reorder retains completed history-only items", QuestReorderRetainsCompletedHistoryOnlyItems),
+        ("quest reorder rejects foreign and unchanged moves", QuestReorderRejectsForeignAndUnchangedMoves),
+        ("persisted sort order is normalized stably", PersistedSortOrderIsNormalizedStably),
+        ("clear history preserves active quests", ClearHistoryPreservesActiveQuests),
+        ("settings refreshes injected storage usage", SettingsRefreshesInjectedStorageUsage),
+        ("storage usage failures degrade gracefully", StorageUsageFailuresDegradeGracefully),
         ("daily rollover archives once without duplicates", DailyRolloverArchivesOnceWithoutDuplicates),
+        ("daily rollover activates due quests after archiving", DailyRolloverActivatesDueQuestsAfterArchiving),
+        ("overdue quests activate once on the next launch", OverdueQuestsActivateOnceOnNextLaunch),
+        ("legacy v2 state migrates with an empty future queue", LegacyV2StateMigratesWithEmptyFutureQueue),
         ("legacy v1 state migrates without history loss", LegacyV1StateMigratesWithoutHistoryLoss),
         ("future schema is rejected without saving", FutureSchemaIsRejectedWithoutSaving),
         ("JSON state store round-trips history and language", JsonStateStoreRoundTripsHistoryAndLanguage),
@@ -76,9 +92,10 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(2, saved.SchemaVersion);
+        AssertEx.Equal(3, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal(0, saved.Items.Count);
+        AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.Equal(0, saved.History.Count);
         AssertEx.True(saved.Settings.AlwaysOnTop, "Always-on-top should default to enabled.");
         AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
@@ -194,6 +211,94 @@ internal static class Program
         AssertEx.Equal("id-ID", AssertEx.NotNull(reloadStore.Snapshot).Settings.LanguageCode);
     }
 
+    private static void ExplicitLanguageSelectionValidatesAliasesAndNoOps()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings
+            {
+                LanguageCode = "id-ID"
+            }
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var changedProperties = new HashSet<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) => changedProperties.Add(eventArgs.PropertyName);
+
+        viewModel.SetLanguageCommand.Execute(" EN ");
+
+        AssertEx.Equal("en-US", viewModel.LanguageCode);
+        AssertEx.True(viewModel.IsEnglish, "The English selection should become active.");
+        AssertEx.False(viewModel.IsIndonesian, "The Indonesian selection should become inactive.");
+        AssertEx.True(
+            changedProperties.Contains(nameof(MainViewModel.FooterText)),
+            "Localized footer copy should be refreshed with the language.");
+        AssertEx.Equal(1, store.SaveCount);
+
+        viewModel.SetLanguageCommand.Execute("en-US");
+        viewModel.SetLanguageCommand.Execute("ja-JP");
+        viewModel.SetLanguageCommand.Execute(null);
+
+        AssertEx.Equal("en-US", viewModel.LanguageCode);
+        AssertEx.Equal(1, store.SaveCount);
+
+        viewModel.SetLanguageCommand.Execute("id");
+
+        AssertEx.Equal("id-ID", viewModel.LanguageCode);
+        AssertEx.True(viewModel.IsIndonesian, "The Indonesian alias should be accepted.");
+        AssertEx.False(viewModel.IsEnglish, "The English selection should become inactive.");
+        AssertEx.Equal(2, store.SaveCount);
+        AssertEx.Equal("id-ID", AssertEx.NotNull(store.Snapshot).Settings.LanguageCode);
+    }
+
+    private static void ViewNavigationIsMutuallyExclusive()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16"
+        });
+        var storage = new FakeStorageUsageService(
+            _ => new StorageUsageSnapshot(0, 0, 0));
+        var viewModel = new MainViewModel(store, () => now, storage);
+
+        AssertEx.True(viewModel.IsTodayView, "Today should be the initial view.");
+        AssertEx.False(viewModel.IsHistoryView);
+        AssertEx.False(viewModel.IsUpcomingView);
+        AssertEx.False(viewModel.IsSettingsView);
+
+        viewModel.ShowSettingsCommand.Execute(null);
+
+        AssertEx.False(viewModel.IsTodayView);
+        AssertEx.False(viewModel.IsHistoryView);
+        AssertEx.False(viewModel.IsUpcomingView);
+        AssertEx.True(viewModel.IsSettingsView, "Settings should be the only active view.");
+        AssertEx.Equal(1, storage.MeasureCount);
+
+        viewModel.ShowUpcomingCommand.Execute(null);
+
+        AssertEx.False(viewModel.IsTodayView);
+        AssertEx.False(viewModel.IsHistoryView);
+        AssertEx.True(viewModel.IsUpcomingView, "Upcoming should be the only active view.");
+        AssertEx.False(viewModel.IsSettingsView);
+
+        viewModel.ShowHistoryCommand.Execute(null);
+
+        AssertEx.False(viewModel.IsTodayView);
+        AssertEx.True(viewModel.IsHistoryView, "History should be the only active view.");
+        AssertEx.False(viewModel.IsUpcomingView);
+        AssertEx.False(viewModel.IsSettingsView);
+
+        viewModel.ShowTodayCommand.Execute(null);
+
+        AssertEx.True(viewModel.IsTodayView, "Today should be restored as the only active view.");
+        AssertEx.False(viewModel.IsHistoryView);
+        AssertEx.False(viewModel.IsUpcomingView);
+        AssertEx.False(viewModel.IsSettingsView);
+        AssertEx.Equal(0, store.SaveCount);
+    }
+
     private static void UnknownLanguageFallsBackToIndonesian()
     {
         var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
@@ -222,7 +327,7 @@ internal static class Program
         var orphanCreatedAt = now.AddMinutes(-20);
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 2,
+            SchemaVersion = 3,
             CurrentDate = "2026-09-16",
             Items = [],
             History =
@@ -327,6 +432,525 @@ internal static class Program
         AssertEx.Equal(10, store.SaveCount);
     }
 
+    private static void ComposerSchedulesOnlyTodayThroughEightDays()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 23, 45, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 3,
+            CurrentDate = "2026-09-16"
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.Equal(9, viewModel.ScheduleOptions.Count);
+        AssertEx.Equal(0, viewModel.SelectedScheduleOffset);
+        AssertEx.True(
+            !string.IsNullOrWhiteSpace(viewModel.SelectedScheduleLabel),
+            "The composer should expose a localized label for its selected date.");
+
+        viewModel.SetScheduleOffsetCommand.Execute(-1);
+        AssertEx.Equal(0, viewModel.SelectedScheduleOffset);
+        viewModel.SetScheduleOffsetCommand.Execute(9);
+        AssertEx.Equal(0, viewModel.SelectedScheduleOffset);
+        AssertEx.Equal(0, store.SaveCount);
+
+        viewModel.SetScheduleOffsetCommand.Execute(1);
+        viewModel.NewItemText = "Quest besok";
+        viewModel.AddItemCommand.Execute(null);
+
+        AssertEx.Equal(0, viewModel.SelectedScheduleOffset);
+        AssertEx.Equal(0, viewModel.Items.Count);
+        AssertEx.Equal(1, viewModel.UpcomingQuests.Count);
+
+        viewModel.SetScheduleOffsetCommand.Execute(8);
+        viewModel.NewItemText = "Quest H+8";
+        viewModel.AddItemCommand.Execute(null);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(2, store.SaveCount);
+        AssertEx.Equal(0, saved.Items.Count);
+        AssertEx.Equal(0, saved.History.Count);
+        AssertEx.SequenceEqual(
+            ["2026-09-17", "2026-09-24"],
+            saved.ScheduledQuests.Select(item => item.ScheduledDate));
+        AssertEx.SequenceEqual(
+            ["Quest besok", "Quest H+8"],
+            saved.ScheduledQuests.Select(item => item.Text));
+        AssertEx.SequenceEqual([0, 1], saved.ScheduledQuests.Select(item => item.SortOrder));
+        AssertEx.Equal(2, viewModel.UpcomingQuests.Count);
+        AssertEx.Equal(0, viewModel.SelectedScheduleOffset);
+    }
+
+    private static void ScheduledQuestsStayOutsideTodayUntilDue()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var activeId = Guid.NewGuid();
+        var activeState = CreateItemState(activeId, "Quest hari ini", false, 0, now.AddMinutes(-1));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 3,
+            CurrentDate = "2026-09-16",
+            Items = [activeState],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-16",
+                    Items = [activeState]
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        viewModel.SetScheduleOffsetCommand.Execute(1);
+        viewModel.NewItemText = "Quest untuk besok";
+        viewModel.AddItemCommand.Execute(null);
+
+        AssertEx.SequenceEqual([activeId], viewModel.Items.Select(item => item.Id));
+        AssertEx.Equal(1, viewModel.TotalCount);
+        AssertEx.Equal(activeId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
+        AssertEx.Equal(1, viewModel.UpcomingQuests.Count);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [activeId],
+            HistoryFor(saved, "2026-09-16").Items.Select(item => item.Id));
+        AssertEx.Equal("2026-09-17", saved.ScheduledQuests.Single().ScheduledDate);
+        AssertEx.Equal(1, store.SaveCount);
+    }
+
+    private static void UpcomingQuestsCanBeCanceledWithoutChangingToday()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var activeId = Guid.NewGuid();
+        var scheduledId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 3,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(activeId, "Quest aktif", false, 0, now.AddMinutes(-2))
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    scheduledId,
+                    "Quest yang dibatalkan",
+                    "2026-09-18",
+                    0,
+                    now.AddMinutes(-1))
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        viewModel.ShowUpcomingCommand.Execute(null);
+        AssertEx.True(viewModel.IsUpcomingView, "The upcoming page should open before cancellation.");
+        AssertEx.False(viewModel.IsTodayView);
+        AssertEx.False(viewModel.IsHistoryView);
+        AssertEx.False(viewModel.IsSettingsView);
+
+        var upcoming = viewModel.UpcomingQuests.Single();
+        AssertEx.True(
+            viewModel.RemoveScheduledQuestCommand.CanExecute(upcoming),
+            "A queued quest should be cancellable.");
+        viewModel.RemoveScheduledQuestCommand.Execute(upcoming);
+
+        AssertEx.Equal(0, viewModel.UpcomingQuests.Count);
+        AssertEx.SequenceEqual([activeId], viewModel.Items.Select(item => item.Id));
+        AssertEx.Equal(1, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(0, saved.ScheduledQuests.Count);
+        AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));
+        AssertEx.Equal(0, saved.History.Count);
+    }
+
+    private static void NextPendingItemFollowsQuestOrderAndCompletion()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var thirdId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(firstId, "Sudah selesai", true, 0, now.AddMinutes(-3)),
+                CreateItemState(secondId, "Quest berikutnya", false, 1, now.AddMinutes(-2)),
+                CreateItemState(thirdId, "Quest terakhir", false, 2, now.AddMinutes(-1))
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var changedProperties = new HashSet<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) => changedProperties.Add(eventArgs.PropertyName);
+
+        AssertEx.Equal(secondId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
+        AssertEx.True(viewModel.HasPendingItem);
+
+        var third = viewModel.Items.Single(item => item.Id == thirdId);
+        AssertEx.True(viewModel.MoveItem(third, 0), "Moving the last pending quest to the front should succeed.");
+        AssertEx.Equal(thirdId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
+        AssertEx.True(
+            changedProperties.Contains(nameof(MainViewModel.NextPendingItem)),
+            "Reordering should notify the compact quest binding.");
+
+        third.IsCompleted = true;
+        AssertEx.Equal(secondId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
+
+        var second = viewModel.Items.Single(item => item.Id == secondId);
+        second.IsCompleted = true;
+        AssertEx.Null(viewModel.NextPendingItem);
+        AssertEx.False(viewModel.HasPendingItem, "No pending quest should remain after every quest is complete.");
+
+        var first = viewModel.Items.Single(item => item.Id == firstId);
+        first.IsCompleted = false;
+        AssertEx.Equal(firstId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
+        AssertEx.True(viewModel.HasPendingItem);
+    }
+
+    private static void QuestReorderPersistsToActiveStateAndCurrentHistory()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var thirdId = Guid.NewGuid();
+        var first = CreateItemState(firstId, "Pertama", false, 0, now.AddMinutes(-3));
+        var second = CreateItemState(secondId, "Kedua", false, 1, now.AddMinutes(-2));
+        var third = CreateItemState(thirdId, "Ketiga", false, 2, now.AddMinutes(-1));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Items = [first, second, third],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-16",
+                    Items = [first, second, third]
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.True(viewModel.MoveItem(viewModel.Items[2], 0));
+
+        AssertEx.SequenceEqual(
+            [thirdId, firstId, secondId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.Equal(1, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.SequenceEqual(
+            [thirdId, firstId, secondId],
+            saved.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([0, 1, 2], saved.Items.Select(item => item.SortOrder));
+
+        var currentHistory = HistoryFor(saved, "2026-09-16");
+        AssertEx.SequenceEqual(
+            [thirdId, firstId, secondId],
+            currentHistory.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([0, 1, 2], currentHistory.Items.Select(item => item.SortOrder));
+        AssertEx.SequenceEqual(
+            ["Ketiga", "Pertama", "Kedua"],
+            viewModel.HistoryEntries.Single().Items.Select(item => item.Text));
+
+        var reloadStore = new InMemoryStateStore(saved);
+        var reloaded = new MainViewModel(reloadStore, () => now);
+
+        AssertEx.SequenceEqual(
+            [thirdId, firstId, secondId],
+            reloaded.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            ["Ketiga", "Pertama", "Kedua"],
+            reloaded.HistoryEntries.Single().Items.Select(item => item.Text));
+        AssertEx.Equal(0, reloadStore.SaveCount);
+    }
+
+    private static void QuestReorderRetainsCompletedHistoryOnlyItems()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var completedOrphanId = Guid.NewGuid();
+        var pendingOrphanId = Guid.NewGuid();
+        var first = CreateItemState(firstId, "Aktif pertama", false, 0, now.AddMinutes(-4));
+        var completedOrphan = CreateItemState(
+            completedOrphanId,
+            "Selesai lalu dihapus",
+            true,
+            1,
+            now.AddMinutes(-3));
+        var pendingOrphan = CreateItemState(
+            pendingOrphanId,
+            "Belum selesai lalu dihapus",
+            false,
+            2,
+            now.AddMinutes(-2));
+        var second = CreateItemState(secondId, "Aktif kedua", false, 3, now.AddMinutes(-1));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Items = [first, second],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-16",
+                    Items = [first, completedOrphan, pendingOrphan, second]
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.True(viewModel.MoveItem(viewModel.Items[1], 0));
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        var historyItems = HistoryFor(saved, "2026-09-16").Items;
+        AssertEx.SequenceEqual(
+            [secondId, completedOrphanId, firstId],
+            historyItems.Select(item => item.Id));
+        AssertEx.SequenceEqual([0, 1, 2], historyItems.Select(item => item.SortOrder));
+        AssertEx.True(
+            historyItems.Single(item => item.Id == completedOrphanId).IsCompleted,
+            "A completed quest removed from the active list must remain in history.");
+        AssertEx.False(
+            historyItems.Any(item => item.Id == pendingOrphanId),
+            "An unfinished quest removed from the active list should not remain in history.");
+        AssertEx.SequenceEqual(
+            [secondId, firstId],
+            historyItems
+                .Where(item => item.Id == firstId || item.Id == secondId)
+                .Select(item => item.Id));
+    }
+
+    private static void QuestReorderRejectsForeignAndUnchangedMoves()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(firstId, "Pertama", false, 0, now.AddMinutes(-2)),
+                CreateItemState(secondId, "Kedua", false, 1, now.AddMinutes(-1))
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var foreignItem = new ChecklistItem(
+            Guid.NewGuid(),
+            "Bukan milik koleksi",
+            false,
+            now);
+
+        AssertEx.False(viewModel.MoveItem(foreignItem, 0), "A foreign item should be rejected.");
+        AssertEx.False(viewModel.MoveItem(viewModel.Items[0], 0), "Moving to the same index should be a no-op.");
+        AssertEx.False(
+            viewModel.MoveItem(viewModel.Items[1], int.MaxValue),
+            "A clamped destination equal to the source should be a no-op.");
+        AssertEx.SequenceEqual(
+            [firstId, secondId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.Equal(0, store.SaveCount);
+    }
+
+    private static void PersistedSortOrderIsNormalizedStably()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var thirdId = Guid.NewGuid();
+        var historyFirstId = Guid.NewGuid();
+        var historySecondId = Guid.NewGuid();
+        var historyThirdId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(firstId, "Urutan sepuluh A", false, 10, now.AddMinutes(-3)),
+                CreateItemState(secondId, "Urutan minus satu", false, -1, now.AddMinutes(-2)),
+                CreateItemState(thirdId, "Urutan sepuluh B", false, 10, now.AddMinutes(-1))
+            ],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-15",
+                    Items =
+                    [
+                        CreateItemState(historyFirstId, "Riwayat lima A", true, 5, now.AddDays(-1)),
+                        CreateItemState(historySecondId, "Riwayat nol", false, 0, now.AddDays(-1)),
+                        CreateItemState(historyThirdId, "Riwayat lima B", true, 5, now.AddDays(-1))
+                    ]
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.SequenceEqual(
+            [secondId, firstId, thirdId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            ["Riwayat nol", "Riwayat lima A", "Riwayat lima B"],
+            viewModel.HistoryEntries.Single().Items.Select(item => item.Text));
+
+        viewModel.Save();
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.SequenceEqual(
+            [secondId, firstId, thirdId],
+            saved.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([0, 1, 2], saved.Items.Select(item => item.SortOrder));
+        var savedHistory = HistoryFor(saved, "2026-09-15").Items;
+        AssertEx.SequenceEqual(
+            [historySecondId, historyFirstId, historyThirdId],
+            savedHistory.Select(item => item.Id));
+        AssertEx.SequenceEqual([0, 1, 2], savedHistory.Select(item => item.SortOrder));
+    }
+
+    private static void ClearHistoryPreservesActiveQuests()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var completedId = Guid.NewGuid();
+        var pendingId = Guid.NewGuid();
+        var scheduledId = Guid.NewGuid();
+        var oldId = Guid.NewGuid();
+        var completed = CreateItemState(completedId, "Quest aktif selesai", true, 0, now.AddMinutes(-2));
+        var pending = CreateItemState(pendingId, "Quest aktif pending", false, 1, now.AddMinutes(-1));
+        var storage = new FakeStorageUsageService(
+            _ => new StorageUsageSnapshot(0, 0, 0));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            Items = [completed, pending],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    scheduledId,
+                    "Quest untuk besok",
+                    "2026-09-17",
+                    0,
+                    now)
+            ],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-16",
+                    Items = [completed, pending]
+                },
+                new DailyHistoryState
+                {
+                    Date = "2026-09-15",
+                    Items =
+                    [
+                        CreateItemState(oldId, "Quest kemarin", true, 0, now.AddDays(-1))
+                    ]
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now, storage);
+
+        AssertEx.True(viewModel.ClearHistoryCommand.CanExecute(null));
+        viewModel.ClearHistoryCommand.Execute(null);
+
+        AssertEx.SequenceEqual(
+            [completedId, pendingId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [true, false],
+            viewModel.Items.Select(item => item.IsCompleted));
+        AssertEx.Equal(0, viewModel.HistoryEntries.Count);
+        AssertEx.Equal(1, viewModel.UpcomingQuests.Count);
+        AssertEx.False(viewModel.ClearHistoryCommand.CanExecute(null));
+        AssertEx.Equal(1, store.SaveCount);
+        var cleared = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(0, cleared.History.Count);
+        AssertEx.SequenceEqual([scheduledId], cleared.ScheduledQuests.Select(item => item.Id));
+        AssertEx.Equal(1, storage.MeasureCount);
+        AssertEx.Equal(0, storage.LastHistoryCount);
+
+        viewModel.Items.Single(item => item.Id == pendingId).IsCompleted = true;
+
+        var recreatedHistory = HistoryFor(AssertEx.NotNull(store.Snapshot), "2026-09-16");
+        AssertEx.SequenceEqual(
+            [completedId, pendingId],
+            recreatedHistory.Items.Select(item => item.Id));
+        AssertEx.True(
+            recreatedHistory.Items.All(item => item.IsCompleted),
+            "A later checklist mutation should rebuild today's history from the preserved active quests.");
+        AssertEx.SequenceEqual(
+            [scheduledId],
+            AssertEx.NotNull(store.Snapshot).ScheduledQuests.Select(item => item.Id));
+    }
+
+    private static void SettingsRefreshesInjectedStorageUsage()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var historyId = Guid.NewGuid();
+        var storage = new FakeStorageUsageService(
+            _ => new StorageUsageSnapshot(
+                ApplicationBytes: 512,
+                DataBytes: 2 * 1024,
+                HistoryBytes: 3 * 1024 * 1024));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16",
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-15",
+                    Items =
+                    [
+                        CreateItemState(historyId, "Riwayat", true, 0, now.AddDays(-1))
+                    ]
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now, storage);
+
+        AssertEx.Equal("0 B", viewModel.ApplicationStorageText);
+        AssertEx.Equal("0 B", viewModel.DataStorageText);
+        AssertEx.Equal("0 B", viewModel.HistoryStorageText);
+
+        viewModel.ShowSettingsCommand.Execute(null);
+
+        AssertEx.Equal(1, storage.MeasureCount);
+        AssertEx.Equal(1, storage.LastHistoryCount);
+        AssertEx.Equal("512 B", viewModel.ApplicationStorageText);
+        AssertEx.Equal("2 KB", viewModel.DataStorageText);
+        AssertEx.Equal("3 MB", viewModel.HistoryStorageText);
+        AssertEx.True(viewModel.IsSettingsView);
+        AssertEx.Equal(0, store.SaveCount);
+    }
+
+    private static void StorageUsageFailuresDegradeGracefully()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+        var storage = new FakeStorageUsageService(
+            _ => throw new IOException("Storage is temporarily unavailable."));
+        var store = new InMemoryStateStore(new AppState
+        {
+            CurrentDate = "2026-09-16"
+        });
+        var viewModel = new MainViewModel(store, () => now, storage);
+
+        viewModel.ShowSettingsCommand.Execute(null);
+
+        AssertEx.Equal(1, storage.MeasureCount);
+        AssertEx.Equal("\u2014", viewModel.ApplicationStorageText);
+        AssertEx.Equal("\u2014", viewModel.DataStorageText);
+        AssertEx.Equal("\u2014", viewModel.HistoryStorageText);
+        AssertEx.True(viewModel.IsSettingsView, "Settings should still open if usage measurement fails.");
+        AssertEx.Equal(0, store.SaveCount);
+    }
+
     private static void DailyRolloverArchivesOnceWithoutDuplicates()
     {
         var clock = new MutableClock(
@@ -335,7 +959,7 @@ internal static class Program
         var pendingId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 2,
+            SchemaVersion = 3,
             CurrentDate = "2026-09-15",
             Items =
             [
@@ -375,6 +999,165 @@ internal static class Program
             "Resetting active items must not mutate the archived snapshot.");
     }
 
+    private static void DailyRolloverActivatesDueQuestsAfterArchiving()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 6, 45, 0, TimeSpan.FromHours(7));
+        var activeId = Guid.NewGuid();
+        var dueId = Guid.NewGuid();
+        var laterId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 3,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(activeId, "Quest lama", true, 0, now.AddDays(-1))
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    dueId,
+                    "Quest jatuh tempo",
+                    "2026-09-17",
+                    0,
+                    now.AddDays(-1).AddMinutes(1)),
+                CreateScheduledQuestState(
+                    laterId,
+                    "Quest untuk nanti",
+                    "2026-09-24",
+                    1,
+                    now.AddDays(-1).AddMinutes(2))
+            ]
+        });
+
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.SequenceEqual(
+            [activeId, dueId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.True(
+            viewModel.Items.All(item => !item.IsCompleted),
+            "Both recurring and newly activated quests should start the day unchecked.");
+        AssertEx.Equal(1, viewModel.UpcomingQuests.Count);
+        AssertEx.Equal(1, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.SequenceEqual(
+            [activeId],
+            HistoryFor(saved, "2026-09-16").Items.Select(item => item.Id));
+        AssertEx.True(
+            HistoryFor(saved, "2026-09-16").Items.Single().IsCompleted,
+            "The previous day must be archived before the due quest is activated.");
+        AssertEx.SequenceEqual(
+            [activeId, dueId],
+            HistoryFor(saved, "2026-09-17").Items.Select(item => item.Id));
+        AssertEx.True(
+            HistoryFor(saved, "2026-09-17").Items.All(item => !item.IsCompleted),
+            "Today's history should contain the newly activated quest unchecked.");
+        AssertEx.SequenceEqual([laterId], saved.ScheduledQuests.Select(item => item.Id));
+    }
+
+    private static void OverdueQuestsActivateOnceOnNextLaunch()
+    {
+        var now = new DateTimeOffset(2026, 9, 20, 9, 0, 0, TimeSpan.FromHours(7));
+        var activeId = Guid.NewGuid();
+        var overdueId = Guid.NewGuid();
+        var futureId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 3,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(activeId, "Quest berulang", false, 0, now.AddDays(-4))
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    overdueId,
+                    "Quest yang terlewat",
+                    "2026-09-18",
+                    0,
+                    now.AddDays(-4).AddMinutes(1)),
+                CreateScheduledQuestState(
+                    futureId,
+                    "Quest masa depan",
+                    "2026-09-24",
+                    1,
+                    now.AddDays(-4).AddMinutes(2))
+            ]
+        });
+
+        var firstLaunch = new MainViewModel(store, () => now);
+
+        AssertEx.SequenceEqual(
+            [activeId, overdueId],
+            firstLaunch.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([futureId], AssertEx.NotNull(store.Snapshot).ScheduledQuests.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            ["2026-09-20", "2026-09-16"],
+            AssertEx.NotNull(store.Snapshot).History.Select(entry => entry.Date));
+        AssertEx.Equal(1, store.SaveCount);
+
+        var reloadStore = new InMemoryStateStore(AssertEx.NotNull(store.Snapshot));
+        var secondLaunch = new MainViewModel(reloadStore, () => now);
+
+        AssertEx.Equal(0, reloadStore.SaveCount);
+        AssertEx.Equal(1, secondLaunch.Items.Count(item => item.Id == overdueId));
+        AssertEx.SequenceEqual(
+            [activeId, overdueId],
+            secondLaunch.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [futureId],
+            AssertEx.NotNull(reloadStore.Snapshot).ScheduledQuests.Select(item => item.Id));
+    }
+
+    private static void LegacyV2StateMigratesWithEmptyFutureQueue()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 9, 0, 0, TimeSpan.FromHours(7));
+        var activeId = Guid.NewGuid();
+        var historicalId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 2,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(activeId, "Quest dari v2", false, 0, now.AddMinutes(-1))
+            ],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-15",
+                    Items =
+                    [
+                        CreateItemState(historicalId, "Riwayat v2", true, 0, now.AddDays(-1))
+                    ]
+                }
+            ]
+        });
+
+        var viewModel = new MainViewModel(store, () => now);
+
+        AssertEx.SequenceEqual([activeId], viewModel.Items.Select(item => item.Id));
+        AssertEx.Equal(0, viewModel.UpcomingQuests.Count);
+        AssertEx.Equal(1, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(3, saved.SchemaVersion);
+        AssertEx.Equal(0, saved.ScheduledQuests.Count);
+        AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [historicalId],
+            HistoryFor(saved, "2026-09-15").Items.Select(item => item.Id));
+        AssertEx.Equal(1, saved.History.Count);
+
+        var reloadStore = new InMemoryStateStore(saved);
+        _ = new MainViewModel(reloadStore, () => now);
+        AssertEx.Equal(0, reloadStore.SaveCount);
+    }
+
     private static void LegacyV1StateMigratesWithoutHistoryLoss()
     {
         var now = new DateTimeOffset(2026, 9, 16, 7, 0, 0, TimeSpan.FromHours(7));
@@ -407,7 +1190,7 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(2, saved.SchemaVersion);
+        AssertEx.Equal(3, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
         AssertEx.False(saved.Settings.AlwaysOnTop, "Pin preference should survive migration.");
@@ -440,7 +1223,7 @@ internal static class Program
         var itemId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -456,12 +1239,12 @@ internal static class Program
             () => _ = new MainViewModel(store, () => now));
 
         AssertEx.True(
-            exception.Message.Contains("schema 3", StringComparison.Ordinal),
+            exception.Message.Contains("schema 4", StringComparison.Ordinal),
             "The error should identify the unsupported future schema.");
         AssertEx.Equal(0, store.SaveCount);
 
         var untouched = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(3, untouched.SchemaVersion);
+        AssertEx.Equal(4, untouched.SchemaVersion);
         AssertEx.Equal(itemId, untouched.Items.Single().Id);
         AssertEx.True(untouched.Items.Single().IsCompleted, "Rejected future state must remain untouched.");
         AssertEx.Equal("en-US", untouched.Settings.LanguageCode);
@@ -474,14 +1257,24 @@ internal static class Program
             var statePath = Path.Combine(directory, "nested", "state.json");
             var now = new DateTimeOffset(2026, 9, 16, 9, 10, 11, TimeSpan.FromHours(7));
             var itemId = Guid.NewGuid();
+            var scheduledItemId = Guid.NewGuid();
             var historicalItemId = Guid.NewGuid();
             var expected = new AppState
             {
-                SchemaVersion = 2,
+                SchemaVersion = 3,
                 CurrentDate = "2026-09-16",
                 Items =
                 [
                     CreateItemState(itemId, "Tulis jurnal", true, 0, now)
+                ],
+                ScheduledQuests =
+                [
+                    CreateScheduledQuestState(
+                        scheduledItemId,
+                        "Siapkan presentasi",
+                        "2026-09-20",
+                        0,
+                        now.AddMinutes(1))
                 ],
                 History =
                 [
@@ -519,6 +1312,12 @@ internal static class Program
             AssertEx.Equal("Tulis jurnal", actual.Items.Single().Text);
             AssertEx.True(actual.Items.Single().IsCompleted, "Completion should round-trip.");
             AssertEx.Equal(now, actual.Items.Single().CreatedAt);
+            AssertEx.Equal(1, actual.ScheduledQuests.Count);
+            AssertEx.Equal(scheduledItemId, actual.ScheduledQuests.Single().Id);
+            AssertEx.Equal("Siapkan presentasi", actual.ScheduledQuests.Single().Text);
+            AssertEx.Equal("2026-09-20", actual.ScheduledQuests.Single().ScheduledDate);
+            AssertEx.Equal(0, actual.ScheduledQuests.Single().SortOrder);
+            AssertEx.Equal(now.AddMinutes(1), actual.ScheduledQuests.Single().CreatedAt);
             AssertEx.Equal(1, actual.History.Count);
             AssertEx.Equal("2026-09-15", actual.History.Single().Date);
             AssertEx.Equal(historicalItemId, actual.History.Single().Items.Single().Id);
@@ -580,7 +1379,7 @@ internal static class Program
 
             var recovered = new AppState
             {
-                SchemaVersion = 2,
+                SchemaVersion = 3,
                 CurrentDate = "2026-09-16",
                 Items = [],
                 History = [],
@@ -592,7 +1391,7 @@ internal static class Program
             store.Save(recovered);
 
             var reloaded = AssertEx.NotNull(store.Load());
-            AssertEx.Equal(2, reloaded.SchemaVersion);
+            AssertEx.Equal(3, reloaded.SchemaVersion);
             AssertEx.Equal("2026-09-16", reloaded.CurrentDate);
             AssertEx.Equal("id-ID", reloaded.Settings.LanguageCode);
             AssertEx.Equal(0, reloaded.Items.Count);
@@ -766,6 +1565,20 @@ internal static class Program
             CreatedAt = createdAt
         };
 
+    private static ScheduledQuestState CreateScheduledQuestState(
+        Guid id,
+        string text,
+        string scheduledDate,
+        int sortOrder,
+        DateTimeOffset createdAt) => new()
+        {
+            Id = id,
+            Text = text,
+            ScheduledDate = scheduledDate,
+            SortOrder = sortOrder,
+            CreatedAt = createdAt
+        };
+
     private static void WithTemporaryDirectory(Action<string> test)
     {
         var directory = Path.Combine(
@@ -825,6 +1638,21 @@ internal sealed class InMemoryStateStore : IStateStore
         var json = JsonSerializer.Serialize(state, CloneOptions);
         return JsonSerializer.Deserialize<AppState>(json, CloneOptions)
             ?? throw new InvalidOperationException("Could not clone state for the in-memory test store.");
+    }
+}
+
+internal sealed class FakeStorageUsageService(
+    Func<IReadOnlyCollection<DailyHistoryState>, StorageUsageSnapshot> measure) : IStorageUsageService
+{
+    public int MeasureCount { get; private set; }
+
+    public int LastHistoryCount { get; private set; } = -1;
+
+    public StorageUsageSnapshot Measure(IReadOnlyCollection<DailyHistoryState> history)
+    {
+        MeasureCount++;
+        LastHistoryCount = history.Count;
+        return measure(history);
     }
 }
 

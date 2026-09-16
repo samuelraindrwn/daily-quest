@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Windows.Input;
 using DailyQuest.Infrastructure;
 using DailyQuest.Localization;
@@ -12,25 +14,40 @@ namespace DailyQuest.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private const int CurrentSchemaVersion = 2;
+    private const int CurrentSchemaVersion = 3;
+    private const int MaximumScheduleOffset = 8;
+    private static readonly string AppVersion =
+        typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+
     private readonly IStateStore _stateStore;
+    private readonly IStorageUsageService _storageUsageService;
     private readonly Func<DateTimeOffset> _now;
     private readonly AppState _state;
     private string _newItemText = string.Empty;
     private bool _alwaysOnTop;
     private bool _isHistoryView;
+    private bool _isUpcomingView;
+    private bool _isSettingsView;
+    private int _selectedScheduleOffset;
     private bool _suppressItemPersistence;
+    private string _applicationStorageText = "0 B";
+    private string _dataStorageText = "0 B";
+    private string _historyStorageText = "0 B";
 
-    public MainViewModel(IStateStore? stateStore = null, Func<DateTimeOffset>? now = null)
+    public MainViewModel(
+        IStateStore? stateStore = null,
+        Func<DateTimeOffset>? now = null,
+        IStorageUsageService? storageUsageService = null)
     {
         _stateStore = stateStore ?? new JsonStateStore();
+        _storageUsageService = storageUsageService ?? new StorageUsageService();
         _now = now ?? (() => DateTimeOffset.Now);
 
         var loadedState = _stateStore.Load();
         var isFirstRun = loadedState is null;
         _state = loadedState ?? CreateFirstRunState(_now());
 
-        var wasLegacySchema = _state.SchemaVersion < CurrentSchemaVersion;
+        var needsV1HistoryMigration = _state.SchemaVersion < 2;
         var didNormalize = NormalizeState();
         Items = new ObservableCollection<ChecklistItem>(
             _state.Items
@@ -41,6 +58,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     item.IsCompleted,
                     item.CreatedAt)));
         HistoryEntries = [];
+        UpcomingQuests = [];
+        ScheduleOptions = [];
 
         foreach (var item in Items)
         {
@@ -51,20 +70,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         AddItemCommand = new RelayCommand(AddItem, CanAddItem);
         RemoveItemCommand = new RelayCommand(RemoveItem, parameter => parameter is ChecklistItem);
+        RemoveScheduledQuestCommand = new RelayCommand(
+            RemoveScheduledQuest,
+            CanRemoveScheduledQuest);
         ResetTodayCommand = new RelayCommand(ResetToday, () => CompletedCount > 0);
         ClearCompletedCommand = new RelayCommand(ClearCompleted, () => CompletedCount > 0);
         TogglePinCommand = new RelayCommand(TogglePin);
         ToggleLanguageCommand = new RelayCommand(ToggleLanguage);
+        SetLanguageCommand = new RelayCommand(SetLanguage);
+        SetScheduleOffsetCommand = new RelayCommand(
+            SetScheduleOffset,
+            parameter => TryGetScheduleOffset(parameter, out _));
         ShowTodayCommand = new RelayCommand(ShowToday);
         ShowHistoryCommand = new RelayCommand(ShowHistory);
+        ShowUpcomingCommand = new RelayCommand(ShowUpcoming);
+        ShowSettingsCommand = new RelayCommand(ShowSettings);
+        ClearHistoryCommand = new RelayCommand(ClearHistory, () => _state.History.Count > 0);
 
-        if (wasLegacySchema && !string.IsNullOrWhiteSpace(_state.CurrentDate))
+        if (needsV1HistoryMigration && !string.IsNullOrWhiteSpace(_state.CurrentDate))
         {
             SyncHistoryFromActiveDay(preserveCompletedOrphans: false);
         }
 
         var didRollOver = RollOverToCurrentDay(saveAfterReset: false);
         RefreshHistoryEntries();
+        RefreshScheduleOptions();
+        RefreshUpcomingQuests();
 
         if (isFirstRun || didNormalize || didRollOver)
         {
@@ -76,9 +107,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<HistoryEntryViewModel> HistoryEntries { get; }
 
+    public ObservableCollection<UpcomingQuestViewModel> UpcomingQuests { get; }
+
+    public ObservableCollection<ScheduleOptionViewModel> ScheduleOptions { get; }
+
     public ICommand AddItemCommand { get; }
 
     public ICommand RemoveItemCommand { get; }
+
+    public ICommand RemoveScheduledQuestCommand { get; }
 
     public ICommand ResetTodayCommand { get; }
 
@@ -88,9 +125,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ICommand ToggleLanguageCommand { get; }
 
+    public ICommand SetLanguageCommand { get; }
+
+    public ICommand SetScheduleOffsetCommand { get; }
+
     public ICommand ShowTodayCommand { get; }
 
     public ICommand ShowHistoryCommand { get; }
+
+    public ICommand ShowUpcomingCommand { get; }
+
+    public ICommand ShowSettingsCommand { get; }
+
+    public ICommand ClearHistoryCommand { get; }
 
     public WidgetWindowState SavedWindow => _state.Window;
 
@@ -100,9 +147,63 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public string LanguageBadge => LanguageCode == UiCopyCatalog.EnglishCode ? "EN" : "ID";
 
-    public bool IsTodayView => !_isHistoryView;
+    public bool IsIndonesian => LanguageCode == UiCopyCatalog.IndonesianCode;
+
+    public bool IsEnglish => LanguageCode == UiCopyCatalog.EnglishCode;
+
+    public bool IsTodayView => !_isHistoryView && !_isUpcomingView && !_isSettingsView;
 
     public bool IsHistoryView => _isHistoryView;
+
+    public bool IsUpcomingView => _isUpcomingView;
+
+    public bool IsSettingsView => _isSettingsView;
+
+    public bool HasUpcomingQuests => UpcomingQuests.Count > 0;
+
+    public int SelectedScheduleOffset
+    {
+        get => _selectedScheduleOffset;
+        set
+        {
+            if (value is < 0 or > MaximumScheduleOffset ||
+                !SetField(ref _selectedScheduleOffset, value))
+            {
+                return;
+            }
+
+            RefreshScheduleOptions();
+            OnPropertyChanged(nameof(SelectedScheduleLabel));
+        }
+    }
+
+    public string SelectedScheduleLabel => ScheduleOptions
+        .FirstOrDefault(option => option.Offset == SelectedScheduleOffset)?.Label
+        ?? GetScheduleLabel(SelectedScheduleOffset);
+
+    public ChecklistItem? NextPendingItem => Items.FirstOrDefault(item => !item.IsCompleted);
+
+    public bool HasPendingItem => NextPendingItem is not null;
+
+    public string FooterText => string.Format(Copy.Culture, Copy.FooterFormat, AppVersion);
+
+    public string ApplicationStorageText
+    {
+        get => _applicationStorageText;
+        private set => SetField(ref _applicationStorageText, value);
+    }
+
+    public string DataStorageText
+    {
+        get => _dataStorageText;
+        private set => SetField(ref _dataStorageText, value);
+    }
+
+    public string HistoryStorageText
+    {
+        get => _historyStorageText;
+        private set => SetField(ref _historyStorageText, value);
+    }
 
     public string NewItemText
     {
@@ -182,36 +283,52 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public bool RollOverToCurrentDay(bool saveAfterReset = true)
     {
-        var todayKey = GetDateKey(_now());
-        if (string.Equals(_state.CurrentDate, todayKey, StringComparison.Ordinal))
+        var now = _now();
+        var today = GetLocalDate(now);
+        var todayKey = GetDateKey(today);
+        var dateChanged = !string.Equals(
+            _state.CurrentDate,
+            todayKey,
+            StringComparison.Ordinal);
+
+        if (dateChanged)
+        {
+            // Archive the old active list before due quests are promoted. Otherwise a
+            // quest scheduled for today would incorrectly appear in yesterday's history.
+            if (!string.IsNullOrWhiteSpace(_state.CurrentDate))
+            {
+                SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+            }
+
+            _suppressItemPersistence = true;
+            try
+            {
+                foreach (var item in Items)
+                {
+                    item.IsCompleted = false;
+                }
+            }
+            finally
+            {
+                _suppressItemPersistence = false;
+            }
+
+            _state.CurrentDate = todayKey;
+        }
+
+        var activatedDueQuests = ActivateDueScheduledQuests(today);
+        if (!dateChanged && !activatedDueQuests)
         {
             OnPropertyChanged(nameof(Greeting));
             OnPropertyChanged(nameof(FriendlyDate));
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(_state.CurrentDate))
-        {
-            SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
-        }
-
-        _suppressItemPersistence = true;
-        try
-        {
-            foreach (var item in Items)
-            {
-                item.IsCompleted = false;
-            }
-        }
-        finally
-        {
-            _suppressItemPersistence = false;
-        }
-
-        _state.CurrentDate = todayKey;
-        SyncHistoryFromActiveDay(preserveCompletedOrphans: false);
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: !dateChanged);
         NotifyProgressChanged();
         RefreshHistoryEntries();
+        RefreshScheduleOptions(today);
+        RefreshUpcomingQuests(today);
 
         if (saveAfterReset)
         {
@@ -239,6 +356,29 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Save();
     }
 
+    public bool MoveItem(ChecklistItem item, int destinationIndex)
+    {
+        var sourceIndex = Items.IndexOf(item);
+        if (sourceIndex < 0 || Items.Count < 2)
+        {
+            return false;
+        }
+
+        destinationIndex = Math.Clamp(destinationIndex, 0, Items.Count - 1);
+        if (sourceIndex == destinationIndex)
+        {
+            return false;
+        }
+
+        Items.Move(sourceIndex, destinationIndex);
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        OnPropertyChanged(nameof(NextPendingItem));
+        OnPropertyChanged(nameof(HasPendingItem));
+        RefreshHistoryEntries();
+        Save();
+        return true;
+    }
+
     public void Save() => _stateStore.Save(CreateSnapshot());
 
     private static AppState CreateFirstRunState(DateTimeOffset now) => new()
@@ -247,6 +387,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CurrentDate = GetDateKey(now),
         Items = [],
         History = [],
+        ScheduledQuests = [],
         Settings = new AppSettings
         {
             AlwaysOnTop = true,
@@ -256,6 +397,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private static string GetDateKey(DateTimeOffset value) =>
         value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static string GetDateKey(DateOnly value) =>
+        value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DateOnly GetLocalDate(DateTimeOffset value) =>
+        DateOnly.FromDateTime(value.Date);
 
     private bool NormalizeState()
     {
@@ -269,6 +416,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         _state.Items ??= [];
         _state.History ??= [];
+        if (_state.ScheduledQuests is null)
+        {
+            _state.ScheduledQuests = [];
+            needsSave = true;
+        }
+
         _state.Window ??= new WidgetWindowState();
         _state.Settings ??= new AppSettings();
 
@@ -294,6 +447,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
             .OrderByDescending(entry => entry.Date, StringComparer.Ordinal)
             .ToList();
 
+        var scheduledBeforeNormalization = _state.ScheduledQuests;
+        var reservedIds = _state.Items
+            .Select(item => item.Id)
+            .Concat(_state.History.SelectMany(entry => entry.Items.Select(item => item.Id)))
+            .ToHashSet();
+        var normalizedScheduledQuests = NormalizeScheduledQuestStates(
+            scheduledBeforeNormalization,
+            reservedIds);
+        if (!ScheduledQuestStatesEqual(scheduledBeforeNormalization, normalizedScheduledQuests))
+        {
+            needsSave = true;
+        }
+
+        _state.ScheduledQuests = normalizedScheduledQuests;
+
         var normalizedLanguage = UiCopyCatalog.NormalizeLanguageCode(_state.Settings.LanguageCode);
         if (!string.Equals(_state.Settings.LanguageCode, normalizedLanguage, StringComparison.Ordinal))
         {
@@ -301,7 +469,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             needsSave = true;
         }
 
-        _state.Window.Width = Math.Clamp(_state.Window.Width, 340, 760);
+        _state.Window.Width = Math.Clamp(_state.Window.Width, 430, 760);
         _state.Window.Height = Math.Clamp(_state.Window.Height, 460, 1000);
         _state.SchemaVersion = CurrentSchemaVersion;
         return needsSave;
@@ -312,7 +480,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var seenIds = new HashSet<Guid>();
         var result = new List<ChecklistItemState>();
 
-        foreach (var state in states.Where(state => state is not null && !string.IsNullOrWhiteSpace(state.Text)))
+        foreach (var state in states
+                     .Select((state, originalIndex) => new { State = state, OriginalIndex = originalIndex })
+                     .Where(entry => entry.State is not null && !string.IsNullOrWhiteSpace(entry.State.Text))
+                     .OrderBy(entry => entry.State.SortOrder)
+                     .ThenBy(entry => entry.OriginalIndex)
+                     .Select(entry => entry.State))
         {
             var id = state.Id;
             if (id == Guid.Empty || !seenIds.Add(id))
@@ -334,31 +507,127 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return result;
     }
 
+    private List<ScheduledQuestState> NormalizeScheduledQuestStates(
+        IEnumerable<ScheduledQuestState> states,
+        ISet<Guid> reservedIds)
+    {
+        var normalizationTime = _now();
+        var seenIds = new HashSet<Guid>(reservedIds);
+        var result = new List<ScheduledQuestState>();
+
+        foreach (var state in states
+                     .Select((state, originalIndex) => new { State = state, OriginalIndex = originalIndex })
+                     .Where(entry =>
+                         entry.State is not null &&
+                         !string.IsNullOrWhiteSpace(entry.State.Text) &&
+                         TryParseDateKey(entry.State.ScheduledDate, out _))
+                     .OrderBy(entry => entry.State.ScheduledDate, StringComparer.Ordinal)
+                     .ThenBy(entry => entry.State.SortOrder)
+                     .ThenBy(entry => entry.OriginalIndex)
+                     .Select(entry => entry.State))
+        {
+            var id = state.Id;
+            if (id == Guid.Empty || !seenIds.Add(id))
+            {
+                do
+                {
+                    id = Guid.NewGuid();
+                }
+                while (!seenIds.Add(id));
+            }
+
+            var cleanText = state.Text.Trim();
+            if (cleanText.Length > 120)
+            {
+                cleanText = cleanText[..120];
+            }
+
+            result.Add(new ScheduledQuestState
+            {
+                Id = id,
+                Text = cleanText,
+                ScheduledDate = state.ScheduledDate,
+                SortOrder = result.Count,
+                CreatedAt = state.CreatedAt == default ? normalizationTime : state.CreatedAt
+            });
+        }
+
+        return result;
+    }
+
+    private static bool ScheduledQuestStatesEqual(
+        IReadOnlyList<ScheduledQuestState> left,
+        IReadOnlyList<ScheduledQuestState> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < left.Count; index++)
+        {
+            var first = left[index];
+            var second = right[index];
+            if (first is null ||
+                first.Id != second.Id ||
+                !string.Equals(first.Text, second.Text, StringComparison.Ordinal) ||
+                !string.Equals(first.ScheduledDate, second.ScheduledDate, StringComparison.Ordinal) ||
+                first.SortOrder != second.SortOrder ||
+                first.CreatedAt != second.CreatedAt)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static bool IsValidDateKey(string? value) =>
+        TryParseDateKey(value, out _);
+
+    private static bool TryParseDateKey(string? value, out DateOnly date) =>
         DateOnly.TryParseExact(
             value,
             "yyyy-MM-dd",
             CultureInfo.InvariantCulture,
             DateTimeStyles.None,
-            out _);
+            out date);
 
     private void AddItem()
     {
-        var cleanText = NewItemText.Trim();
-        if (cleanText.Length == 0)
+        var cleanText = NormalizeQuestText(NewItemText);
+        if (cleanText.Length == 0 ||
+            SelectedScheduleOffset is < 0 or > MaximumScheduleOffset)
         {
             return;
         }
 
-        if (cleanText.Length > 120)
+        var now = _now();
+        if (SelectedScheduleOffset > 0)
         {
-            cleanText = cleanText[..120];
+            var targetDate = GetLocalDate(now).AddDays(SelectedScheduleOffset);
+            _state.ScheduledQuests.Add(new ScheduledQuestState
+            {
+                Id = Guid.NewGuid(),
+                Text = cleanText,
+                ScheduledDate = GetDateKey(targetDate),
+                SortOrder = _state.ScheduledQuests.Count,
+                CreatedAt = now
+            });
+            SortAndRenumberScheduledQuests();
+
+            NewItemText = string.Empty;
+            SelectedScheduleOffset = 0;
+            RefreshUpcomingQuests();
+            Save();
+            return;
         }
 
-        var item = new ChecklistItem(Guid.NewGuid(), cleanText, false, _now());
+        var item = new ChecklistItem(Guid.NewGuid(), cleanText, false, now);
         SubscribeToItem(item);
         Items.Add(item);
         NewItemText = string.Empty;
+        SelectedScheduleOffset = 0;
 
         SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
         NotifyProgressChanged();
@@ -367,6 +636,75 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     private bool CanAddItem() => !string.IsNullOrWhiteSpace(NewItemText);
+
+    private static string NormalizeQuestText(string? text)
+    {
+        var cleanText = text?.Trim() ?? string.Empty;
+        return cleanText.Length > 120 ? cleanText[..120] : cleanText;
+    }
+
+    private void SetScheduleOffset(object? parameter)
+    {
+        if (TryGetScheduleOffset(parameter, out var offset))
+        {
+            SelectedScheduleOffset = offset;
+        }
+    }
+
+    private static bool TryGetScheduleOffset(object? parameter, out int offset)
+    {
+        offset = parameter switch
+        {
+            ScheduleOptionViewModel option => option.Offset,
+            int intValue => intValue,
+            long longValue when longValue is >= 0 and <= MaximumScheduleOffset => (int)longValue,
+            string text when int.TryParse(
+                text,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var parsed) => parsed,
+            _ => -1
+        };
+
+        return offset is >= 0 and <= MaximumScheduleOffset;
+    }
+
+    private bool CanRemoveScheduledQuest(object? parameter) =>
+        TryGetScheduledQuestId(parameter, out var id) &&
+        _state.ScheduledQuests.Any(item => item.Id == id);
+
+    private void RemoveScheduledQuest(object? parameter)
+    {
+        if (!TryGetScheduledQuestId(parameter, out var id))
+        {
+            return;
+        }
+
+        var scheduledQuest = _state.ScheduledQuests.FirstOrDefault(item => item.Id == id);
+        if (scheduledQuest is null)
+        {
+            return;
+        }
+
+        _state.ScheduledQuests.Remove(scheduledQuest);
+        SortAndRenumberScheduledQuests();
+        RefreshUpcomingQuests();
+        Save();
+    }
+
+    private static bool TryGetScheduledQuestId(object? parameter, out Guid id)
+    {
+        id = parameter switch
+        {
+            UpcomingQuestViewModel item => item.Id,
+            ScheduledQuestState state => state.Id,
+            Guid guid => guid,
+            string text when Guid.TryParse(text, out var parsed) => parsed,
+            _ => Guid.Empty
+        };
+
+        return id != Guid.Empty;
+    }
 
     private void RemoveItem(object? parameter)
     {
@@ -428,9 +766,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void ToggleLanguage()
     {
-        _state.Settings.LanguageCode = LanguageCode == UiCopyCatalog.EnglishCode
+        SetLanguage(LanguageCode == UiCopyCatalog.EnglishCode
             ? UiCopyCatalog.IndonesianCode
-            : UiCopyCatalog.EnglishCode;
+            : UiCopyCatalog.EnglishCode);
+    }
+
+    private void SetLanguage(object? parameter)
+    {
+        var languageCode = (parameter as string)?.Trim().ToLowerInvariant() switch
+        {
+            "en" or "en-us" => UiCopyCatalog.EnglishCode,
+            "id" or "id-id" => UiCopyCatalog.IndonesianCode,
+            _ => null
+        };
+        if (languageCode is null)
+        {
+            return;
+        }
+
+        if (string.Equals(LanguageCode, languageCode, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _state.Settings.LanguageCode = languageCode;
 
         NotifyLanguageChanged();
         RefreshHistoryEntries();
@@ -439,14 +798,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void ShowToday()
     {
-        if (!_isHistoryView)
+        if (IsTodayView)
         {
             return;
         }
 
-        _isHistoryView = false;
-        OnPropertyChanged(nameof(IsTodayView));
-        OnPropertyChanged(nameof(IsHistoryView));
+        SetActiveView(isHistory: false, isUpcoming: false, isSettings: false);
     }
 
     private void ShowHistory()
@@ -457,9 +814,197 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        _isHistoryView = true;
+        SetActiveView(isHistory: true, isUpcoming: false, isSettings: false);
+    }
+
+    private void ShowUpcoming()
+    {
+        RefreshUpcomingQuests();
+        if (_isUpcomingView)
+        {
+            return;
+        }
+
+        SetActiveView(isHistory: false, isUpcoming: true, isSettings: false);
+    }
+
+    private void ShowSettings()
+    {
+        RefreshStorageUsage();
+        if (_isSettingsView)
+        {
+            return;
+        }
+
+        SetActiveView(isHistory: false, isUpcoming: false, isSettings: true);
+    }
+
+    private void SetActiveView(bool isHistory, bool isUpcoming, bool isSettings)
+    {
+        _isHistoryView = isHistory;
+        _isUpcomingView = isUpcoming;
+        _isSettingsView = isSettings;
         OnPropertyChanged(nameof(IsTodayView));
         OnPropertyChanged(nameof(IsHistoryView));
+        OnPropertyChanged(nameof(IsUpcomingView));
+        OnPropertyChanged(nameof(IsSettingsView));
+    }
+
+    private void ClearHistory()
+    {
+        if (_state.History.Count == 0)
+        {
+            return;
+        }
+
+        _state.History.Clear();
+        RefreshHistoryEntries();
+        Save();
+        RefreshStorageUsage();
+        RaiseCommandStates();
+    }
+
+    private bool ActivateDueScheduledQuests(DateOnly today)
+    {
+        var dueQuests = _state.ScheduledQuests
+            .Select(item => new
+            {
+                Item = item,
+                HasDate = TryParseDateKey(item.ScheduledDate, out var date),
+                Date = date
+            })
+            .Where(entry => entry.HasDate && entry.Date <= today)
+            .OrderBy(entry => entry.Date)
+            .ThenBy(entry => entry.Item.SortOrder)
+            .Select(entry => entry.Item)
+            .ToList();
+        if (dueQuests.Count == 0)
+        {
+            return false;
+        }
+
+        var occupiedIds = Items
+            .Select(item => item.Id)
+            .Concat(_state.History.SelectMany(entry => entry.Items.Select(item => item.Id)))
+            .ToHashSet();
+
+        foreach (var scheduledQuest in dueQuests)
+        {
+            var id = scheduledQuest.Id;
+            if (id == Guid.Empty || !occupiedIds.Add(id))
+            {
+                do
+                {
+                    id = Guid.NewGuid();
+                }
+                while (!occupiedIds.Add(id));
+            }
+
+            var item = new ChecklistItem(
+                id,
+                scheduledQuest.Text,
+                isCompleted: false,
+                scheduledQuest.CreatedAt);
+            SubscribeToItem(item);
+            Items.Add(item);
+        }
+
+        var dueIds = dueQuests.Select(item => item.Id).ToHashSet();
+        _state.ScheduledQuests.RemoveAll(item => dueIds.Contains(item.Id));
+        SortAndRenumberScheduledQuests();
+        return true;
+    }
+
+    private void SortAndRenumberScheduledQuests()
+    {
+        _state.ScheduledQuests = _state.ScheduledQuests
+            .OrderBy(item => item.ScheduledDate, StringComparer.Ordinal)
+            .ThenBy(item => item.SortOrder)
+            .ThenBy(item => item.CreatedAt)
+            .ToList();
+
+        for (var index = 0; index < _state.ScheduledQuests.Count; index++)
+        {
+            _state.ScheduledQuests[index].SortOrder = index;
+        }
+    }
+
+    private void RefreshScheduleOptions(DateOnly? referenceDate = null)
+    {
+        var today = referenceDate ?? GetLocalDate(_now());
+        ScheduleOptions.Clear();
+
+        for (var offset = 0; offset <= MaximumScheduleOffset; offset++)
+        {
+            var dateText = FormatUpcomingDate(today.AddDays(offset));
+            var label = GetScheduleLabel(offset);
+            ScheduleOptions.Add(new ScheduleOptionViewModel
+            {
+                Offset = offset,
+                Label = label,
+                DateText = dateText,
+                DisplayText = string.Format(
+                    Copy.Culture,
+                    Copy.ScheduleOptionFormat,
+                    label,
+                    dateText),
+                IsSelected = offset == SelectedScheduleOffset
+            });
+        }
+
+        OnPropertyChanged(nameof(ScheduleOptions));
+        OnPropertyChanged(nameof(SelectedScheduleLabel));
+    }
+
+    private void RefreshUpcomingQuests(DateOnly? referenceDate = null)
+    {
+        var today = referenceDate ?? GetLocalDate(_now());
+        UpcomingQuests.Clear();
+
+        foreach (var scheduledQuest in _state.ScheduledQuests
+                     .OrderBy(item => item.ScheduledDate, StringComparer.Ordinal)
+                     .ThenBy(item => item.SortOrder))
+        {
+            if (!TryParseDateKey(scheduledQuest.ScheduledDate, out var date))
+            {
+                continue;
+            }
+
+            var scheduleLabel = GetScheduleLabel(date.DayNumber - today.DayNumber);
+            var dateText = FormatUpcomingDate(date);
+            UpcomingQuests.Add(new UpcomingQuestViewModel
+            {
+                Id = scheduledQuest.Id,
+                Text = scheduledQuest.Text,
+                ScheduledDate = scheduledQuest.ScheduledDate,
+                DateText = dateText,
+                ScheduleLabel = scheduleLabel,
+                DisplayDate = string.Format(
+                    Copy.Culture,
+                    Copy.ScheduleOptionFormat,
+                    scheduleLabel,
+                    dateText)
+            });
+        }
+
+        OnPropertyChanged(nameof(UpcomingQuests));
+        OnPropertyChanged(nameof(HasUpcomingQuests));
+        (RemoveScheduledQuestCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private string GetScheduleLabel(int offset) => offset switch
+    {
+        <= 0 => Copy.ScheduleToday,
+        1 => Copy.ScheduleTomorrow,
+        _ => string.Format(Copy.Culture, Copy.ScheduleOffsetFormat, offset)
+    };
+
+    private string FormatUpcomingDate(DateOnly date)
+    {
+        var formatted = date
+            .ToDateTime(TimeOnly.MinValue)
+            .ToString(Copy.UpcomingDateFormat, Copy.Culture);
+        return Copy.Culture.TextInfo.ToTitleCase(formatted);
     }
 
     private void SubscribeToItem(ChecklistItem item) => item.PropertyChanged += Item_PropertyChanged;
@@ -494,14 +1039,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         List<ChecklistItemState> snapshotItems;
         if (existing is not null && preserveCompletedOrphans)
         {
-            var activeById = activeItems.ToDictionary(item => item.Id);
+            var activeIds = activeItems.Select(item => item.Id).ToHashSet();
+            var activeQueue = new Queue<ChecklistItemState>(
+                activeItems.Select(CloneItemState));
             snapshotItems = [];
 
             foreach (var oldItem in existing.Items.OrderBy(item => item.SortOrder))
             {
-                if (activeById.Remove(oldItem.Id, out var activeItem))
+                if (activeIds.Contains(oldItem.Id) && activeQueue.Count > 0)
                 {
-                    snapshotItems.Add(CloneItemState(activeItem));
+                    snapshotItems.Add(activeQueue.Dequeue());
                 }
                 else if (oldItem.IsCompleted)
                 {
@@ -509,9 +1056,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 }
             }
 
-            foreach (var activeItem in activeItems.Where(item => activeById.ContainsKey(item.Id)))
+            while (activeQueue.Count > 0)
             {
-                snapshotItems.Add(CloneItemState(activeItem));
+                snapshotItems.Add(activeQueue.Dequeue());
             }
         }
         else
@@ -613,6 +1160,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Items = entry.Items.Select(CloneItemState).ToList()
             })
             .ToList(),
+        ScheduledQuests = _state.ScheduledQuests
+            .Select(CloneScheduledQuestState)
+            .ToList(),
         Window = new WidgetWindowState
         {
             Left = _state.Window.Left,
@@ -645,6 +1195,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CreatedAt = item.CreatedAt
     };
 
+    private static ScheduledQuestState CloneScheduledQuestState(ScheduledQuestState item) => new()
+    {
+        Id = item.Id,
+        Text = item.Text,
+        ScheduledDate = item.ScheduledDate,
+        SortOrder = item.SortOrder,
+        CreatedAt = item.CreatedAt
+    };
+
     private void NotifyProgressChanged()
     {
         OnPropertyChanged(nameof(CompletedCount));
@@ -654,6 +1213,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ProgressText));
         OnPropertyChanged(nameof(EncouragementText));
         OnPropertyChanged(nameof(IsAllDone));
+        OnPropertyChanged(nameof(NextPendingItem));
+        OnPropertyChanged(nameof(HasPendingItem));
         RaiseCommandStates();
     }
 
@@ -662,11 +1223,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(Copy));
         OnPropertyChanged(nameof(LanguageCode));
         OnPropertyChanged(nameof(LanguageBadge));
+        OnPropertyChanged(nameof(IsIndonesian));
+        OnPropertyChanged(nameof(IsEnglish));
         OnPropertyChanged(nameof(PinTooltip));
         OnPropertyChanged(nameof(Greeting));
         OnPropertyChanged(nameof(FriendlyDate));
         OnPropertyChanged(nameof(ProgressText));
         OnPropertyChanged(nameof(EncouragementText));
+        OnPropertyChanged(nameof(FooterText));
+        RefreshScheduleOptions();
+        RefreshUpcomingQuests();
     }
 
     private void RaiseCommandStates()
@@ -674,6 +1240,44 @@ public sealed class MainViewModel : INotifyPropertyChanged
         (AddItemCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ResetTodayCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ClearCompletedCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ClearHistoryCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RemoveScheduledQuestCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void RefreshStorageUsage()
+    {
+        try
+        {
+            var usage = _storageUsageService.Measure(_state.History);
+            ApplicationStorageText = FormatBytes(usage.ApplicationBytes);
+            DataStorageText = FormatBytes(usage.DataBytes);
+            HistoryStorageText = FormatBytes(usage.HistoryBytes);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or JsonException)
+        {
+            ApplicationStorageText = "—";
+            DataStorageText = "—";
+            HistoryStorageText = "—";
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        var safeBytes = Math.Max(0, bytes);
+        string[] units = ["B", "KB", "MB", "GB"];
+        var value = (double)safeBytes;
+        var unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return unitIndex == 0
+            ? $"{safeBytes} {units[unitIndex]}"
+            : $"{value:0.#} {units[unitIndex]}";
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

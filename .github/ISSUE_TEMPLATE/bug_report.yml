@@ -1,0 +1,83 @@
+name: Bug report / Laporan bug
+description: Report a reproducible Daily Quest problem / Laporkan masalah Daily Quest yang dapat direproduksi
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Daily Quest. Please remove private quest text and other sensitive information before submitting.
+
+        Terima kasih sudah membantu memperbaiki Daily Quest. Hapus teks quest pribadi dan informasi sensitif lain sebelum mengirim laporan.
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Daily Quest version / Versi Daily Quest
+      description: Find this in the app footer / Lihat informasi ini pada footer aplikasi
+      placeholder: "1.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version / Versi Windows
+      placeholder: "Windows 11 24H2, build 26100"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: App package / Paket aplikasi
+      options:
+        - Portable ZIP release
+        - Standalone EXE release
+        - Built from source / Build dari source
+        - Other / Lainnya
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened? / Apa yang terjadi?
+      description: Describe the problem without including private checklist data / Jelaskan masalah tanpa menyertakan data checklist pribadi
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps / Langkah reproduksi
+      placeholder: |
+        1. Open Daily Quest / Buka Daily Quest
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / Hasil yang diharapkan
+    validations:
+      required: true
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots or additional context / Screenshot atau konteks tambahan
+      description: Remove or blur private quest text before attaching images / Hapus atau buramkan teks quest pribadi sebelum melampirkan gambar
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checklist / Checklist pengiriman
+      options:
+        - label: I checked the Q&A and existing issues / Saya sudah memeriksa Q&A dan issue yang ada
+          required: true
+        - label: I removed private or sensitive information / Saya sudah menghapus informasi pribadi atau sensitif
+          required: true
