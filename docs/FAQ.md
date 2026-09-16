@@ -56,7 +56,7 @@ Displayed values may be rounded and do not represent Windows filesystem allocati
 
 ### How do I change the language?
 
-Open Settings and choose **Indonesian** or **English**. The selection is saved locally and applies immediately.
+New installations start in **English**. Open Settings to choose **Indonesian** or **English**; the selection is saved locally and applies immediately. Existing saved preferences remain unchanged after an update.
 
 ### How do I change the appearance?
 
@@ -140,7 +140,7 @@ Nilai yang ditampilkan dapat dibulatkan dan tidak sama persis dengan alokasi fil
 
 ### Bagaimana cara mengganti bahasa?
 
-Buka Pengaturan lalu pilih **Bahasa Indonesia** atau **English**. Pilihan disimpan secara lokal dan langsung diterapkan.
+Instalasi baru dimulai dalam **English**. Buka Pengaturan untuk memilih **Bahasa Indonesia** atau **English**; pilihan disimpan secara lokal dan langsung diterapkan. Preferensi yang sudah tersimpan tidak berubah setelah pembaruan.
 
 ### Bagaimana cara mengganti tampilan?
 

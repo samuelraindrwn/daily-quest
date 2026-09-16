@@ -405,7 +405,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Settings = new AppSettings
         {
             AlwaysOnTop = true,
-            LanguageCode = UiCopyCatalog.IndonesianCode,
+            LanguageCode = UiCopyCatalog.EnglishCode,
             ThemeCode = ThemeCatalog.LightCode
         }
     };

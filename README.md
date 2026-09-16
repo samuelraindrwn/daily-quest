@@ -35,7 +35,7 @@ Daily Quest keeps today's priorities visible without turning them into a complic
 - Preserve completed entries in history after clearing them from today's active list.
 - Reorder today's quests by dragging their dedicated handles; the saved order also controls which quest appears next in compact mode.
 - Shrink the widget into a top-right compact view that shows one unfinished quest at a time.
-- Choose English or Indonesian from Settings.
+- Start new installations in English, then choose English or Indonesian from Settings; existing saved preferences stay unchanged.
 - Choose a Light or Dark theme from Settings; the preference is saved locally.
 - Pin the widget above other windows, minimize it to the taskbar, or move and resize it freely.
 - Open at the top-right of the primary work area with a comfortable edge gap, while restoring the saved size, language, theme, and pin preference.

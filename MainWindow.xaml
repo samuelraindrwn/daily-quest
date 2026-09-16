@@ -299,7 +299,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </Button.Style>
-                            <Viewbox Width="22" Height="22">
+                            <Viewbox Width="27" Height="27">
                                 <TextBlock Text="&#x2699;"
                                            FontFamily="Segoe UI Symbol"
                                            FontSize="24"
@@ -1362,7 +1362,6 @@
                                         <Button Grid.Column="1"
                                                 Padding="12,7"
                                                 VerticalAlignment="Center"
-                                                Content="{Binding Copy.ClearHistory}"
                                                 Click="ClearHistory_Click">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
@@ -1376,6 +1375,9 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Button.Style>
+                                            <TextBlock Text="{Binding Copy.ClearHistory}"
+                                                       Foreground="{DynamicResource IvoryBrush}"
+                                                       FontWeight="SemiBold" />
                                         </Button>
                                     </Grid>
                                 </Border>

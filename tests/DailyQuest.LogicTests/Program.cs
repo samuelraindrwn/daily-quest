@@ -90,7 +90,10 @@ internal static class Program
         AssertEx.Equal(0, viewModel.TotalCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
         AssertEx.Equal(0d, viewModel.ProgressPercent);
-        AssertEx.Equal("Belum ada aktivitas", viewModel.ProgressText);
+        AssertEx.Equal("No activities yet", viewModel.ProgressText);
+        AssertEx.Equal("en-US", viewModel.LanguageCode);
+        AssertEx.Equal("EN", viewModel.LanguageBadge);
+        AssertEx.Equal("Good morning!", viewModel.Greeting);
         AssertEx.Equal(0, viewModel.Items.Count);
         AssertEx.Equal(0, viewModel.HistoryEntries.Count);
         AssertEx.Equal(1, store.SaveCount);
@@ -102,7 +105,7 @@ internal static class Program
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.Equal(0, saved.History.Count);
         AssertEx.True(saved.Settings.AlwaysOnTop, "Always-on-top should default to enabled.");
-        AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
+        AssertEx.Equal("en-US", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
         AssertEx.Equal("light", viewModel.ThemeCode);
         AssertEx.True(viewModel.IsLightTheme, "First run should use the light theme.");
@@ -1392,6 +1395,7 @@ internal static class Program
 
         var saved = AssertEx.NotNull(store.Snapshot);
         AssertEx.Equal(4, saved.SchemaVersion);
+        AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
         AssertEx.SequenceEqual([activeId], saved.Items.Select(item => item.Id));

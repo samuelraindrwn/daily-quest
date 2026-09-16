@@ -35,7 +35,7 @@ Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi
 - Pertahankan aktivitas selesai di riwayat setelah dibersihkan dari daftar aktif hari ini.
 - Atur urutan quest hari ini dengan menarik handle khusus; urutan tersimpan juga menentukan quest berikutnya di mode ringkas.
 - Ringkas widget di pojok kanan atas agar hanya menampilkan satu quest yang belum selesai.
-- Pilih Bahasa Indonesia atau English melalui Pengaturan.
+- Instalasi baru dimulai dalam English; pilih English atau Bahasa Indonesia melalui Pengaturan tanpa mengubah preferensi pengguna lama.
 - Pilih tema Terang atau Gelap melalui Pengaturan; preferensinya disimpan secara lokal.
 - Sematkan widget di atas jendela lain, minimalkan ke taskbar, pindahkan, atau ubah ukurannya.
 - Buka di pojok kanan atas area kerja utama dengan jarak yang nyaman dari tepi, sekaligus memulihkan ukuran, bahasa, tema, dan preferensi pin.
