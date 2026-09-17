@@ -20,7 +20,7 @@
 
 Daily Quest keeps today's priorities visible without turning them into a complicated project-management system. It combines quick check-ins, customizable labels, optional quest timers, flexible sorting, automatic local saving, progress tracking, and expandable daily history in a compact desktop widget.
 
-This guide covers Daily Quest v1.6.0.
+This guide covers Daily Quest v1.6.1.
 
 <p align="center">
   <img src="docs/images/daily-quest-en.png" width="360" alt="Daily Quest main window in English showing a running quest timer">
@@ -55,13 +55,13 @@ This guide covers Daily Quest v1.6.0.
 ## Download and install
 
 1. Open the [latest release](https://github.com/samuelraindrwn/daily-quest/releases/latest).
-2. Download the `win-x64.zip` asset (recommended) and extract it, or download the standalone `.exe` asset.
-3. Run `DailyQuest.exe`.
+2. Download and run the `win-x64-setup.exe` asset for the standard Windows install experience.
+3. For portable use, download and extract `win-x64.zip`, or download the standalone `win-x64.exe` asset.
 
-The release is portable and self-contained for 64-bit Windows 10/11, so there is no installer and the .NET runtime does not need to be installed separately. To update, close Daily Quest and replace the old executable; your data in Local AppData remains intact.
+All release options are self-contained for 64-bit Windows 10/11, so the .NET runtime does not need to be installed separately. The installer adds Start Menu and uninstall entries, offers an optional Desktop shortcut, and upgrades in place. Portable users can update by closing Daily Quest and replacing the old executable. Either method preserves data in Local AppData.
 
 > [!NOTE]
-> The current executable is not code-signed, so Windows may show a SmartScreen warning. Continue only when the file came from this repository's official Releases page. You can verify it with the included `SHA256SUMS.txt`.
+> The installer and application are not code-signed yet, so Windows may show a SmartScreen warning. Continue only when the file came from this repository's official Releases page. You can verify it with the included `SHA256SUMS.txt`.
 
 ## How to use it
 
@@ -144,7 +144,7 @@ Scheduling by itself does not create a Windows notification, run a background se
 - **Q&A:** open the bilingual [Frequently Asked Questions](docs/FAQ.md).
 - **Report a bug:** open the repository's pre-filled GitHub issue form in the default browser.
 
-The footer on the full Today view shows the app name and installed version (v1.6.0 for this release).
+The footer on the full Today view shows the app name and installed version (v1.6.1 for this release).
 
 ### Keyboard navigation
 
@@ -219,11 +219,23 @@ dotnet publish .\DailyQuest.csproj `
 
 The resulting portable application is written to `artifacts\DailyQuest-win-x64\DailyQuest.exe`.
 
+## Create a Windows installer
+
+The reproducible Inno Setup configuration creates a per-user installer with upgrade and uninstall support while preserving local quest data:
+
+```powershell
+winget install --id JRSoftware.InnoSetup --exact --scope user
+.\installer\build-installer.ps1
+```
+
+See the [Windows installer guide](installer/README.md) for prerequisites, output paths, and packaging an existing official executable.
+
 ## Project structure
 
 ```text
 Assets/          App icons, logo, and optional local timer-ringtone instructions
 Infrastructure/ Command helpers
+installer/      Reproducible per-user Windows installer scripts and documentation
 Localization/   English and Indonesian UI copy
 Models/          Persisted active, scheduled, and historical quest data
 Services/        JSON state storage, migration, usage reporting, and Windows ringtone alarms

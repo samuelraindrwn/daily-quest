@@ -4,7 +4,7 @@
 
 ## English
 
-This Q&A covers Daily Quest v1.6.0.
+This Q&A covers Daily Quest v1.6.1.
 
 ### Does Daily Quest require an account or internet connection?
 
@@ -142,7 +142,7 @@ Use **Report a bug** in Settings or open the [bug report form](https://github.co
 
 ## Bahasa Indonesia
 
-Tanya jawab ini membahas Daily Quest v1.6.0.
+Tanya jawab ini membahas Daily Quest v1.6.1.
 
 ### Apakah Daily Quest membutuhkan akun atau koneksi internet?
 

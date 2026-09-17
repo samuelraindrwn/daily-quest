@@ -20,7 +20,7 @@
 
 Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi sistem manajemen proyek yang rumit. Aplikasi ini menggabungkan check-in cepat, label yang dapat diatur, timer quest opsional, pengurutan fleksibel, penyimpanan lokal otomatis, progres harian, dan riwayat yang dapat dibuka saat dibutuhkan dalam sebuah widget desktop ringkas.
 
-Panduan ini membahas Daily Quest v1.6.0.
+Panduan ini membahas Daily Quest v1.6.1.
 
 <p align="center">
   <img src="docs/images/daily-quest.png" width="360" alt="Jendela utama Daily Quest berbahasa Indonesia dengan timer quest berjalan">
@@ -55,13 +55,13 @@ Panduan ini membahas Daily Quest v1.6.0.
 ## Unduh dan pasang
 
 1. Buka halaman [rilis terbaru](https://github.com/samuelraindrwn/daily-quest/releases/latest).
-2. Unduh aset `win-x64.zip` (disarankan) lalu ekstrak, atau unduh aset `.exe` mandiri.
-3. Jalankan `DailyQuest.exe`.
+2. Unduh dan jalankan aset `win-x64-setup.exe` untuk proses instalasi Windows standar.
+3. Untuk penggunaan portable, unduh dan ekstrak `win-x64.zip`, atau unduh aset `win-x64.exe` mandiri.
 
-Rilis ini portable dan self-contained untuk Windows 10/11 64-bit, jadi tidak ada installer dan runtime .NET tidak perlu dipasang terpisah. Untuk memperbarui aplikasi, tutup Daily Quest lalu ganti executable lama; data di Local AppData tetap tersimpan.
+Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga runtime .NET tidak perlu dipasang terpisah. Installer menambahkan entri Start Menu dan uninstall, menawarkan shortcut Desktop opsional, serta mendukung upgrade langsung. Pengguna versi portable dapat memperbarui aplikasi dengan menutup Daily Quest lalu mengganti executable lama. Kedua metode tetap mempertahankan data di Local AppData.
 
 > [!NOTE]
-> File executable saat ini belum ditandatangani secara digital sehingga Windows mungkin menampilkan peringatan SmartScreen. Lanjutkan hanya jika file berasal dari halaman Releases resmi repositori ini. File dapat diverifikasi menggunakan `SHA256SUMS.txt` yang disertakan.
+> Installer dan aplikasi saat ini belum ditandatangani secara digital sehingga Windows mungkin menampilkan peringatan SmartScreen. Lanjutkan hanya jika file berasal dari halaman Releases resmi repositori ini. File dapat diverifikasi menggunakan `SHA256SUMS.txt` yang disertakan.
 
 ## Cara memakai Daily Quest
 
@@ -144,7 +144,7 @@ Penjadwalan saja tidak membuat notifikasi Windows, menjalankan layanan di latar 
 - **Q&A:** buka [Pertanyaan yang Sering Diajukan](docs/FAQ.md) dalam dua bahasa.
 - **Laporkan bug:** buka formulir issue GitHub yang sudah disiapkan melalui browser bawaan.
 
-Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.6.0 untuk rilis ini).
+Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.6.1 untuk rilis ini).
 
 ### Navigasi keyboard
 
@@ -219,11 +219,23 @@ dotnet publish .\DailyQuest.csproj `
 
 Aplikasi portable akan dibuat di `artifacts\DailyQuest-win-x64\DailyQuest.exe`.
 
+## Buat installer Windows
+
+Konfigurasi Inno Setup yang reproducible membuat installer per-user dengan dukungan upgrade dan uninstall tanpa menghapus data quest lokal:
+
+```powershell
+winget install --id JRSoftware.InnoSetup --exact --scope user
+.\installer\build-installer.ps1
+```
+
+Baca [panduan installer Windows](installer/README.id.md) untuk kebutuhan build, lokasi output, dan cara membungkus executable resmi yang sudah di-publish.
+
 ## Struktur proyek
 
 ```text
 Assets/          Ikon, logo, dan petunjuk ringtone timer lokal opsional
 Infrastructure/ Helper command
+installer/      Script installer Windows per-user yang reproducible beserta dokumentasinya
 Localization/   Teks antarmuka English dan Bahasa Indonesia
 Models/          Data quest aktif, terjadwal, dan riwayat yang disimpan
 Services/        Penyimpanan JSON, migrasi state, laporan penggunaan, dan alarm ringtone Windows
