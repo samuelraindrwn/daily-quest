@@ -29,7 +29,15 @@
     <Compile Remove="tests\**\*.cs" />
     <Compile Remove="artifacts\**\*.cs" />
     <None Remove="Assets\DailyQuest.ico" />
+    <None Remove="Assets\ringtone\mixkit-facility-alarm-sound-999.wav" />
     <Resource Include="Assets\DailyQuest.ico" />
+    <EmbeddedResource Include="Assets\ringtone\mixkit-facility-alarm-sound-999.wav"
+                      LogicalName="DailyQuest.Assets.Ringtone.FacilityAlarm.wav"
+                      Condition="Exists('Assets\ringtone\mixkit-facility-alarm-sound-999.wav')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DailyQuest.LogicTests" />
   </ItemGroup>
 
 </Project>

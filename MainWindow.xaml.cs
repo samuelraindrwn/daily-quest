@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private const double CompactWidth = 300;
     private const double CompactHeight = 76;
     private const string QuestDragFormat = "DailyQuest.ChecklistItem";
+    private const string LabelDragFormat = "DailyQuest.QuestLabelId";
     private const string QnaUrl =
         "https://github.com/samuelraindrwn/daily-quest/blob/main/docs/FAQ.md";
     private const string BugReportUrl =
@@ -38,6 +39,9 @@ public partial class MainWindow : Window
     private Point _dragStart;
     private ChecklistItem? _dragCandidate;
     private Border? _dropTarget;
+    private Point _labelDragStart;
+    private Guid? _labelDragCandidateId;
+    private Border? _labelDropTarget;
     private bool? _schedulePopupWasOpenOnPointerDown;
     private bool? _durationPopupWasOpenOnPointerDown;
     private bool? _labelPopupWasOpenOnPointerDown;
@@ -755,6 +759,231 @@ public partial class MainWindow : Window
         {
             TaskScrollViewer.ScrollToVerticalOffset(
                 Math.Min(TaskScrollViewer.ScrollableHeight, TaskScrollViewer.VerticalOffset + step));
+        }
+    }
+
+    private void LabelDragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element ||
+            element.DataContext is not QuestLabelViewModel label)
+        {
+            return;
+        }
+
+        _labelDragStart = e.GetPosition(this);
+        _labelDragCandidateId = label.Id;
+        Mouse.Capture(element);
+        e.Handled = true;
+    }
+
+    private void LabelDragHandle_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _labelDragCandidateId = null;
+            Mouse.Capture(null);
+            return;
+        }
+
+        if (!_labelDragCandidateId.HasValue)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(this);
+        if (Math.Abs(current.X - _labelDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(current.Y - _labelDragStart.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        var sourceId = _labelDragCandidateId.Value;
+        _labelDragCandidateId = null;
+        Mouse.Capture(null);
+
+        var data = new DataObject();
+        data.SetData(LabelDragFormat, sourceId);
+        try
+        {
+            DragDrop.DoDragDrop((DependencyObject)sender, data, DragDropEffects.Move);
+        }
+        finally
+        {
+            ClearLabelDropIndicators();
+        }
+
+        e.Handled = true;
+    }
+
+    private void LabelDragHandle_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _labelDragCandidateId = null;
+        Mouse.Capture(null);
+        e.Handled = true;
+    }
+
+    private void LabelDragHandle_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        _labelDragCandidateId = null;
+    }
+
+    private void LabelEditorRow_DragOver(object sender, DragEventArgs e)
+    {
+        if (sender is not Border row ||
+            row.DataContext is not QuestLabelViewModel target ||
+            e.Data.GetData(LabelDragFormat) is not Guid sourceId ||
+            _viewModel.Labels.FirstOrDefault(label => label.Id == sourceId) is not { } source ||
+            !_viewModel.Labels.Contains(target))
+        {
+            ClearLabelDropIndicators();
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        var dropAfter = e.GetPosition(row).Y > row.ActualHeight / 2;
+        if (!TryGetLabelMoveDestination(source, target, dropAfter, out _))
+        {
+            ClearLabelDropIndicators();
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        ShowLabelDropIndicator(row, dropAfter);
+        AutoScrollLabelSettings(e);
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private void LabelEditorRow_DragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is Border row && ReferenceEquals(row, _labelDropTarget))
+        {
+            ClearLabelDropIndicators();
+        }
+    }
+
+    private void LabelEditorRow_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (sender is not Border row ||
+                row.DataContext is not QuestLabelViewModel target ||
+                e.Data.GetData(LabelDragFormat) is not Guid sourceId ||
+                _viewModel.Labels.FirstOrDefault(label => label.Id == sourceId) is not { } source)
+            {
+                return;
+            }
+
+            var dropAfter = e.GetPosition(row).Y > row.ActualHeight / 2;
+            if (ReorderLabel(source, target, dropAfter))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+
+            e.Handled = true;
+        }
+        finally
+        {
+            ClearLabelDropIndicators();
+        }
+    }
+
+    private bool ReorderLabel(
+        QuestLabelViewModel source,
+        QuestLabelViewModel target,
+        bool dropAfter)
+    {
+        return TryGetLabelMoveDestination(source, target, dropAfter, out var destinationIndex) &&
+               _viewModel.MoveLabel(source.Id, destinationIndex);
+    }
+
+    private bool TryGetLabelMoveDestination(
+        QuestLabelViewModel source,
+        QuestLabelViewModel target,
+        bool dropAfter,
+        out int destinationIndex)
+    {
+        destinationIndex = -1;
+        var sourceIndex = _viewModel.Labels.IndexOf(source);
+        var targetIndex = _viewModel.Labels.IndexOf(target);
+        if (sourceIndex < 0 || targetIndex < 0)
+        {
+            return false;
+        }
+
+        destinationIndex = targetIndex + (dropAfter ? 1 : 0);
+        if (sourceIndex < destinationIndex)
+        {
+            destinationIndex--;
+        }
+
+        return sourceIndex != destinationIndex;
+    }
+
+    private void ShowLabelDropIndicator(Border row, bool after)
+    {
+        if (!ReferenceEquals(_labelDropTarget, row))
+        {
+            ClearLabelDropIndicators();
+            _labelDropTarget = row;
+        }
+
+        var beforeIndicator = FindVisualChildByName<Border>(row, "LabelDropBeforeIndicator");
+        var afterIndicator = FindVisualChildByName<Border>(row, "LabelDropAfterIndicator");
+        if (beforeIndicator is not null)
+        {
+            beforeIndicator.Visibility = after ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        if (afterIndicator is not null)
+        {
+            afterIndicator.Visibility = after ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void ClearLabelDropIndicators()
+    {
+        if (_labelDropTarget is not null)
+        {
+            var beforeIndicator = FindVisualChildByName<Border>(
+                _labelDropTarget,
+                "LabelDropBeforeIndicator");
+            var afterIndicator = FindVisualChildByName<Border>(
+                _labelDropTarget,
+                "LabelDropAfterIndicator");
+            if (beforeIndicator is not null)
+            {
+                beforeIndicator.Visibility = Visibility.Collapsed;
+            }
+
+            if (afterIndicator is not null)
+            {
+                afterIndicator.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        _labelDropTarget = null;
+    }
+
+    private void AutoScrollLabelSettings(DragEventArgs e)
+    {
+        var position = e.GetPosition(SettingsScrollViewer);
+        const double edge = 42;
+        const double step = 20;
+
+        if (position.Y < edge)
+        {
+            SettingsScrollViewer.ScrollToVerticalOffset(
+                Math.Max(0, SettingsScrollViewer.VerticalOffset - step));
+        }
+        else if (position.Y > SettingsScrollViewer.ViewportHeight - edge)
+        {
+            SettingsScrollViewer.ScrollToVerticalOffset(
+                Math.Min(
+                    SettingsScrollViewer.ScrollableHeight,
+                    SettingsScrollViewer.VerticalOffset + step));
         }
     }
 

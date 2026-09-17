@@ -94,11 +94,12 @@ public sealed record UiCopy
     public string WindowSizeHint { get; init; } = "Tarik tepi jendela untuk mengatur ukuran sesuai kebutuhan.";
     public string ResetWindowSize { get; init; } = "Reset ukuran";
     public string LabelSettingsTitle { get; init; } = "Label quest";
-    public string LabelSettingsHint { get; init; } = "Atur nama, warna, dan prioritas label untuk quest-mu.";
+    public string LabelSettingsHint { get; init; } = "Atur nama dan warna label. Tarik label untuk menentukan urutan prioritas.";
     public string LabelLimitFormat { get; init; } = "{0} dari {1} label";
     public string LabelName { get; init; } = "Nama label";
     public string LabelColor { get; init; } = "Warna #RRGGBB";
     public string PickLabelColor { get; init; } = "Pilih warna label";
+    public string ReorderLabel { get; init; } = "Tarik untuk mengubah urutan label";
     public string AddLabel { get; init; } = "Tambah label";
     public string SaveLabel { get; init; } = "Simpan perubahan label";
     public string DeleteLabel { get; init; } = "Hapus label";
@@ -225,11 +226,12 @@ public static class UiCopyCatalog
         WindowSizeHint = "Drag any window edge to adjust the size to your workspace.",
         ResetWindowSize = "Reset size",
         LabelSettingsTitle = "Quest labels",
-        LabelSettingsHint = "Customize label names, colors, and priority order for your quests.",
+        LabelSettingsHint = "Customize label names and colors. Drag labels to set their priority order.",
         LabelLimitFormat = "{0} of {1} labels",
         LabelName = "Label name",
         LabelColor = "Color #RRGGBB",
         PickLabelColor = "Choose label color",
+        ReorderLabel = "Drag to reorder label",
         AddLabel = "Add label",
         SaveLabel = "Save label changes",
         DeleteLabel = "Delete label",

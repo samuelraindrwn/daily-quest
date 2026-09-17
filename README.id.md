@@ -34,7 +34,7 @@ Panduan ini membahas Daily Quest v1.5.0.
 - Tetapkan label berwarna yang dapat diatur saat menambahkan quest, atau ubah labelnya nanti melalui kartu quest.
 - Tambahkan quest baru tanpa timer, dengan preset 5/10/15/25/30/45/60 menit, atau durasi khusus dari 1 sampai 480 menit.
 - Mulai, jeda, lanjutkan, atau reset hitung mundur quest, dengan maksimal satu timer berjalan dalam satu waktu.
-- Dengarkan alarm Windows dan terima notifikasi bawaan saat waktu habis selama Daily Quest terbuka, dalam mode ringkas, atau diminimalkan; lanjutkan secara opsional ke overtime merah setelah mematikan alarm berulang.
+- Pada rilis resmi Windows, dengarkan ringtone facility-alarm bawaan aplikasi selama maksimal satu menit dan terima satu notifikasi bawaan saat waktu habis selama Daily Quest terbuka, dalam mode ringkas, atau diminimalkan; lanjutkan secara opsional ke overtime merah setelah mematikannya.
 - Lihat sapaan, jumlah selesai, persentase, dan progress bar hari ini secara langsung.
 - Jadikan setiap quest aktif sebagai Daily Quest: pertahankan untuk hari berikutnya dan reset status selesainya secara otomatis.
 - Pindahkan quest yang selesai ke urutan paling bawah secara otomatis agar prioritas yang belum selesai tetap di atas.
@@ -71,7 +71,7 @@ Rilis ini portable dan self-contained untuk Windows 10/11 64-bit, jadi tidak ada
 | Pilihan label di composer | Pertahankan **Tanpa label** atau tetapkan salah satu label yang sudah kamu atur ke quest baru. |
 | Checkbox | Tandai aktivitas sebagai selesai atau belum selesai. Quest yang selesai otomatis pindah ke urutan paling bawah. |
 | Kontrol timer pada quest | Mulai atau jeda hitung mundur, lanjutkan timer yang dijeda, atau reset ke durasi penuh quest. |
-| **Overtime** pada quest yang waktunya habis | Saat mode overtime aktif, matikan alarm berulang dan lanjutkan hitungan naik berwarna merah sampai dijeda, di-reset, atau diselesaikan. |
+| **Overtime** pada quest yang waktunya habis | Saat mode overtime aktif, langsung matikan alarm dan lanjutkan hitungan naik berwarna merah sampai dijeda, di-reset, atau diselesaikan. |
 | Label pada quest | Ubah atau hapus label yang ditetapkan ke quest yang sudah ada. |
 | Kontrol urutan | Gunakan urutan manual tersimpan, urutan label, durasi tersingkat, atau durasi terlama. |
 | Handle di samping aktivitas | Dalam mode urutan **Manual**, tarik dan lepas aktivitas untuk mengubah urutan tersimpannya. |
@@ -97,16 +97,18 @@ Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest
 - Gunakan kontrol timer pada quest untuk memulai, menjeda, melanjutkan, atau me-reset hitung mundur. Hanya satu timer quest yang dapat berjalan dalam satu waktu.
 - Hitung mundur yang berjalan disimpan bersama timestamp. Jika Daily Quest ditutup lalu dibuka kembali, waktu yang telah berlalu dihitung dari timestamp tersebut sehingga timer tidak dimulai ulang.
 - Timer yang mencapai nol tidak otomatis menandai quest sebagai selesai. Selesaikan quest secara terpisah melalui checkbox.
-- Mode overtime nonaktif secara default. Saat nonaktif, timer yang habis memutar alarm terbatas dan tidak menampilkan tindakan **Overtime**.
-- Saat mode overtime aktif, timer yang habis membunyikan alarm berulang dan menawarkan **Overtime**. Memilihnya akan mematikan alarm dan memulai hitungan naik berwarna merah sampai timer dijeda atau di-reset, atau quest diselesaikan.
+- Mode overtime nonaktif secara default. Saat nonaktif, timer yang habis tetap memutar alarm yang sama selama maksimal satu menit dan tidak menampilkan tindakan **Overtime**.
+- Pada rilis resmi Windows, setiap timer yang habis memutar ringtone bawaan aplikasi secara berulang selama maksimal 60 detik dan menampilkan satu notifikasi bawaan. Build dari source tanpa aset ringtone opsional akan memakai bunyi sistem Windows bergantian. Bunyi berhenti lebih awal saat quest di-reset, diselesaikan, atau dihapus; saat overtime dimatikan melalui Pengaturan; ketika hari berganti; atau ketika Daily Quest ditutup.
+- Saat mode overtime aktif, timer yang habis menawarkan **Overtime**. Memilihnya akan langsung mematikan alarm dan memulai hitungan naik berwarna merah sampai timer dijeda atau di-reset, atau quest diselesaikan.
 - Alarm timer dan notifikasi bawaan Windows bekerja pada tampilan penuh, mode ringkas, dan ketika jendela diminimalkan selama proses Daily Quest masih berjalan.
 - Daily Quest tidak menjalankan layanan latar belakang, sehingga alarm dan notifikasi tidak dapat muncul saat proses aplikasi benar-benar ditutup.
 
 ### Label dan pengurutan
 
-- Instalasi baru dan state yang dimigrasikan dari versi sebelum dukungan label dimulai dengan **Important**, **Personal**, dan **Routine**. Ketiganya merupakan label awal, bukan label sistem permanen: kamu dapat mengganti nama, warna, dan urutannya atau menghapusnya, dan daftar label yang sengaja dikosongkan akan tetap kosong.
+- Instalasi baru dan state yang dimigrasikan dari versi sebelum dukungan label dimulai dengan **Important**, **Personal**, dan **Routine**. Ketiganya merupakan label awal, bukan label sistem permanen: kamu dapat mengganti nama, warna, menariknya ke urutan prioritas baru, atau menghapusnya, dan daftar label yang sengaja dikosongkan akan tetap kosong.
 - Kamu dapat menyimpan maksimal 12 label. Setiap nama harus unik dan maksimal 24 karakter; warna menggunakan format heksadesimal `#RRGGBB`.
 - Urutan label menentukan mode urutan **Label**. Quest belum selesai tanpa label ditempatkan setelah quest belum selesai yang memiliki label.
+- Di Pengaturan, tarik label melalui handle enam titik untuk mengubah urutan prioritas tersebut. Draft nama dan warna tetap dipertahankan saat label dipindahkan.
 - **Tersingkat** dan **Terlama** menggunakan durasi timer yang diatur pada quest. Quest belum selesai tanpa timer ditempatkan setelah quest bertimer pada kedua mode durasi.
 - Quest selesai selalu berada di bawah quest belum selesai pada setiap mode urutan.
 - Drag and drop hanya tersedia dalam mode **Manual**. Urutan otomatis tidak menimpa urutan manual tersimpan sehingga kembali ke **Manual** akan memulihkannya.
@@ -128,8 +130,8 @@ Penjadwalan saja tidak membuat notifikasi Windows, menjalankan layanan di latar 
 - **Tema:** pilih Terang atau Gelap. Perubahan langsung diterapkan dan disimpan secara lokal untuk peluncuran berikutnya.
 - **Ukuran jendela:** ubah ukuran jendela penuh mulai dari 390 × 500 hingga 1200 × 1200. Pilih **Reset ukuran** pada bagian Tampilan untuk mengembalikannya ke default 520 × 680.
 - **Bahasa:** pilih Bahasa Indonesia atau English secara langsung. Pilihan disimpan secara lokal.
-- **Label:** tambah, ganti nama atau warna, ubah urutan, maupun hapus hingga 12 label quest. Nama dan warna label disimpan secara lokal.
-- **Overtime:** aktifkan alarm kedaluwarsa berulang dan tindakan **Overtime**, atau biarkan nonaktif secara default untuk alarm terbatas tanpa overtime.
+- **Label:** tambah, ganti nama atau warna, tarik untuk mengubah urutan, maupun hapus hingga 12 label quest. Nama, warna, dan urutan prioritas disimpan secara lokal.
+- **Overtime:** aktifkan tindakan **Overtime** untuk timer yang habis, atau biarkan nonaktif secara default. Alarm kedaluwarsa maksimal satu menit tetap bekerja pada kedua mode.
 - **Penyimpanan:** lihat ukuran executable aplikasi, folder data lokal Daily Quest, dan data riwayat yang diserialisasi. Nilai ini merupakan perkiraan lokal dan dapat dibulatkan pada antarmuka.
 - **Hapus riwayat:** menghapus permanen arsip riwayat tanpa menghapus quest aktif atau terjadwal. Entri riwayat untuk hari ini dapat dibuat kembali setelah checklist berubah lagi.
 - **Q&A:** buka [Pertanyaan yang Sering Diajukan](docs/FAQ.md) dalam dua bahasa.
@@ -178,6 +180,8 @@ Kebutuhan:
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Git
 
+Rilis resmi menyematkan **Facility alarm sound** dari Mixkit berdasarkan Mixkit Sound Effects Free License. File WAV mentahnya sengaja tidak disertakan dalam repository source ini. Build source biasa tetap berfungsi penuh dan menggunakan bunyi sistem Windows sebagai fallback timer. Untuk menghasilkan audio yang sama dengan rilis resmi, unduh bunyinya langsung dari Mixkit lalu simpan sebagai `Assets\ringtone\mixkit-facility-alarm-sound-999.wav` sebelum build. Lihat [Pemberitahuan Pihak Ketiga](THIRD_PARTY_NOTICES.md).
+
 ```powershell
 git clone https://github.com/samuelraindrwn/daily-quest.git
 cd daily-quest
@@ -211,11 +215,11 @@ Aplikasi portable akan dibuat di `artifacts\DailyQuest-win-x64\DailyQuest.exe`.
 ## Struktur proyek
 
 ```text
-Assets/          Ikon aplikasi dan logo
+Assets/          Ikon, logo, dan petunjuk ringtone timer lokal opsional
 Infrastructure/ Helper command
 Localization/   Teks antarmuka English dan Bahasa Indonesia
 Models/          Data quest aktif, terjadwal, dan riwayat yang disimpan
-Services/        Penyimpanan JSON, migrasi state, laporan penggunaan, dan alarm timer Windows
+Services/        Penyimpanan JSON, migrasi state, laporan penggunaan, dan alarm ringtone Windows
 ViewModels/      Logika checklist, label, pengurutan, timer/overtime, penjadwalan, progres, pengaturan, bahasa, dan riwayat
 tests/           Runner tes logika tanpa dependency eksternal
 ```
@@ -226,7 +230,7 @@ tests/           Runner tes logika tanpa dependency eksternal
 - **Membuka aplikasi lagi tidak membuat jendela kedua:** Daily Quest hanya mengizinkan satu instance dan akan memulihkan jendela yang sudah ada.
 - **Widget ringkas tidak masuk ke taskbar:** mode ringkas mempertahankan jendela quest kecil agar tetap terlihat. Gunakan tombol `−` untuk fungsi minimize bawaan Windows.
 - **Timer habis tanpa alarm saat aplikasi ditutup:** hitung mundur dipulihkan dari timestamp tersimpan pada peluncuran berikutnya, tetapi Daily Quest tidak dapat memutar bunyi atau mengirim notifikasi ketika prosesnya tidak berjalan.
-- **Tombol Overtime tidak ada:** aktifkan mode overtime di Pengaturan sebelum timer habis. Saat overtime nonaktif, timer yang habis memang menggunakan alarm terbatas tanpa menawarkan overtime.
+- **Tombol Overtime tidak ada:** aktifkan mode overtime di Pengaturan sebelum timer habis. Saat overtime nonaktif, alarm tetap berjalan maksimal satu menit, tetapi timer tidak menawarkan overtime.
 - **Riwayat hari ini muncul lagi setelah dihapus:** checklist aktif memang dipertahankan, sehingga ringkasan hari ini dapat ditulis ulang setelah quest berubah. Hapus riwayat setelah selesai melakukan perubahan jika ingin tampilan Riwayat tetap kosong untuk sementara.
 - **Proyek source melaporkan SDK tidak ditemukan:** pasang .NET 10 SDK, lalu pastikan versinya muncul melalui `dotnet --list-sdks`.
 - **Aplikasi tiba-tiba dimulai dengan state kosong:** periksa folder data untuk backup `state.json.broken-*` yang dibuat dari JSON yang tidak dapat dibaca.

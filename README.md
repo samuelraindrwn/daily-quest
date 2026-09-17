@@ -34,7 +34,7 @@ This guide covers Daily Quest v1.5.0.
 - Assign a customizable color label when adding a quest, or change it later from the quest card.
 - Give a new quest no timer, a 5/10/15/25/30/45/60-minute preset, or a custom duration from 1 to 480 minutes.
 - Start, pause, resume, or reset a quest countdown, with at most one timer running at a time.
-- Hear a Windows alarm and receive a native notification when time runs out while Daily Quest is open, compact, or minimized; optionally continue into red overtime after silencing a repeating alarm.
+- In the official Windows release, hear the bundled facility-alarm ringtone for up to one minute and receive one native notification when time runs out while Daily Quest is open, compact, or minimized; optionally continue into red overtime after silencing it.
 - See today's greeting, completion count, percentage, and progress bar at a glance.
 - Treat every active quest as a Daily Quest: keep it for the next day and reset its completion automatically.
 - Move a completed quest to the bottom automatically, keeping unfinished priorities at the top.
@@ -71,7 +71,7 @@ The release is portable and self-contained for 64-bit Windows 10/11, so there is
 | Label choice in the composer | Keep **No label** or assign one of your configured labels to the new quest. |
 | Checkbox | Mark an activity as complete or incomplete. A completed quest automatically moves to the bottom. |
 | Timer controls on a quest | Start or pause the countdown, resume a paused timer, or reset it to the quest's full duration. |
-| **Overtime** on an expired quest | When overtime mode is enabled, silence the repeating alarm and continue counting upward in red until paused, reset, or completed. |
+| **Overtime** on an expired quest | When overtime mode is enabled, silence the alarm immediately and continue counting upward in red until paused, reset, or completed. |
 | Label on a quest | Change or remove the label assigned to an existing quest. |
 | Sort control | Use the saved manual order, label order, shortest duration, or longest duration. |
 | Drag handle beside an activity | In **Manual** sort mode, drag and drop the activity to change its saved order. |
@@ -97,16 +97,18 @@ Every active quest is a **Daily Quest**. When the date changes, Daily Quest arch
 - Use the quest's timer controls to start, pause, resume, or reset its countdown. Only one quest timer can run at a time.
 - A running countdown is saved with a timestamp. If Daily Quest is closed and reopened, elapsed time is calculated from that timestamp instead of restarting the timer.
 - Reaching zero does not mark the quest complete. Complete the quest separately with its checkbox.
-- Overtime mode is off by default. With it off, an expired timer plays a finite alarm and shows no **Overtime** action.
-- When overtime mode is enabled, an expired timer rings repeatedly and offers **Overtime**. Selecting it silences the alarm and starts a red count-up that continues until you pause or reset the timer, or complete the quest.
+- Overtime mode is off by default. With it off, an expired timer plays the same one-minute-maximum alarm and shows no **Overtime** action.
+- In the official Windows release, every expired timer loops the bundled ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds instead. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when Daily Quest exits.
+- When overtime mode is enabled, an expired timer offers **Overtime**. Selecting it silences the alarm immediately and starts a red count-up that continues until you pause or reset the timer, or complete the quest.
 - Timer alarms and native Windows notifications work in the full view, compact mode, and while the window is minimized, as long as the Daily Quest process is running.
 - Daily Quest does not run a background service, so it cannot play the alarm or show the notification while its process is fully closed.
 
 ### Labels and sorting
 
-- Fresh installations and state migrated from a version before label support begin with **Important**, **Personal**, and **Routine**. They are starter labels, not permanent system labels: you can rename, recolor, reorder, or delete them, and a deliberately empty label list stays empty.
+- Fresh installations and state migrated from a version before label support begin with **Important**, **Personal**, and **Routine**. They are starter labels, not permanent system labels: you can rename, recolor, drag them into a new priority order, or delete them, and a deliberately empty label list stays empty.
 - You can keep up to 12 labels. Each name must be unique and no longer than 24 characters; colors use the `#RRGGBB` hexadecimal format.
 - Label order controls **Label** sorting. Unlabeled unfinished quests appear after labeled unfinished quests.
+- In Settings, drag a label by its six-dot handle to change that priority order. Name and color drafts stay in place while labels move.
 - **Shortest** and **Longest** sort by the quest's configured timer duration. Untimed unfinished quests appear after timed unfinished quests in either duration mode.
 - Completed quests always remain below unfinished quests in every sort mode.
 - Drag and drop is available only in **Manual** mode. Automatic sorting does not overwrite the saved manual order, so switching back to **Manual** restores it.
@@ -128,8 +130,8 @@ Scheduling by itself does not create a Windows notification, run a background se
 - **Theme:** choose Light or Dark. The change applies immediately and is saved locally for the next launch.
 - **Window size:** resize the expanded window from 390 × 500 up to 1200 × 1200. Select **Reset size** under Appearance to restore its 520 × 680 default.
 - **Language:** choose Indonesian or English explicitly. The choice is saved locally.
-- **Labels:** add, rename, recolor, reorder, or delete up to 12 quest labels. Label names and colors are saved locally.
-- **Overtime:** enable repeating expiry alarms and the **Overtime** action, or leave the default off for a finite alarm without overtime.
+- **Labels:** add, rename, recolor, drag to reorder, or delete up to 12 quest labels. Label names, colors, and priority order are saved locally.
+- **Overtime:** enable the **Overtime** action for expired timers, or leave the default off. The one-minute-maximum expiry alarm works in either mode.
 - **Storage:** view the size of the application executable, Daily Quest's local data folder, and the serialized history data. These values are local estimates and may be rounded in the interface.
 - **Clear history:** permanently removes archived history while leaving active and scheduled quests intact. A new current-day history entry can be created after the checklist changes again.
 - **Q&A:** open the bilingual [Frequently Asked Questions](docs/FAQ.md).
@@ -178,6 +180,8 @@ Requirements:
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Git
 
+The official release embeds Mixkit's **Facility alarm sound** under the Mixkit Sound Effects Free License. Its raw WAV is intentionally excluded from this source repository. A regular source build remains fully functional and uses Windows system sounds as its timer fallback. To reproduce the official release audio, download the sound directly from Mixkit and save it as `Assets\ringtone\mixkit-facility-alarm-sound-999.wav` before building. See [Third-Party Notices](THIRD_PARTY_NOTICES.md).
+
 ```powershell
 git clone https://github.com/samuelraindrwn/daily-quest.git
 cd daily-quest
@@ -211,11 +215,11 @@ The resulting portable application is written to `artifacts\DailyQuest-win-x64\D
 ## Project structure
 
 ```text
-Assets/          App icons and logo
+Assets/          App icons, logo, and optional local timer-ringtone instructions
 Infrastructure/ Command helpers
 Localization/   English and Indonesian UI copy
 Models/          Persisted active, scheduled, and historical quest data
-Services/        JSON state storage, migration, usage reporting, and Windows timer alarms
+Services/        JSON state storage, migration, usage reporting, and Windows ringtone alarms
 ViewModels/      Checklist, labels, sorting, timer/overtime, scheduling, progress, settings, language, and history logic
 tests/           Dependency-free logic test runner
 ```
@@ -226,7 +230,7 @@ tests/           Dependency-free logic test runner
 - **Opening the app again does not create another window:** Daily Quest allows one instance and restores the existing window instead.
 - **The compact widget is not in the taskbar:** compact mode keeps a small quest window visible. Use the `−` button when you want the native Windows minimize behavior.
 - **A timer expired without an alarm while the app was closed:** the countdown is restored from its saved timestamp at the next launch, but Daily Quest cannot play a sound or deliver a notification while its process is not running.
-- **There is no Overtime button:** enable overtime mode in Settings before the timer expires. With overtime disabled, expiry intentionally uses a finite alarm and does not offer overtime.
+- **There is no Overtime button:** enable overtime mode in Settings before the timer expires. With overtime disabled, the alarm still runs for up to one minute, but the timer does not offer overtime.
 - **Cleared history returns for today:** the active checklist is intentionally preserved, so the current-day summary can be written again after a quest changes. Clear history after finishing changes if you want the History view to stay empty for the moment.
 - **The source project reports a missing SDK:** install the .NET 10 SDK, then confirm it appears in `dotnet --list-sdks`.
 - **The app starts with a clean state unexpectedly:** check the data folder for a `state.json.broken-*` backup created from unreadable JSON.

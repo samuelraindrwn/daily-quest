@@ -1972,7 +1972,8 @@
                           Grid.RowSpan="4"
                           Margin="14,0,12,16"
                           Visibility="{Binding IsSettingsView, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        <ScrollViewer x:Name="SettingsScrollViewer"
+                                      VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
                             <ScrollViewer.Resources>
                                 <Style TargetType="{x:Type ScrollBar}"
@@ -2085,7 +2086,12 @@
                                                             Background="{DynamicResource GlassSubtleBrush}"
                                                             BorderBrush="{DynamicResource GlassEdgeBrush}"
                                                             BorderThickness="1"
-                                                            CornerRadius="13">
+                                                            CornerRadius="13"
+                                                            AllowDrop="True"
+                                                            DragOver="LabelEditorRow_DragOver"
+                                                            DragLeave="LabelEditorRow_DragLeave"
+                                                            Drop="LabelEditorRow_Drop"
+                                                            AutomationProperties.Name="{Binding Name}">
                                                         <Grid>
                                                             <Grid.RowDefinitions>
                                                                 <RowDefinition Height="Auto" />
@@ -2093,13 +2099,43 @@
                                                             </Grid.RowDefinitions>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
                                                                 <ColumnDefinition Width="*" />
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
-                                                            <Button Width="34"
+                                                            <Border Grid.RowSpan="2"
+                                                                    Width="24"
+                                                                    Margin="0,0,8,0"
+                                                                    VerticalAlignment="Stretch"
+                                                                    Background="Transparent"
+                                                                    Cursor="SizeAll"
+                                                                    ToolTip="{Binding DataContext.Copy.ReorderLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                    AutomationProperties.Name="{Binding DataContext.Copy.ReorderLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                    PreviewMouseLeftButtonDown="LabelDragHandle_PreviewMouseLeftButtonDown"
+                                                                    PreviewMouseMove="LabelDragHandle_PreviewMouseMove"
+                                                                    PreviewMouseLeftButtonUp="LabelDragHandle_PreviewMouseLeftButtonUp"
+                                                                    LostMouseCapture="LabelDragHandle_LostMouseCapture">
+                                                                <UniformGrid Width="10"
+                                                                             Height="18"
+                                                                             HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"
+                                                                             Rows="3"
+                                                                             Columns="2">
+                                                                    <Ellipse Width="2.5" Height="2.5" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                                    <Ellipse Width="2.5" Height="2.5" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                                    <Ellipse Width="2.5" Height="2.5" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                                    <Ellipse Width="2.5" Height="2.5" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                                    <Ellipse Width="2.5" Height="2.5" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                                    <Ellipse Width="2.5" Height="2.5" Fill="{DynamicResource TertiaryInkBrush}" />
+                                                                </UniformGrid>
+                                                            </Border>
+                                                            <Button Grid.Column="1"
+                                                                    Grid.RowSpan="2"
+                                                                    Width="34"
                                                                     Height="34"
                                                                     Margin="0,0,8,0"
                                                                     Padding="0"
+                                                                    VerticalAlignment="Center"
                                                                     Style="{StaticResource SoftButtonStyle}"
                                                                     Click="PickExistingLabelColor_Click"
                                                                     ToolTip="{Binding DataContext.Copy.PickLabelColor, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
@@ -2109,14 +2145,14 @@
                                                                          Fill="{Binding ElementName=LabelColorEditor, Path=Text, Converter={StaticResource HexColorBrushConverter}}" />
                                                             </Button>
                                                             <TextBox x:Name="LabelNameEditor"
-                                                                     Grid.Column="1"
+                                                                     Grid.Column="2"
                                                                      Height="34"
                                                                      Padding="9,5"
                                                                      VerticalContentAlignment="Center"
                                                                      MaxLength="24"
                                                                      Text="{Binding Name, Mode=OneWay}"
                                                                      ToolTip="{Binding DataContext.Copy.LabelName, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
-                                                            <Button Grid.Column="2"
+                                                            <Button Grid.Column="3"
                                                                     Width="34"
                                                                     Height="34"
                                                                     Margin="8,0,0,0"
@@ -2133,44 +2169,20 @@
 
                                                             <TextBox x:Name="LabelColorEditor"
                                                                      Grid.Row="1"
-                                                                     Grid.ColumnSpan="2"
+                                                                     Grid.Column="2"
                                                                      Height="32"
-                                                                     Margin="0,8,8,0"
+                                                                     Margin="0,8,0,0"
                                                                      Padding="9,4"
                                                                      VerticalContentAlignment="Center"
                                                                      MaxLength="7"
                                                                      Text="{Binding ColorHex, Mode=OneWay}"
                                                                      ToolTip="{Binding DataContext.Copy.LabelColor, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
                                                             <StackPanel Grid.Row="1"
-                                                                        Grid.Column="2"
-                                                                        Margin="0,8,0,0"
+                                                                        Grid.Column="3"
+                                                                        Margin="8,8,0,0"
                                                                         Orientation="Horizontal">
-                                                                <Button Width="30"
+                                                                <Button Width="34"
                                                                         Height="32"
-                                                                        Padding="0"
-                                                                        Style="{StaticResource SoftButtonStyle}"
-                                                                        Command="{Binding DataContext.MoveLabelUpCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
-                                                                        CommandParameter="{Binding}"
-                                                                        ToolTip="{Binding DataContext.Copy.MoveLabelUp, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                                        AutomationProperties.Name="{Binding DataContext.Copy.MoveLabelUp, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
-                                                                    <TextBlock Text="&#x2191;"
-                                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
-                                                                </Button>
-                                                                <Button Width="30"
-                                                                        Height="32"
-                                                                        Margin="5,0,0,0"
-                                                                        Padding="0"
-                                                                        Style="{StaticResource SoftButtonStyle}"
-                                                                        Command="{Binding DataContext.MoveLabelDownCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
-                                                                        CommandParameter="{Binding}"
-                                                                        ToolTip="{Binding DataContext.Copy.MoveLabelDown, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                                        AutomationProperties.Name="{Binding DataContext.Copy.MoveLabelDown, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
-                                                                    <TextBlock Text="&#x2193;"
-                                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
-                                                                </Button>
-                                                                <Button Width="30"
-                                                                        Height="32"
-                                                                        Margin="5,0,0,0"
                                                                         Padding="0"
                                                                         Click="DeleteLabel_Click"
                                                                         ToolTip="{Binding DataContext.Copy.DeleteLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
@@ -2188,6 +2200,28 @@
                                                                                FontWeight="SemiBold" />
                                                                 </Button>
                                                             </StackPanel>
+                                                            <Border x:Name="LabelDropBeforeIndicator"
+                                                                    Grid.RowSpan="2"
+                                                                    Grid.ColumnSpan="4"
+                                                                    Height="3"
+                                                                    Margin="7,-12,7,0"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    VerticalAlignment="Top"
+                                                                    Background="{DynamicResource AccentBrush}"
+                                                                    CornerRadius="2"
+                                                                    IsHitTestVisible="False"
+                                                                    Visibility="Collapsed" />
+                                                            <Border x:Name="LabelDropAfterIndicator"
+                                                                    Grid.RowSpan="2"
+                                                                    Grid.ColumnSpan="4"
+                                                                    Height="3"
+                                                                    Margin="7,0,7,-12"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    VerticalAlignment="Bottom"
+                                                                    Background="{DynamicResource AccentBrush}"
+                                                                    CornerRadius="2"
+                                                                    IsHitTestVisible="False"
+                                                                    Visibility="Collapsed" />
                                                         </Grid>
                                                     </Border>
                                                 </DataTemplate>
@@ -2207,14 +2241,18 @@
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
                                                 <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="32" />
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <Button Width="34"
+                                                <Button Grid.Column="1"
+                                                        Grid.RowSpan="2"
+                                                        Width="34"
                                                         Height="34"
                                                         Margin="0,0,8,0"
                                                         Padding="0"
+                                                        VerticalAlignment="Center"
                                                         Style="{StaticResource SoftButtonStyle}"
                                                         Click="PickNewLabelColor_Click"
                                                         ToolTip="{Binding Copy.PickLabelColor}"
@@ -2224,15 +2262,15 @@
                                                              Fill="{Binding ElementName=NewLabelColorTextBox, Path=Text, Converter={StaticResource HexColorBrushConverter}}" />
                                                 </Button>
                                                 <TextBox x:Name="NewLabelNameTextBox"
-                                                         Grid.Column="1"
+                                                         Grid.Column="2"
                                                          Height="34"
                                                          Padding="9,5"
                                                          VerticalContentAlignment="Center"
                                                          MaxLength="24"
                                                          KeyDown="NewLabelNameTextBox_KeyDown"
                                                          ToolTip="{Binding Copy.LabelName}" />
-                                                <Button Grid.Column="2"
-                                                        Width="38"
+                                                <Button Grid.Column="3"
+                                                        Width="34"
                                                         Height="34"
                                                         Margin="8,0,0,0"
                                                         Padding="0"
@@ -2246,8 +2284,7 @@
                                                 </Button>
                                                 <TextBox x:Name="NewLabelColorTextBox"
                                                          Grid.Row="1"
-                                                         Grid.Column="1"
-                                                         Grid.ColumnSpan="2"
+                                                         Grid.Column="2"
                                                          Height="32"
                                                          Margin="0,8,0,0"
                                                          Padding="9,4"

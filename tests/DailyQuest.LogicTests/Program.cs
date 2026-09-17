@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using DailyQuest.Models;
@@ -26,12 +27,13 @@ internal static class Program
         ("duration selection supports custom values and no timer", DurationSelectionSupportsCustomValuesAndNoTimer),
         ("scheduled timer duration survives activation", ScheduledTimerDurationSurvivesActivation),
         ("timer starts pauses resumes resets and persists", TimerStartsPausesResumesResetsAndPersists),
+        ("optional embedded ringtone is exact and alarm is capped at one minute", EmbeddedRingtoneIsValidExactAndCappedAtOneMinute),
         ("starting a timer pauses the other active timer", StartingTimerPausesOtherActiveTimer),
         ("running timer restores from timestamp and alarms once", RunningTimerRestoresFromTimestampAndAlarmsOnce),
         ("completion pauses timer and daily rollover resets it", CompletionPausesTimerAndDailyRolloverResetsIt),
         ("midnight rollover resolves timers before resetting the day", MidnightRolloverResolvesTimersBeforeResettingDay),
-        ("overtime alarm repeats until count-up starts and persists", OvertimeAlarmRepeatsUntilCountUpStartsAndPersists),
-        ("disabled overtime uses a finite alarm and rejects count-up", DisabledOvertimeUsesFiniteAlarmAndRejectsCountUp),
+        ("overtime action stops the alarm and count-up persists", OvertimeActionStopsAlarmAndCountUpPersists),
+        ("disabled overtime rejects count-up and alarm can stop", DisabledOvertimeRejectsCountUpAndAlarmCanStop),
         ("overtime clears on completion reset and setting disable", OvertimeClearsOnCompletionResetAndSettingDisable),
         ("overtime dependent properties notify after reset and completion", OvertimeDependentPropertiesNotifyAfterResetAndCompletion),
         ("v6 migration defaults overtime off without adding deleted labels", V6MigrationDefaultsOvertimeOffWithoutAddingLabels),
@@ -924,6 +926,61 @@ internal static class Program
         AssertEx.False(reset.TimerStartedAt.HasValue);
     }
 
+    private static void EmbeddedRingtoneIsValidExactAndCappedAtOneMinute()
+    {
+        AssertEx.Equal(TimeSpan.FromMinutes(1), WindowsQuestAlarmService.MaximumAlarmDuration);
+        var ringtoneRequired = string.Equals(
+            Environment.GetEnvironmentVariable("DAILYQUEST_REQUIRE_RINGTONE"),
+            "1",
+            StringComparison.Ordinal);
+        AssertEx.True(
+            !ringtoneRequired || WindowsQuestAlarmService.HasEmbeddedRingtone,
+            "Official release validation requires the licensed ringtone to be embedded.");
+        if (!WindowsQuestAlarmService.HasEmbeddedRingtone)
+        {
+            return;
+        }
+
+        var wave = WindowsQuestAlarmService.LoadAlarmWave();
+
+        AssertEx.True(wave.Length > 44, "The generated alarm must contain PCM samples.");
+        AssertEx.Equal(3_173_020, wave.Length);
+        AssertEx.Equal(
+            "75F14A2044AF42630DE43FEA45ED720988FEC1345EB7EF688A413EAF24DB5A7B",
+            Convert.ToHexString(SHA256.HashData(wave)));
+        AssertEx.Equal("RIFF", Encoding.ASCII.GetString(wave, 0, 4));
+        AssertEx.Equal("WAVE", Encoding.ASCII.GetString(wave, 8, 4));
+        AssertEx.Equal("fmt ", Encoding.ASCII.GetString(wave, 12, 4));
+        AssertEx.Equal((short)1, BitConverter.ToInt16(wave, 20));
+        AssertEx.Equal((short)2, BitConverter.ToInt16(wave, 22));
+        var sampleRate = BitConverter.ToInt32(wave, 24);
+        AssertEx.Equal(44_100, sampleRate);
+        AssertEx.Equal((short)16, BitConverter.ToInt16(wave, 34));
+        AssertEx.Equal("data", Encoding.ASCII.GetString(wave, 36, 4));
+
+        var dataLength = BitConverter.ToInt32(wave, 40);
+        AssertEx.Equal(wave.Length - 44, dataLength);
+        var loopDurationSeconds = dataLength / (double)(sampleRate * 2 * sizeof(short));
+        AssertEx.True(
+            loopDurationSeconds >= 17.9d && loopDurationSeconds <= 18.1d,
+            "The embedded ringtone should retain its original duration.");
+        AssertEx.True(
+            wave.AsSpan(44).ContainsAnyExcept((byte)0),
+            "The alarm wave must contain audible, non-silent samples.");
+        var peakSample = 0;
+        for (var offset = 44; offset < wave.Length; offset += sizeof(short))
+        {
+            peakSample = Math.Max(peakSample, Math.Abs((int)BitConverter.ToInt16(wave, offset)));
+        }
+
+        AssertEx.True(
+            peakSample >= 15_000,
+            "The alarm should use a strong enough signal to be attention-grabbing at the user's Windows volume.");
+        AssertEx.Equal(
+            "DailyQuest.Assets.Ringtone.FacilityAlarm.wav",
+            WindowsQuestAlarmService.RingtoneResourceName);
+    }
+
     private static void StartingTimerPausesOtherActiveTimer()
     {
         var clock = new MutableClock(
@@ -1133,7 +1190,7 @@ internal static class Program
         AssertEx.Equal("2026-09-17", AssertEx.NotNull(crossMidnightStore.Snapshot).CurrentDate);
     }
 
-    private static void OvertimeAlarmRepeatsUntilCountUpStartsAndPersists()
+    private static void OvertimeActionStopsAlarmAndCountUpPersists()
     {
         var clock = new MutableClock(
             new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
@@ -1165,7 +1222,6 @@ internal static class Program
         AssertEx.True(item.IsTimerExpired);
         AssertEx.False(item.IsOvertime);
         AssertEx.SequenceEqual(["Timed focus"], alarm.Notifications);
-        AssertEx.SequenceEqual([true], alarm.RepeatRequests);
         AssertEx.True(viewModel.StartOvertimeCommand.CanExecute(item));
 
         viewModel.StartOvertimeCommand.Execute(item);
@@ -1203,7 +1259,7 @@ internal static class Program
         AssertEx.Equal("+01:10", restored.RemainingTimeText);
     }
 
-    private static void DisabledOvertimeUsesFiniteAlarmAndRejectsCountUp()
+    private static void DisabledOvertimeRejectsCountUpAndAlarmCanStop()
     {
         var clock = new MutableClock(
             new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
@@ -1231,7 +1287,7 @@ internal static class Program
         clock.Now = clock.Now.AddSeconds(2);
         viewModel.TickTimers();
 
-        AssertEx.SequenceEqual([false], alarm.RepeatRequests);
+        AssertEx.SequenceEqual(["Finite alarm"], alarm.Notifications);
         AssertEx.False(viewModel.OvertimeEnabled);
         AssertEx.False(viewModel.StartOvertimeCommand.CanExecute(item));
         viewModel.StartOvertimeCommand.Execute(item);
@@ -2025,7 +2081,17 @@ internal static class Program
 
         AssertEx.True(viewModel.AssignItemLabel(viewModel.Items.Single(item => item.Id == aId), highId));
         AssertEx.SequenceEqual([aId, cId, bId, doneId], viewModel.Items.Select(item => item.Id));
+        var highLabelViewModel = viewModel.Labels.Single(label => label.Id == highId);
+        var lowLabelViewModel = viewModel.Labels.Single(label => label.Id == lowId);
         AssertEx.True(viewModel.MoveLabel(lowId, 0));
+        AssertEx.True(
+            ReferenceEquals(lowLabelViewModel, viewModel.Labels[0]) &&
+            ReferenceEquals(highLabelViewModel, viewModel.Labels[1]),
+            "Label reorder should move the existing editor view models instead of recreating them.");
+        AssertEx.SequenceEqual([lowId, highId], viewModel.Labels.Select(label => label.Id));
+        AssertEx.SequenceEqual([0, 1], viewModel.Labels.Select(label => label.SortOrder));
+        AssertEx.False(viewModel.MoveLabel(lowId, 0), "Dropping a label in its current position should be a no-op.");
+        AssertEx.False(viewModel.MoveLabel(Guid.NewGuid(), 1), "A foreign label cannot be reordered.");
         AssertEx.SequenceEqual([bId, aId, cId, doneId], viewModel.Items.Select(item => item.Id));
 
         viewModel.SetSortModeCommand.Execute(QuestSortMode.Manual);
@@ -2049,6 +2115,8 @@ internal static class Program
 
         var reloaded = new MainViewModel(new InMemoryStateStore(saved), () => now);
         AssertEx.Equal(QuestSortMode.Label, reloaded.SortMode);
+        AssertEx.SequenceEqual([lowId, highId], reloaded.Labels.Select(label => label.Id));
+        AssertEx.SequenceEqual([0, 1], reloaded.Labels.Select(label => label.SortOrder));
         AssertEx.SequenceEqual([bId, aId, cId, doneId], reloaded.Items.Select(item => item.Id));
         reloaded.SetSortModeCommand.Execute(QuestSortMode.Manual);
         AssertEx.SequenceEqual([aId, bId, cId, doneId], reloaded.Items.Select(item => item.Id));
@@ -3150,15 +3218,9 @@ internal sealed class RecordingQuestAlarmService : IQuestAlarmService
 {
     public List<string> Notifications { get; } = [];
 
-    public List<bool> RepeatRequests { get; } = [];
-
     public int StopCount { get; private set; }
 
-    public void NotifyTimerCompleted(string questText, bool repeatUntilStopped)
-    {
-        Notifications.Add(questText);
-        RepeatRequests.Add(repeatUntilStopped);
-    }
+    public void NotifyTimerCompleted(string questText) => Notifications.Add(questText);
 
     public void StopTimerAlarm() => StopCount++;
 }

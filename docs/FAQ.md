@@ -34,7 +34,7 @@ Drag and drop is available only in **Manual** mode. The manual order is saved se
 
 ### How do I create and manage quest labels?
 
-Open Settings to add, rename, recolor, reorder, or delete labels. You can keep at most 12 labels; each name must be unique and no longer than 24 characters, and each color must use the `#RRGGBB` format. Assign a label in the composer or select the label chip on an existing quest to change it.
+Open Settings to add, rename, recolor, or delete labels. Drag a label by its six-dot handle to change its priority order; any unsaved name or color draft stays in place while it moves. You can keep at most 12 labels; each name must be unique and no longer than 24 characters, and each color must use the `#RRGGBB` format. Assign a label in the composer or select the label chip on an existing quest to change it.
 
 Fresh installations and state migrated from a version before labels begin with **Important**, **Personal**, and **Routine**. These are editable starter labels. If you delete every label, Daily Quest keeps the list empty instead of recreating them. Deleting a label only detaches it from active, scheduled, and historical quests; it does not delete any quest.
 
@@ -54,15 +54,15 @@ Yes. Daily Quest saves the countdown state and a running timer's timestamp local
 
 ### When will the timer alarm and notification work?
 
-When a timer reaches zero while the Daily Quest process is running, Windows plays an alarm sound and shows a native notification. This works when the app is in its full view, compact mode, or minimized to the taskbar. With overtime disabled, which is the default, the alarm is finite and there is no **Overtime** action.
+When a timer reaches zero while the Daily Quest process is running, the official Windows release loops its bundled facility-alarm ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds. This works when the app is in its full view, compact mode, or minimized to the taskbar. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when the app exits. With overtime disabled, which is the default, there is no **Overtime** action.
 
 Daily Quest does not run a background service. If you fully close its process, it cannot play the alarm or deliver the notification while closed; the countdown is reconciled from its saved timestamp the next time the app starts. The expired timer still does not auto-complete its quest.
 
 ### How does overtime mode work?
 
-Enable overtime in Settings before a timer expires. At zero, the alarm repeats and the quest offers **Overtime**. Selecting **Overtime** silences the alarm and continues the timer upward in red until you pause or reset it, or complete the quest. Reaching zero or entering overtime never completes the quest automatically.
+Enable overtime in Settings before a timer expires. At zero, the same one-minute-maximum alarm plays and the quest offers **Overtime**. Selecting **Overtime** silences the alarm immediately and continues the timer upward in red until you pause or reset it, or complete the quest. Reaching zero or entering overtime never completes the quest automatically.
 
-If overtime is disabled, Daily Quest uses the finite expiry alarm and does not show the **Overtime** action. The overtime preference and timer state are saved locally.
+If overtime is disabled, Daily Quest still uses the one-minute-maximum expiry alarm but does not show the **Overtime** action. The overtime preference and timer state are saved locally.
 
 ### How do I schedule a quest for another day?
 
@@ -160,7 +160,7 @@ Drag and drop hanya tersedia dalam mode **Manual**. Urutan manual disimpan secar
 
 ### Bagaimana cara membuat dan mengelola label quest?
 
-Buka Pengaturan untuk menambah, mengganti nama atau warna, mengubah urutan, maupun menghapus label. Kamu dapat menyimpan maksimal 12 label; setiap nama harus unik dan maksimal 24 karakter, sedangkan setiap warna harus menggunakan format `#RRGGBB`. Tetapkan label melalui composer atau pilih chip label pada quest yang sudah ada untuk mengubahnya.
+Buka Pengaturan untuk menambah, mengganti nama atau warna, maupun menghapus label. Tarik label melalui handle enam titik untuk mengubah urutan prioritasnya; draft nama atau warna yang belum disimpan tetap dipertahankan saat label berpindah. Kamu dapat menyimpan maksimal 12 label; setiap nama harus unik dan maksimal 24 karakter, sedangkan setiap warna harus menggunakan format `#RRGGBB`. Tetapkan label melalui composer atau pilih chip label pada quest yang sudah ada untuk mengubahnya.
 
 Instalasi baru dan state yang dimigrasikan dari versi sebelum dukungan label dimulai dengan **Important**, **Personal**, dan **Routine**. Ketiganya merupakan label awal yang dapat diubah. Jika semua label dihapus, Daily Quest mempertahankan daftar kosong dan tidak membuatnya kembali. Menghapus label hanya melepaskannya dari quest aktif, terjadwal, dan riwayat; tindakan ini tidak menghapus quest apa pun.
 
@@ -180,15 +180,15 @@ Ya. Daily Quest menyimpan state hitung mundur dan timestamp timer yang berjalan 
 
 ### Kapan alarm dan notifikasi timer dapat bekerja?
 
-Saat timer mencapai nol selama proses Daily Quest masih berjalan, Windows memutar bunyi alarm dan menampilkan notifikasi bawaan. Fitur ini bekerja ketika aplikasi menggunakan tampilan penuh, mode ringkas, atau diminimalkan ke taskbar. Saat overtime nonaktif—yang merupakan pengaturan default—alarm berbunyi terbatas dan tindakan **Overtime** tidak tersedia.
+Saat timer mencapai nol selama proses Daily Quest masih berjalan, rilis resmi Windows memutar berulang ringtone facility-alarm bawaan selama maksimal 60 detik dan menampilkan satu notifikasi bawaan. Build dari source tanpa aset ringtone opsional memakai bunyi sistem Windows bergantian. Fitur ini bekerja ketika aplikasi menggunakan tampilan penuh, mode ringkas, atau diminimalkan ke taskbar. Bunyi berhenti lebih awal saat quest di-reset, diselesaikan, atau dihapus; saat overtime dimatikan melalui Pengaturan; ketika hari berganti; atau ketika aplikasi ditutup. Saat overtime nonaktif—yang merupakan pengaturan default—tindakan **Overtime** tidak tersedia.
 
 Daily Quest tidak menjalankan layanan latar belakang. Jika prosesnya benar-benar ditutup, aplikasi tidak dapat memutar alarm atau mengirim notifikasi selama tertutup; hitung mundur disesuaikan dari timestamp tersimpan saat aplikasi berikutnya dibuka. Timer yang sudah habis tetap tidak otomatis menyelesaikan quest.
 
 ### Bagaimana cara kerja mode overtime?
 
-Aktifkan overtime di Pengaturan sebelum timer habis. Saat mencapai nol, alarm berbunyi berulang dan quest menawarkan **Overtime**. Memilih **Overtime** akan mematikan alarm dan melanjutkan timer sebagai hitungan naik berwarna merah sampai kamu menjeda atau me-reset timer, atau menyelesaikan quest. Mencapai nol maupun memasuki overtime tidak pernah otomatis menyelesaikan quest.
+Aktifkan overtime di Pengaturan sebelum timer habis. Saat mencapai nol, alarm yang sama berbunyi selama maksimal satu menit dan quest menawarkan **Overtime**. Memilih **Overtime** akan langsung mematikan alarm dan melanjutkan timer sebagai hitungan naik berwarna merah sampai kamu menjeda atau me-reset timer, atau menyelesaikan quest. Mencapai nol maupun memasuki overtime tidak pernah otomatis menyelesaikan quest.
 
-Jika overtime nonaktif, Daily Quest menggunakan alarm kedaluwarsa terbatas dan tidak menampilkan tindakan **Overtime**. Preferensi overtime dan state timer disimpan secara lokal.
+Jika overtime nonaktif, Daily Quest tetap menggunakan alarm kedaluwarsa maksimal satu menit tetapi tidak menampilkan tindakan **Overtime**. Preferensi overtime dan state timer disimpan secara lokal.
 
 ### Bagaimana cara menjadwalkan quest untuk hari lain?
 

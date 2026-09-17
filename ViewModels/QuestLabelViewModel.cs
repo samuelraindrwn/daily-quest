@@ -6,6 +6,7 @@ namespace DailyQuest.ViewModels;
 public sealed class QuestLabelViewModel : INotifyPropertyChanged
 {
     private bool _isSelected;
+    private int _sortOrder;
 
     public required Guid Id { get; init; }
 
@@ -13,7 +14,11 @@ public sealed class QuestLabelViewModel : INotifyPropertyChanged
 
     public required string ColorHex { get; init; }
 
-    public required int SortOrder { get; init; }
+    public required int SortOrder
+    {
+        get => _sortOrder;
+        init => _sortOrder = value;
+    }
 
     public bool IsSelected
     {
@@ -31,6 +36,17 @@ public sealed class QuestLabelViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    internal void UpdateSortOrder(int sortOrder)
+    {
+        if (_sortOrder == sortOrder)
+        {
+            return;
+        }
+
+        _sortOrder = sortOrder;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SortOrder)));
+    }
 }
 
 public sealed record QuestLabelDraft(string Name, string ColorHex);

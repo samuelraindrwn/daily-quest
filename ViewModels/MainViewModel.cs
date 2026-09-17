@@ -1655,7 +1655,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _state.Labels.RemoveAt(sourceIndex);
         _state.Labels.Insert(destinationIndex, label);
         RenumberLabels();
-        RefreshLabels();
+
+        var visibleSourceIndex = Labels
+            .Select((candidate, index) => new { candidate.Id, Index = index })
+            .FirstOrDefault(candidate => candidate.Id == label.Id)?.Index ?? -1;
+        if (visibleSourceIndex >= 0 &&
+            destinationIndex < Labels.Count &&
+            visibleSourceIndex != destinationIndex)
+        {
+            Labels.Move(visibleSourceIndex, destinationIndex);
+        }
+
+        for (var index = 0; index < Labels.Count; index++)
+        {
+            Labels[index].UpdateSortOrder(index);
+        }
+
+        RaiseLabelCommandStates();
         if (SortMode == QuestSortMode.Label)
         {
             ApplyQuestSort();
@@ -2584,7 +2600,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             try
             {
                 _alarmingQuestId = item.Id;
-                _alarmService.NotifyTimerCompleted(item.Text, OvertimeEnabled);
+                _alarmService.NotifyTimerCompleted(item.Text);
             }
             catch (Exception)
             {

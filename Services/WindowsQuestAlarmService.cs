@@ -11,8 +11,10 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
 {
     private const int BalloonDisplayMilliseconds = 8_000;
     private const int MaxBalloonTextLength = 255;
-    private static readonly TimeSpan AlarmPulseInterval = TimeSpan.FromMilliseconds(700);
-    private static readonly TimeSpan RepeatAlarmInterval = TimeSpan.FromSeconds(10);
+    internal const string RingtoneResourceName =
+        "DailyQuest.Assets.Ringtone.FacilityAlarm.wav";
+    internal static readonly TimeSpan MaximumAlarmDuration = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan FallbackAlarmInterval = TimeSpan.FromMilliseconds(850);
     // Windows may keep an accessibility-extended balloon visible well beyond the
     // requested display duration, so keep the tray host alive until Windows closes
     // it. The timer is only a safety fallback for shells that omit that event.
@@ -22,9 +24,11 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
     private Forms.NotifyIcon? _notifyIcon;
     private Icon? _applicationIcon;
     private DispatcherTimer? _hideTrayIconTimer;
-    private DispatcherTimer? _alarmPulseTimer;
-    private int _remainingAlarmPulses;
-    private bool _repeatUntilStopped;
+    private DispatcherTimer? _alarmStopTimer;
+    private DispatcherTimer? _fallbackAlarmTimer;
+    private MemoryStream? _alarmWaveStream;
+    private SoundPlayer? _alarmPlayer;
+    private int _fallbackPulseIndex;
     private bool _disposed;
 
     public WindowsQuestAlarmService()
@@ -33,7 +37,7 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         RunOnDispatcher(Initialize);
     }
 
-    public void NotifyTimerCompleted(string questText, bool repeatUntilStopped)
+    public void NotifyTimerCompleted(string questText)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -43,9 +47,9 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             // A newly completed timer owns the alarm channel. This prevents an
-            // earlier repeating alarm from continuing behind the new alert.
+            // earlier alarm from continuing behind the new alert.
             StopTimerAlarmCore(hideTrayIcon: true);
-            StartAlarmCore(repeatUntilStopped);
+            StartAlarmCore();
 
             _notifyIcon!.BalloonTipTitle = "Daily Quest";
             _notifyIcon.BalloonTipText = notificationText;
@@ -103,44 +107,30 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         };
         _hideTrayIconTimer.Tick += HideTrayIconTimer_Tick;
 
-        _alarmPulseTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+        _alarmStopTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
         {
-            Interval = AlarmPulseInterval,
+            Interval = MaximumAlarmDuration,
         };
-        _alarmPulseTimer.Tick += AlarmPulseTimer_Tick;
+        _alarmStopTimer.Tick += AlarmStopTimer_Tick;
+
+        _fallbackAlarmTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+        {
+            Interval = FallbackAlarmInterval,
+        };
+        _fallbackAlarmTimer.Tick += FallbackAlarmTimer_Tick;
+
+        TryInitializeAlarmPlayer();
     }
 
-    private void AlarmPulseTimer_Tick(object? sender, EventArgs e)
+    private void AlarmStopTimer_Tick(object? sender, EventArgs e)
     {
-        if (_remainingAlarmPulses > 0)
-        {
-            SystemSounds.Exclamation.Play();
-            _remainingAlarmPulses--;
+        _alarmStopTimer?.Stop();
+        StopAlarmPlaybackCore();
+    }
 
-            if (_remainingAlarmPulses == 0)
-            {
-                if (_repeatUntilStopped)
-                {
-                    _alarmPulseTimer!.Interval = RepeatAlarmInterval;
-                }
-                else
-                {
-                    _alarmPulseTimer!.Stop();
-                }
-            }
-
-            return;
-        }
-
-        if (!_repeatUntilStopped)
-        {
-            _alarmPulseTimer!.Stop();
-            return;
-        }
-
-        // Repeating alarms use the same short three-pulse pattern as a regular
-        // alert, with a quiet interval between bursts to avoid constant noise.
-        PlayInitialAlarmPulse();
+    private void FallbackAlarmTimer_Tick(object? sender, EventArgs e)
+    {
+        PlayFallbackAlarmPulse();
     }
 
     private void HideTrayIconTimer_Tick(object? sender, EventArgs e)
@@ -167,30 +157,85 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         }
     }
 
-    private void StartAlarmCore(bool repeatUntilStopped)
+    private void StartAlarmCore()
     {
-        _repeatUntilStopped = repeatUntilStopped;
-        PlayInitialAlarmPulse();
+        var startedLoop = false;
+        if (_alarmPlayer is not null)
+        {
+            try
+            {
+                _alarmPlayer.PlayLooping();
+                startedLoop = true;
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or TimeoutException)
+            {
+                // Fall through to Windows system sounds when wave playback is
+                // unavailable. A timer alert must never take down the checklist.
+            }
+        }
+
+        if (!startedLoop)
+        {
+            _fallbackPulseIndex = 0;
+            PlayFallbackAlarmPulse();
+            _fallbackAlarmTimer!.Start();
+        }
+
+        _alarmStopTimer!.Stop();
+        _alarmStopTimer.Interval = MaximumAlarmDuration;
+        _alarmStopTimer.Start();
     }
 
-    private void PlayInitialAlarmPulse()
+    private void PlayFallbackAlarmPulse()
     {
-        SystemSounds.Exclamation.Play();
-        _remainingAlarmPulses = 2;
-        _alarmPulseTimer!.Stop();
-        _alarmPulseTimer.Interval = AlarmPulseInterval;
-        _alarmPulseTimer.Start();
+        var sound = _fallbackPulseIndex++ % 2 == 0
+            ? SystemSounds.Exclamation
+            : SystemSounds.Asterisk;
+        sound.Play();
+    }
+
+    private void TryInitializeAlarmPlayer()
+    {
+        try
+        {
+            _alarmWaveStream = new MemoryStream(LoadAlarmWave(), writable: false);
+            _alarmPlayer = new SoundPlayer(_alarmWaveStream);
+            _alarmPlayer.Load();
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException)
+        {
+            _alarmPlayer?.Dispose();
+            _alarmPlayer = null;
+            _alarmWaveStream?.Dispose();
+            _alarmWaveStream = null;
+        }
     }
 
     private void StopTimerAlarmCore(bool hideTrayIcon)
     {
-        _alarmPulseTimer?.Stop();
-        _remainingAlarmPulses = 0;
-        _repeatUntilStopped = false;
+        _alarmStopTimer?.Stop();
+        StopAlarmPlaybackCore();
 
         if (hideTrayIcon)
         {
             HideTrayIcon();
+        }
+    }
+
+    private void StopAlarmPlaybackCore()
+    {
+        _fallbackAlarmTimer?.Stop();
+        _fallbackPulseIndex = 0;
+
+        try
+        {
+            _alarmPlayer?.Stop();
+        }
+        catch (InvalidOperationException)
+        {
+            // Playback may already have ended because the audio device changed.
         }
     }
 
@@ -210,10 +255,17 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
 
         StopTimerAlarmCore(hideTrayIcon: true);
 
-        if (_alarmPulseTimer is not null)
+        if (_alarmStopTimer is not null)
         {
-            _alarmPulseTimer.Tick -= AlarmPulseTimer_Tick;
-            _alarmPulseTimer = null;
+            _alarmStopTimer.Tick -= AlarmStopTimer_Tick;
+            _alarmStopTimer = null;
+        }
+
+        if (_fallbackAlarmTimer is not null)
+        {
+            _fallbackAlarmTimer.Stop();
+            _fallbackAlarmTimer.Tick -= FallbackAlarmTimer_Tick;
+            _fallbackAlarmTimer = null;
         }
 
         if (_notifyIcon is not null)
@@ -227,6 +279,11 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
 
         _applicationIcon?.Dispose();
         _applicationIcon = null;
+
+        _alarmPlayer?.Dispose();
+        _alarmPlayer = null;
+        _alarmWaveStream?.Dispose();
+        _alarmWaveStream = null;
         _disposed = true;
     }
 
@@ -259,6 +316,27 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         }
 
         return $"{prefix}{normalizedQuestText}";
+    }
+
+    internal static bool HasEmbeddedRingtone =>
+        typeof(WindowsQuestAlarmService).Assembly
+            .GetManifestResourceInfo(RingtoneResourceName) is not null;
+
+    internal static byte[] LoadAlarmWave()
+    {
+        using var resourceStream = typeof(WindowsQuestAlarmService).Assembly
+            .GetManifestResourceStream(RingtoneResourceName);
+        if (resourceStream is null)
+        {
+            throw new InvalidOperationException(
+                $"Embedded timer ringtone '{RingtoneResourceName}' was not found.");
+        }
+
+        using var buffer = resourceStream.CanSeek && resourceStream.Length <= int.MaxValue
+            ? new MemoryStream((int)resourceStream.Length)
+            : new MemoryStream();
+        resourceStream.CopyTo(buffer);
+        return buffer.ToArray();
     }
 
     private static Icon LoadApplicationIcon()
