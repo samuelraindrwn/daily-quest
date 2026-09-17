@@ -20,7 +20,7 @@
 
 Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi sistem manajemen proyek yang rumit. Aplikasi ini menggabungkan check-in cepat, label yang dapat diatur, timer quest opsional, pengurutan fleksibel, penyimpanan lokal otomatis, progres harian, dan riwayat yang dapat dibuka saat dibutuhkan dalam sebuah widget desktop ringkas.
 
-Panduan ini membahas Daily Quest v1.6.1.
+Panduan ini membahas Daily Quest v1.7.0.
 
 <p align="center">
   <img src="docs/images/daily-quest.png" width="360" alt="Jendela utama Daily Quest berbahasa Indonesia dengan timer quest berjalan">
@@ -36,6 +36,7 @@ Panduan ini membahas Daily Quest v1.6.1.
 - Tetapkan label berwarna yang dapat diatur saat menambahkan quest, atau ubah labelnya nanti melalui kartu quest.
 - Tambahkan quest baru tanpa timer, dengan preset 5/10/15/25/30/45/60 menit, atau durasi khusus dari 1 sampai 480 menit.
 - Mulai, jeda, lanjutkan, atau reset hitung mundur quest, dengan maksimal satu timer berjalan dalam satu waktu.
+- Tutup Daily Quest untuk menyimpan dan menjeda hitung mundur atau timer overtime yang aktif; saat dibuka kembali, timer tetap dijeda pada nilai tersimpan.
 - Pada rilis resmi Windows, dengarkan ringtone facility-alarm bawaan aplikasi selama maksimal satu menit dan terima satu notifikasi bawaan saat waktu habis selama Daily Quest terbuka, dalam mode ringkas, atau diminimalkan; lanjutkan secara opsional ke overtime merah setelah mematikannya.
 - Lihat sapaan, jumlah selesai, persentase, dan progress bar hari ini secara langsung.
 - Jadikan setiap quest aktif sebagai Daily Quest: pertahankan untuk hari berikutnya dan reset status selesainya secara otomatis.
@@ -45,7 +46,8 @@ Panduan ini membahas Daily Quest v1.6.1.
 - Pertahankan urutan manual yang tersimpan, atau urutkan quest belum selesai berdasarkan label, durasi tersingkat, atau durasi terlama; quest selesai selalu berada di bawah.
 - Ringkas widget menjadi lebih kecil di pojok kanan atas untuk memprioritaskan quest bertimer aktif, lalu quest berikutnya yang belum selesai, dengan tombol pin dan perluas selalu tersedia.
 - Instalasi baru dimulai dalam English; pilih English atau Bahasa Indonesia melalui Pengaturan tanpa mengubah preferensi pengguna lama.
-- Pilih tema Terang atau Gelap, kelola label, serta aktifkan atau nonaktifkan overtime melalui Pengaturan; semua preferensi disimpan secara lokal.
+- Pilih tema Terang atau Gelap, kelola label, aktifkan atau nonaktifkan overtime, serta atur startup Windows melalui Pengaturan; semua preferensi disimpan secara lokal.
+- Jalankan otomatis saat masuk ke Windows secara default, dengan pilihan Nonaktif/Aktif yang jelas.
 - Sematkan widget di atas jendela lain, minimalkan ke taskbar, pindahkan, atau ubah ukuran jendela penuhnya dengan bebas.
 - Buka di pojok kanan atas area kerja utama dengan jarak yang nyaman dari tepi, sekaligus memulihkan ukuran, bahasa, tema, dan preferensi pin. Kembalikan ukuran jendela penuh ke default 520 × 680 melalui Pengaturan saat dibutuhkan.
 - Periksa penggunaan penyimpanan lokal, hapus riwayat, buka Q&A, atau laporkan bug melalui Pengaturan.
@@ -58,7 +60,7 @@ Panduan ini membahas Daily Quest v1.6.1.
 2. Unduh dan jalankan aset `win-x64-setup.exe` untuk proses instalasi Windows standar.
 3. Untuk penggunaan portable, unduh dan ekstrak `win-x64.zip`, atau unduh aset `win-x64.exe` mandiri.
 
-Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga runtime .NET tidak perlu dipasang terpisah. Installer menambahkan entri Start Menu dan uninstall, menawarkan shortcut Desktop opsional, serta mendukung upgrade langsung. Pengguna versi portable dapat memperbarui aplikasi dengan menutup Daily Quest lalu mengganti executable lama. Kedua metode tetap mempertahankan data di Local AppData.
+Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga runtime .NET tidak perlu dipasang terpisah. Installer menambahkan entri Start Menu dan uninstall, menawarkan shortcut Desktop opsional, serta mendukung upgrade langsung. Daily Quest mengaktifkan peluncuran saat masuk ke Windows setelah pertama kali dijalankan; fitur ini dapat dimatikan melalui Pengaturan. Pengguna versi portable dapat memperbarui aplikasi dengan menutup Daily Quest lalu mengganti executable lama. Kedua metode tetap mempertahankan data di Local AppData.
 
 > [!NOTE]
 > Installer dan aplikasi saat ini belum ditandatangani secara digital sehingga Windows mungkin menampilkan peringatan SmartScreen. Lanjutkan hanya jika file berasal dari halaman Releases resmi repositori ini. File dapat diverifikasi menggunakan `SHA256SUMS.txt` yang disertakan.
@@ -85,7 +87,7 @@ Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga 
 | **Hari ini** | Kembali ke checklist aktif. |
 | **Mendatang** | Tinjau atau batalkan quest yang dijadwalkan untuk tanggal mendatang. |
 | **Riwayat** | Lihat ringkasan progres per hari. Klik kartunya untuk membuka detail. |
-| Tombol Pengaturan | Buka pilihan bahasa, tema, label, overtime, penyimpanan, riwayat, Q&A, dan laporan bug. |
+| Tombol Pengaturan | Buka pilihan bahasa, startup Windows, tema, label, overtime, penyimpanan, riwayat, Q&A, dan laporan bug. |
 | Tombol mode ringkas | Ringkas widget di pojok kanan atas dan tampilkan quest bertimer aktif, atau quest berikutnya yang belum selesai saat tidak ada timer berjalan. Selesaikan quest itu untuk lanjut ke quest berikutnya dalam kondisi belum dicentang. |
 | Tombol pin di mode ringkas | Pertahankan widget ringkas di atas jendela lain atau kembalikan ke urutan jendela normal. |
 | Tombol perluas | Kembali dari mode ringkas ke widget penuh. |
@@ -99,7 +101,7 @@ Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest
 
 - Pilih **Tanpa timer** atau suatu durasi saat menambahkan quest. Preset tersedia untuk 5, 10, 15, 25, 30, 45, dan 60 menit; timer khusus menerima bilangan bulat dari 1 sampai 480 menit.
 - Gunakan kontrol timer pada quest untuk memulai, menjeda, melanjutkan, atau me-reset hitung mundur. Hanya satu timer quest yang dapat berjalan dalam satu waktu.
-- Hitung mundur yang berjalan disimpan bersama timestamp. Jika Daily Quest ditutup lalu dibuka kembali, waktu yang telah berlalu dihitung dari timestamp tersebut sehingga timer tidak dimulai ulang.
+- Saat Daily Quest ditutup, hitung mundur atau timer overtime yang aktif hanya dihitung sampai momen penutupan, lalu dijeda dan disimpan. Saat aplikasi dibuka kembali, timer tetap dijeda sehingga waktu selama aplikasi tertutup tidak ikut dihitung.
 - Timer yang mencapai nol tidak otomatis menandai quest sebagai selesai. Selesaikan quest secara terpisah melalui checkbox.
 - Mode overtime nonaktif secara default. Saat nonaktif, timer yang habis tetap memutar alarm yang sama selama maksimal satu menit dan tidak menampilkan tindakan **Overtime**.
 - Pada rilis resmi Windows, setiap timer yang habis memutar ringtone bawaan aplikasi secara berulang selama maksimal 60 detik dan menampilkan satu notifikasi bawaan. Build dari source tanpa aset ringtone opsional akan memakai bunyi sistem Windows bergantian. Bunyi berhenti lebih awal saat quest di-reset, diselesaikan, atau dihapus; saat overtime dimatikan melalui Pengaturan; ketika hari berganti; atau ketika Daily Quest ditutup.
@@ -130,13 +132,14 @@ Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest
 - Jika Daily Quest tidak dibuka pada tanggal target, quest yang lewat jatuh tempo akan diaktifkan saat aplikasi berikutnya dibuka. Setiap quest hanya diaktifkan satu kali.
 - Buka daftar mendatang untuk meninjau atau membatalkan quest terjadwal sebelum aktif.
 
-Penjadwalan saja tidak membuat notifikasi Windows, menjalankan layanan di latar belakang, atau membuka Daily Quest secara otomatis. Notifikasi timer yang habis mengikuti perilaku yang dijelaskan di atas.
+Penjadwalan saja tidak membuat notifikasi Windows atau menjalankan layanan latar belakang terpisah. Daily Quest tetap dapat dibuka saat pengguna masuk ke Windows melalui preferensi startup yang secara default aktif seperti dijelaskan di bawah. Notifikasi timer yang habis mengikuti perilaku yang dijelaskan di atas.
 
 ### Pengaturan dan bantuan
 
 - **Tema:** pilih Terang atau Gelap. Perubahan langsung diterapkan dan disimpan secara lokal untuk peluncuran berikutnya.
 - **Ukuran jendela:** ubah ukuran jendela penuh mulai dari 390 × 500 hingga 1200 × 1200. Pilih **Reset ukuran** pada bagian Tampilan untuk mengembalikannya ke default 520 × 680.
 - **Bahasa:** pilih Bahasa Indonesia atau English secara langsung. Pilihan disimpan secara lokal.
+- **Jalankan saat startup:** aktif secara default. Pilih Nonaktif untuk menghapus Daily Quest dari daftar startup Windows pengguna saat ini, atau Aktif untuk mendaftarkan executable pada lokasinya sekarang.
 - **Label:** tambah, ganti nama atau warna, tarik untuk mengubah urutan, maupun hapus hingga 12 label quest. Nama, warna, dan urutan prioritas disimpan secara lokal.
 - **Overtime:** aktifkan tindakan **Overtime** untuk timer yang habis, atau biarkan nonaktif secara default. Alarm kedaluwarsa maksimal satu menit tetap bekerja pada kedua mode.
 - **Penyimpanan:** lihat ukuran executable aplikasi, folder data lokal Daily Quest, dan data riwayat yang diserialisasi. Nilai ini merupakan perkiraan lokal dan dapat dibulatkan pada antarmuka.
@@ -144,7 +147,7 @@ Penjadwalan saja tidak membuat notifikasi Windows, menjalankan layanan di latar 
 - **Q&A:** buka [Pertanyaan yang Sering Diajukan](docs/FAQ.md) dalam dua bahasa.
 - **Laporkan bug:** buka formulir issue GitHub yang sudah disiapkan melalui browser bawaan.
 
-Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.6.1 untuk rilis ini).
+Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.7.0 untuk rilis ini).
 
 ### Navigasi keyboard
 
@@ -165,7 +168,9 @@ Semua data tetap tersimpan di perangkat pada:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-File state berisi teks dan urutan quest aktif maupun terjadwal, definisi dan penetapan label, mode urutan yang dipilih beserta urutan manual tersimpan, durasi serta state hitung mundur atau overtime, timestamp timer yang berjalan, tanggal target, riwayat harian, tema, bahasa, preferensi overtime dan selalu di atas, serta ukuran jendela. Daily Quest tidak membutuhkan akun, tidak memiliki telemetri, dan tidak mengunggah data tersebut ke mana pun. Mode ringkas tidak menggantikan fungsi minimize bawaan dan tidak disimpan sebagai state checklist terpisah.
+File state berisi teks dan urutan quest aktif maupun terjadwal, definisi dan penetapan label, mode urutan yang dipilih beserta urutan manual tersimpan, durasi serta state hitung mundur atau overtime, timestamp timer yang berjalan, tanggal target, riwayat harian, tema, bahasa, preferensi startup, overtime, selalu di atas, serta ukuran jendela. Daily Quest tidak membutuhkan akun, tidak memiliki telemetri, dan tidak mengunggah data tersebut ke mana pun. Mode ringkas tidak menggantikan fungsi minimize bawaan dan tidak disimpan sebagai state checklist terpisah.
+
+Saat **Jalankan saat startup** aktif, Daily Quest menyimpan satu perintah untuk pengguna saat ini di `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. Isinya hanya path executable lokal yang diberi tanda kutip dan penanda `--startup`. Setelah executable portable dipindahkan, jalankan sekali secara manual dari lokasi baru agar path diperbarui. Menonaktifkan pengaturan hanya menghapus entri Daily Quest; uninstall versi terpasang juga menghapus entri yang cocok tanpa menghapus data quest.
 
 Panel penyimpanan hanya membaca ukuran file dari lokasi aplikasi dan data lokal. **Data tersimpan** mencakup antrean quest mendatang, sedangkan **Riwayat** hanya memperkirakan ukuran catatan riwayat yang diserialisasi. **Hapus riwayat** hanya menghapus catatan riwayat; quest aktif dan terjadwal tetap ada. Riwayat hari ini dapat dibuat kembali setelah checklist diubah berikutnya.
 
@@ -203,7 +208,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-Test harness tanpa dependency eksternal ini mencakup perubahan checklist, label beserta migrasinya, mode urutan manual dan otomatis, penempatan quest selesai, validasi serta persistence durasi timer, perilaku mulai/jeda/lanjutkan/reset dan overtime, aturan satu timer berjalan, pemulihan hitung mundur berbasis timestamp dan alarm kedaluwarsa, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, reset Daily Quest saat pergantian tanggal, penyimpanan dan penghapusan riwayat, pengaturan yang tersimpan, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
+Test harness tanpa dependency eksternal ini mencakup perubahan checklist, label beserta migrasinya, mode urutan manual dan otomatis, penempatan quest selesai, validasi serta persistence durasi timer, perilaku mulai/jeda/lanjutkan/reset dan overtime, jeda timer saat aplikasi ditutup normal, aturan satu timer berjalan, pemulihan berbasis timestamp setelah proses berhenti tak terduga dan alarm kedaluwarsa, registrasi startup Windows, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, reset Daily Quest saat pergantian tanggal, penyimpanan dan penghapusan riwayat, pengaturan yang tersimpan, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
 
 ## Buat build portable
 
@@ -248,7 +253,7 @@ tests/           Runner tes logika tanpa dependency eksternal
 - **Windows menampilkan “unknown publisher”:** aplikasi belum code-signed. Gunakan hanya rilis resmi dan verifikasi checksum SHA-256-nya.
 - **Membuka aplikasi lagi tidak membuat jendela kedua:** Daily Quest hanya mengizinkan satu instance dan akan memulihkan jendela yang sudah ada.
 - **Widget ringkas tidak masuk ke taskbar:** mode ringkas mempertahankan jendela quest kecil agar tetap terlihat. Gunakan tombol `−` untuk fungsi minimize bawaan Windows.
-- **Timer habis tanpa alarm saat aplikasi ditutup:** hitung mundur dipulihkan dari timestamp tersimpan pada peluncuran berikutnya, tetapi Daily Quest tidak dapat memutar bunyi atau mengirim notifikasi ketika prosesnya tidak berjalan.
+- **Timer tidak berlanjut selama aplikasi ditutup:** ini memang disengaja. Penutupan normal menyimpan dan menjeda hitung mundur atau timer overtime yang aktif. Lanjutkan timer secara manual setelah membuka kembali Daily Quest.
 - **Tombol Overtime tidak ada:** aktifkan mode overtime di Pengaturan sebelum timer habis. Saat overtime nonaktif, alarm tetap berjalan maksimal satu menit, tetapi timer tidak menawarkan overtime.
 - **Riwayat hari ini muncul lagi setelah dihapus:** checklist aktif memang dipertahankan, sehingga ringkasan hari ini dapat ditulis ulang setelah quest berubah. Hapus riwayat setelah selesai melakukan perubahan jika ingin tampilan Riwayat tetap kosong untuk sementara.
 - **Proyek source melaporkan SDK tidak ditemukan:** pasang .NET 10 SDK, lalu pastikan versinya muncul melalui `dotnet --list-sdks`.

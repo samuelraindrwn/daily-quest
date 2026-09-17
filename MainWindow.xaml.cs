@@ -1352,6 +1352,7 @@ public partial class MainWindow : Window
     {
         _dayChangeTimer.Stop();
         _timerTickTimer.Stop();
+        _viewModel.PauseTimersForShutdown();
         _viewModel.SaveWindowSize(
             _isCompact ? _expandedWidth : ActualWidth,
             _isCompact ? _expandedHeight : ActualHeight);

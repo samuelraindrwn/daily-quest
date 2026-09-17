@@ -4,6 +4,7 @@ using System.Text.Json;
 using DailyQuest.Models;
 using DailyQuest.Services;
 using DailyQuest.ViewModels;
+using Microsoft.Win32;
 
 namespace DailyQuest.LogicTests;
 
@@ -16,6 +17,8 @@ internal static class Program
         ("language toggle updates copy and persists", LanguageToggleUpdatesCopyAndPersists),
         ("explicit language selection validates aliases and no-ops", ExplicitLanguageSelectionValidatesAliasesAndNoOps),
         ("explicit theme selection applies validates and persists", ExplicitThemeSelectionAppliesValidatesAndPersists),
+        ("run at startup defaults on and persists valid changes", RunAtStartupDefaultsOnAndPersistsValidChanges),
+        ("Windows startup registration is quoted scoped and removable", WindowsStartupRegistrationIsQuotedScopedAndRemovable),
         ("today, upcoming, history, and settings navigation is mutually exclusive", ViewNavigationIsMutuallyExclusive),
         ("unknown language falls back to English", UnknownLanguageFallsBackToEnglish),
         ("language normalization preserves history-only completed items", LanguageNormalizationPreservesHistoryOnlyCompletedItems),
@@ -38,6 +41,9 @@ internal static class Program
         ("optional embedded ringtone is exact and alarm is capped at one minute", EmbeddedRingtoneIsValidExactAndCappedAtOneMinute),
         ("starting a timer pauses the other active timer", StartingTimerPausesOtherActiveTimer),
         ("running timer restores from timestamp and alarms once", RunningTimerRestoresFromTimestampAndAlarmsOnce),
+        ("graceful shutdown pauses countdown across reopen", GracefulShutdownPausesCountdownAcrossReopen),
+        ("graceful shutdown pauses overtime at close time", GracefulShutdownPausesOvertimeAtCloseTime),
+        ("graceful shutdown expires silently and stops alarms", GracefulShutdownExpiresSilentlyAndStopsAlarms),
         ("completion pauses timer and daily rollover resets it", CompletionPausesTimerAndDailyRolloverResetsIt),
         ("midnight rollover resolves timers before resetting the day", MidnightRolloverResolvesTimersBeforeResettingDay),
         ("overtime action stops the alarm and count-up persists", OvertimeActionStopsAlarmAndCountUpPersists),
@@ -45,6 +51,7 @@ internal static class Program
         ("overtime clears on completion reset and setting disable", OvertimeClearsOnCompletionResetAndSettingDisable),
         ("overtime dependent properties notify after reset and completion", OvertimeDependentPropertiesNotifyAfterResetAndCompletion),
         ("v6 migration defaults overtime off without adding deleted labels", V6MigrationDefaultsOvertimeOffWithoutAddingLabels),
+        ("v7 migration defaults run at startup on", V7MigrationDefaultsRunAtStartupOn),
         ("v4 migration expands only the legacy default window", V4MigrationExpandsOnlyLegacyDefaultWindow),
         ("next pending item follows quest order and completion", NextPendingItemFollowsQuestOrderAndCompletion),
         ("completed quest moves to the bottom without checking the next quest", CompletedQuestMovesToBottomWithoutCheckingNextQuest),
@@ -116,8 +123,14 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore();
         var theme = new RecordingThemeService();
+        var runAtStartup = new RecordingRunAtStartupService();
 
-        var viewModel = new MainViewModel(store, () => now, null, theme);
+        var viewModel = new MainViewModel(
+            store,
+            () => now,
+            null,
+            theme,
+            runAtStartupService: runAtStartup);
 
         AssertEx.Equal(0, viewModel.TotalCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
@@ -137,7 +150,7 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(7, saved.SchemaVersion);
+        AssertEx.Equal(8, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal(0, saved.Items.Count);
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
@@ -147,6 +160,9 @@ internal static class Program
         AssertEx.Equal(520d, saved.Window.Width);
         AssertEx.Equal(680d, saved.Window.Height);
         AssertEx.True(saved.Settings.AlwaysOnTop, "Always-on-top should default to enabled.");
+        AssertEx.True(saved.Settings.RunAtStartup, "Run at startup should default to enabled.");
+        AssertEx.True(viewModel.RunAtStartup, "The startup setting should be active on first run.");
+        AssertEx.SequenceEqual([true], runAtStartup.Requests);
         AssertEx.Equal("en-US", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
         AssertEx.Equal("light", viewModel.ThemeCode);
@@ -156,7 +172,13 @@ internal static class Program
 
         var reloadStore = new InMemoryStateStore(saved);
         var reloadTheme = new RecordingThemeService();
-        var reloaded = new MainViewModel(reloadStore, () => now, null, reloadTheme);
+        var reloadStartup = new RecordingRunAtStartupService();
+        var reloaded = new MainViewModel(
+            reloadStore,
+            () => now,
+            null,
+            reloadTheme,
+            runAtStartupService: reloadStartup);
 
         AssertEx.Equal(0, reloaded.TotalCount);
         AssertEx.Equal(0, reloaded.Items.Count);
@@ -166,6 +188,8 @@ internal static class Program
             reloaded.Labels.Select(label => label.Id));
         AssertEx.Equal("light", reloaded.ThemeCode);
         AssertEx.SequenceEqual(["light"], reloadTheme.AppliedThemes);
+        AssertEx.True(reloaded.RunAtStartup);
+        AssertEx.SequenceEqual([true], reloadStartup.Requests);
         AssertEx.Equal(0, reloadStore.SaveCount);
     }
 
@@ -317,7 +341,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Settings = new AppSettings
             {
@@ -384,6 +408,147 @@ internal static class Program
         AssertEx.SequenceEqual(["light", "dark", "light"], theme.AppliedThemes);
         AssertEx.Equal(3, store.SaveCount);
         AssertEx.Equal("light", AssertEx.NotNull(store.Snapshot).Settings.ThemeCode);
+    }
+
+    private static void RunAtStartupDefaultsOnAndPersistsValidChanges()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 7, 30, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings { RunAtStartup = true }
+        });
+        var startup = new RecordingRunAtStartupService();
+        var viewModel = new MainViewModel(
+            store,
+            () => now,
+            runAtStartupService: startup);
+
+        AssertEx.True(viewModel.RunAtStartup);
+        AssertEx.SequenceEqual([true], startup.Requests);
+        AssertEx.Equal(0, store.SaveCount);
+
+        viewModel.SetRunAtStartupCommand.Execute("false");
+
+        AssertEx.False(viewModel.RunAtStartup);
+        AssertEx.SequenceEqual([true, false], startup.Requests);
+        AssertEx.False(AssertEx.NotNull(store.Snapshot).Settings.RunAtStartup);
+        AssertEx.Equal(1, store.SaveCount);
+
+        viewModel.SetRunAtStartupCommand.Execute(false);
+        viewModel.SetRunAtStartupCommand.Execute("invalid");
+        AssertEx.SequenceEqual([true, false], startup.Requests);
+        AssertEx.Equal(1, store.SaveCount);
+
+        viewModel.SetRunAtStartupCommand.Execute(true);
+        AssertEx.True(viewModel.RunAtStartup);
+        AssertEx.SequenceEqual([true, false, true], startup.Requests);
+        AssertEx.True(AssertEx.NotNull(store.Snapshot).Settings.RunAtStartup);
+        AssertEx.Equal(2, store.SaveCount);
+
+        var failingStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings { RunAtStartup = false }
+        });
+        var failingStartup = new RecordingRunAtStartupService(result: false);
+        var failingViewModel = new MainViewModel(
+            failingStore,
+            () => now,
+            runAtStartupService: failingStartup);
+
+        failingViewModel.SetRunAtStartupCommand.Execute(true);
+        AssertEx.False(failingViewModel.RunAtStartup, "A failed registry update must not change the saved preference.");
+        AssertEx.SequenceEqual([false, true], failingStartup.Requests);
+        AssertEx.Equal(0, failingStore.SaveCount);
+
+        var throwingStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-16",
+            Settings = new AppSettings { RunAtStartup = false }
+        });
+        var throwingStartup = new ThrowingRunAtStartupService();
+        var throwingViewModel = new MainViewModel(
+            throwingStore,
+            () => now,
+            runAtStartupService: throwingStartup);
+        throwingViewModel.SetRunAtStartupCommand.Execute(true);
+
+        AssertEx.False(throwingViewModel.RunAtStartup, "A startup-service exception must not change the preference.");
+        AssertEx.Equal(2, throwingStartup.RequestCount);
+        AssertEx.Equal(0, throwingStore.SaveCount);
+    }
+
+    private static void WindowsStartupRegistrationIsQuotedScopedAndRemovable()
+    {
+        var executablePath = Environment.ProcessPath
+            ?? throw new InvalidOperationException("The test process path is unavailable.");
+        var testRoot = $@"Software\DailyQuest\LogicTests\{Guid.NewGuid():N}";
+        var testRunKey = $@"{testRoot}\Run";
+        const string testValueName = "DailyQuestTest";
+        const string unrelatedValueName = "UnrelatedTestValue";
+        var service = new WindowsRunAtStartupService(
+            () => executablePath,
+            testRunKey,
+            testValueName,
+            () => true);
+        var foreignHostService = new WindowsRunAtStartupService(
+            () => executablePath,
+            testRunKey,
+            testValueName,
+            () => false);
+
+        try
+        {
+            using (var key = Registry.CurrentUser.CreateSubKey(testRunKey, writable: true))
+            {
+                AssertEx.NotNull(key).SetValue(unrelatedValueName, "keep", RegistryValueKind.String);
+            }
+
+            AssertEx.False(
+                foreignHostService.TrySetEnabled(true),
+                "A process hosting the Daily Quest assembly must not register itself for startup.");
+            using (var key = AssertEx.NotNull(Registry.CurrentUser.OpenSubKey(testRunKey)))
+            {
+                AssertEx.Null(key.GetValue(testValueName) as string);
+            }
+
+            AssertEx.True(service.TrySetEnabled(true));
+            using (var key = AssertEx.NotNull(Registry.CurrentUser.OpenSubKey(testRunKey)))
+            {
+                AssertEx.Equal(
+                    WindowsRunAtStartupService.CreateStartupCommand(executablePath),
+                    key.GetValue(testValueName) as string);
+                AssertEx.Equal("keep", key.GetValue(unrelatedValueName) as string);
+            }
+
+            AssertEx.False(
+                foreignHostService.TrySetEnabled(false),
+                "A foreign host must not remove the real Daily Quest startup entry.");
+            using (var key = AssertEx.NotNull(Registry.CurrentUser.OpenSubKey(testRunKey)))
+            {
+                AssertEx.Equal(
+                    WindowsRunAtStartupService.CreateStartupCommand(executablePath),
+                    key.GetValue(testValueName) as string);
+            }
+
+            AssertEx.True(service.TrySetEnabled(true), "Enabling an existing entry should be idempotent.");
+            AssertEx.True(service.TrySetEnabled(false));
+            using (var key = AssertEx.NotNull(Registry.CurrentUser.OpenSubKey(testRunKey)))
+            {
+                AssertEx.Null(key.GetValue(testValueName) as string);
+                AssertEx.Equal("keep", key.GetValue(unrelatedValueName) as string);
+            }
+
+            AssertEx.True(service.TrySetEnabled(false), "Disabling a missing entry should be idempotent.");
+        }
+        finally
+        {
+            Registry.CurrentUser.DeleteSubKeyTree(testRoot, throwOnMissingSubKey: false);
+        }
     }
 
     private static void ViewNavigationIsMutuallyExclusive()
@@ -461,7 +626,7 @@ internal static class Program
         var orphanCreatedAt = now.AddMinutes(-20);
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items = [],
             History =
@@ -511,7 +676,7 @@ internal static class Program
         var scheduledId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -640,7 +805,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 23, 45, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16"
         });
         var viewModel = new MainViewModel(store, () => now);
@@ -693,7 +858,7 @@ internal static class Program
         var labelId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             Items =
             [
@@ -818,7 +983,7 @@ internal static class Program
             now.AddHours(-2));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             Items = [sourceState],
             History =
@@ -895,7 +1060,7 @@ internal static class Program
         var sourceId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             Items =
             [
@@ -983,7 +1148,7 @@ internal static class Program
             .ToList();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             Items = activeStates,
             History =
@@ -1054,7 +1219,7 @@ internal static class Program
             now.AddHours(-1));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             Items = [existingState],
             History =
@@ -1135,7 +1300,7 @@ internal static class Program
         var existingTargetId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             ScheduledQuests =
             [
@@ -1188,7 +1353,7 @@ internal static class Program
             Guid.NewGuid(), "Future B", "2026-09-18", 1, now.AddMinutes(-1));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             Items = [todayA, todayB],
             History =
@@ -1229,7 +1394,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 17, 18, 30, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17"
         });
         var viewModel = new MainViewModel(store, () => now);
@@ -1269,7 +1434,7 @@ internal static class Program
         var activeState = CreateItemState(activeId, "Quest hari ini", false, 0, now.AddMinutes(-1));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items = [activeState],
             History =
@@ -1308,7 +1473,7 @@ internal static class Program
         var scheduledId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1353,7 +1518,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Settings = new AppSettings
             {
@@ -1404,7 +1569,7 @@ internal static class Program
             new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Settings = new AppSettings
             {
@@ -1449,7 +1614,7 @@ internal static class Program
         var alarm = new RecordingQuestAlarmService();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1575,7 +1740,7 @@ internal static class Program
         var secondId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1619,7 +1784,7 @@ internal static class Program
         var alarm = new RecordingQuestAlarmService();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1667,6 +1832,190 @@ internal static class Program
         AssertEx.Equal(0, reloadStore.SaveCount);
     }
 
+    private static void GracefulShutdownPausesCountdownAcrossReopen()
+    {
+        var startedAt = new DateTimeOffset(2026, 9, 16, 10, 0, 0, TimeSpan.FromHours(7));
+        var clock = new MutableClock(startedAt);
+        var itemId = Guid.NewGuid();
+        var alarm = new RecordingQuestAlarmService();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    itemId,
+                    "Close-time countdown",
+                    false,
+                    0,
+                    startedAt,
+                    plannedDurationMinutes: 2,
+                    remainingSeconds: 120,
+                    timerStartedAt: startedAt)
+            ]
+        });
+        var viewModel = new MainViewModel(
+            store,
+            () => clock.Now,
+            alarmService: alarm);
+
+        clock.Now = startedAt.AddSeconds(31.8);
+        viewModel.PauseTimersForShutdown();
+
+        var item = viewModel.Items.Single();
+        AssertEx.Equal(89, item.RemainingSeconds);
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.False(item.TimerStartedAt.HasValue);
+        AssertEx.Equal(0, alarm.Notifications.Count);
+        AssertEx.Equal(1, alarm.StopCount);
+        AssertEx.Equal(1, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(89, saved.Items.Single().RemainingSeconds);
+        AssertEx.False(saved.Items.Single().TimerStartedAt.HasValue);
+
+        var reopenClock = new MutableClock(startedAt.AddHours(4));
+        var reloadStore = new InMemoryStateStore(saved);
+        var reloaded = new MainViewModel(reloadStore, () => reopenClock.Now);
+        var reloadedItem = reloaded.Items.Single();
+        AssertEx.Equal(89, reloadedItem.RemainingSeconds);
+        AssertEx.False(reloadedItem.IsTimerRunning);
+        AssertEx.Equal(0, reloadStore.SaveCount);
+    }
+
+    private static void GracefulShutdownPausesOvertimeAtCloseTime()
+    {
+        var startedAt = new DateTimeOffset(2026, 9, 16, 10, 0, 0, TimeSpan.FromHours(7));
+        var clock = new MutableClock(startedAt);
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    Guid.NewGuid(),
+                    "Close-time overtime",
+                    false,
+                    0,
+                    startedAt,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 0,
+                    timerStartedAt: startedAt,
+                    isOvertime: true,
+                    overtimeSeconds: 15)
+            ],
+            Settings = new AppSettings { OvertimeEnabled = true }
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+
+        clock.Now = startedAt.AddSeconds(12.9);
+        viewModel.PauseTimersForShutdown();
+
+        var item = viewModel.Items.Single();
+        AssertEx.True(item.IsOvertime);
+        AssertEx.Equal(27, item.OvertimeSeconds);
+        AssertEx.Equal("+01:27", item.RemainingTimeText);
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.False(item.TimerStartedAt.HasValue);
+
+        var reloadStore = new InMemoryStateStore(AssertEx.NotNull(store.Snapshot));
+        var reloaded = new MainViewModel(
+            reloadStore,
+            () => startedAt.AddHours(3));
+        var reloadedItem = reloaded.Items.Single();
+        AssertEx.True(reloadedItem.IsOvertime);
+        AssertEx.Equal(27, reloadedItem.OvertimeSeconds);
+        AssertEx.False(reloadedItem.IsTimerRunning);
+        AssertEx.Equal(0, reloadStore.SaveCount);
+    }
+
+    private static void GracefulShutdownExpiresSilentlyAndStopsAlarms()
+    {
+        var startedAt = new DateTimeOffset(2026, 9, 16, 10, 0, 0, TimeSpan.FromHours(7));
+        var clock = new MutableClock(startedAt);
+        var alarm = new RecordingQuestAlarmService();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    Guid.NewGuid(),
+                    "Expires while closing",
+                    false,
+                    0,
+                    startedAt,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 1,
+                    timerStartedAt: startedAt)
+            ]
+        });
+        var viewModel = new MainViewModel(
+            store,
+            () => clock.Now,
+            alarmService: alarm);
+
+        clock.Now = startedAt.AddSeconds(2);
+        viewModel.PauseTimersForShutdown();
+
+        var item = viewModel.Items.Single();
+        AssertEx.Equal(0, item.RemainingSeconds);
+        AssertEx.True(item.IsTimerExpired);
+        AssertEx.False(item.IsTimerRunning);
+        AssertEx.Equal(0, alarm.Notifications.Count);
+        AssertEx.Equal(1, alarm.StopCount);
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.False(saved.Items.Single().TimerStartedAt.HasValue);
+
+        var reopenAlarm = new RecordingQuestAlarmService();
+        var reloadStore = new InMemoryStateStore(saved);
+        var reloaded = new MainViewModel(
+            reloadStore,
+            () => startedAt.AddHours(3),
+            alarmService: reopenAlarm);
+        AssertEx.Equal(0, reloaded.Items.Single().RemainingSeconds);
+        AssertEx.False(reloaded.Items.Single().IsTimerRunning);
+        AssertEx.Equal(0, reopenAlarm.Notifications.Count);
+        AssertEx.Equal(0, reloadStore.SaveCount);
+
+        var activeAlarmClock = new MutableClock(startedAt);
+        var activeAlarm = new RecordingQuestAlarmService();
+        var activeAlarmStore = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-16",
+            Items =
+            [
+                CreateItemState(
+                    Guid.NewGuid(),
+                    "Alarm already active",
+                    false,
+                    0,
+                    startedAt,
+                    plannedDurationMinutes: 1,
+                    remainingSeconds: 1,
+                    timerStartedAt: startedAt)
+            ]
+        });
+        var activeAlarmViewModel = new MainViewModel(
+            activeAlarmStore,
+            () => activeAlarmClock.Now,
+            alarmService: activeAlarm);
+        activeAlarmClock.Now = startedAt.AddSeconds(2);
+        AssertEx.True(activeAlarmViewModel.TickTimers());
+        AssertEx.Equal(1, activeAlarm.Notifications.Count);
+        AssertEx.Equal(0, activeAlarm.StopCount);
+        AssertEx.Equal(1, activeAlarmStore.SaveCount);
+
+        activeAlarmViewModel.PauseTimersForShutdown();
+
+        AssertEx.Equal(1, activeAlarm.StopCount);
+        AssertEx.Equal(1, activeAlarmStore.SaveCount);
+    }
+
     private static void CompletionPausesTimerAndDailyRolloverResetsIt()
     {
         var clock = new MutableClock(
@@ -1674,7 +2023,7 @@ internal static class Program
         var itemId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1717,7 +2066,7 @@ internal static class Program
         var alarm = new RecordingQuestAlarmService();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1745,7 +2094,7 @@ internal static class Program
         var crossMidnightId = Guid.NewGuid();
         var crossMidnightStore = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1784,7 +2133,7 @@ internal static class Program
         var alarm = new RecordingQuestAlarmService();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1855,7 +2204,7 @@ internal static class Program
         var alarm = new RecordingQuestAlarmService();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1887,7 +2236,7 @@ internal static class Program
 
         var inconsistentStore = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1921,7 +2270,7 @@ internal static class Program
         var itemId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -1970,7 +2319,7 @@ internal static class Program
         var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
         var overtimeStore = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -2006,7 +2355,7 @@ internal static class Program
 
         var expiredStore = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -2058,9 +2407,54 @@ internal static class Program
         AssertEx.Equal(0, viewModel.Labels.Count);
         AssertEx.Equal(1, store.SaveCount);
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(7, saved.SchemaVersion);
+        AssertEx.Equal(8, saved.SchemaVersion);
         AssertEx.False(saved.Settings.OvertimeEnabled);
         AssertEx.Equal(0, saved.Labels.Count);
+    }
+
+    private static void V7MigrationDefaultsRunAtStartupOn()
+    {
+        WithTemporaryDirectory(directory =>
+        {
+            var statePath = Path.Combine(directory, "state.json");
+            WriteUtf8File(
+                statePath,
+                """
+                {
+                  "SchemaVersion": 7,
+                  "CurrentDate": "2026-09-16",
+                  "Items": [],
+                  "History": [],
+                  "ScheduledQuests": [],
+                  "Labels": [],
+                  "Window": { "Width": 520, "Height": 680 },
+                  "Settings": {
+                    "AlwaysOnTop": true,
+                    "LanguageCode": "en-US",
+                    "ThemeCode": "light",
+                    "QuestSortMode": "manual",
+                    "OvertimeEnabled": false
+                  }
+                }
+                """);
+            var store = new JsonStateStore(statePath);
+            var startup = new RecordingRunAtStartupService();
+            var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
+
+            var viewModel = new MainViewModel(
+                store,
+                () => now,
+                runAtStartupService: startup);
+
+            AssertEx.True(viewModel.RunAtStartup);
+            AssertEx.SequenceEqual([true], startup.Requests);
+            var migrated = AssertEx.NotNull(store.Load());
+            AssertEx.Equal(8, migrated.SchemaVersion);
+            AssertEx.True(migrated.Settings.RunAtStartup);
+            AssertEx.True(
+                File.ReadAllText(statePath).Contains("\"RunAtStartup\": true", StringComparison.Ordinal),
+                "Migration should persist the new startup preference explicitly.");
+        });
     }
 
     private static void V4MigrationExpandsOnlyLegacyDefaultWindow()
@@ -2084,7 +2478,7 @@ internal static class Program
         _ = new MainViewModel(legacyDefaultStore, () => now);
 
         var migratedDefault = AssertEx.NotNull(legacyDefaultStore.Snapshot);
-        AssertEx.Equal(7, migratedDefault.SchemaVersion);
+        AssertEx.Equal(8, migratedDefault.SchemaVersion);
         AssertEx.Equal(520d, migratedDefault.Window.Width);
         AssertEx.Equal(680d, migratedDefault.Window.Height);
         AssertEx.False(migratedDefault.Items.Single().PlannedDurationMinutes.HasValue);
@@ -2110,7 +2504,7 @@ internal static class Program
 
         var currentSchemaStore = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Window = new WidgetWindowState
             {
@@ -2229,7 +2623,7 @@ internal static class Program
         var secondId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -2532,11 +2926,11 @@ internal static class Program
             migrated.Labels.Select(label => label.Name));
         AssertEx.Equal("manual", migrated.SortModeCode);
         AssertEx.Equal(1, legacyStore.SaveCount);
-        AssertEx.Equal(7, AssertEx.NotNull(legacyStore.Snapshot).SchemaVersion);
+        AssertEx.Equal(8, AssertEx.NotNull(legacyStore.Snapshot).SchemaVersion);
 
         var emptyStore = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Labels = []
         });
@@ -2556,7 +2950,7 @@ internal static class Program
         var scheduledId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Labels =
             [
@@ -2647,7 +3041,7 @@ internal static class Program
         var doneId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Labels =
             [
@@ -2721,7 +3115,7 @@ internal static class Program
         var doneId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -2761,7 +3155,7 @@ internal static class Program
         var futureId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-17",
             Labels =
             [
@@ -2796,7 +3190,7 @@ internal static class Program
         var missingId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Labels =
             [
@@ -2970,7 +3364,7 @@ internal static class Program
         var pendingId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-15",
             Items =
             [
@@ -3018,7 +3412,7 @@ internal static class Program
         var laterId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -3076,7 +3470,7 @@ internal static class Program
         var futureId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 7,
+            SchemaVersion = 8,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -3187,7 +3581,7 @@ internal static class Program
             AssertEx.Equal(1, store.SaveCount);
 
             var migrated = AssertEx.NotNull(durableStore.Load());
-            AssertEx.Equal(7, migrated.SchemaVersion);
+            AssertEx.Equal(8, migrated.SchemaVersion);
             AssertEx.Equal("light", migrated.Settings.ThemeCode);
             AssertEx.Equal("en-US", migrated.Settings.LanguageCode);
             AssertEx.False(migrated.Settings.AlwaysOnTop, "Migration should preserve the pin preference.");
@@ -3247,7 +3641,7 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(7, saved.SchemaVersion);
+        AssertEx.Equal(8, saved.SchemaVersion);
         AssertEx.Equal("en-US", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
         AssertEx.Equal(0, saved.ScheduledQuests.Count);
@@ -3294,7 +3688,7 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
         var saved = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(7, saved.SchemaVersion);
+        AssertEx.Equal(8, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal("id-ID", saved.Settings.LanguageCode);
         AssertEx.Equal("light", saved.Settings.ThemeCode);
@@ -3328,7 +3722,7 @@ internal static class Program
         var itemId = Guid.NewGuid();
         var store = new InMemoryStateStore(new AppState
         {
-            SchemaVersion = 8,
+            SchemaVersion = 9,
             CurrentDate = "2026-09-16",
             Items =
             [
@@ -3345,12 +3739,12 @@ internal static class Program
             () => _ = new MainViewModel(store, () => now));
 
         AssertEx.True(
-            exception.Message.Contains("schema 8", StringComparison.Ordinal),
+            exception.Message.Contains("schema 9", StringComparison.Ordinal),
             "The error should identify the unsupported future schema.");
         AssertEx.Equal(0, store.SaveCount);
 
         var untouched = AssertEx.NotNull(store.Snapshot);
-        AssertEx.Equal(8, untouched.SchemaVersion);
+        AssertEx.Equal(9, untouched.SchemaVersion);
         AssertEx.Equal(itemId, untouched.Items.Single().Id);
         AssertEx.True(untouched.Items.Single().IsCompleted, "Rejected future state must remain untouched.");
         AssertEx.Equal("en-US", untouched.Settings.LanguageCode);
@@ -3368,7 +3762,7 @@ internal static class Program
             var historicalItemId = Guid.NewGuid();
             var expected = new AppState
             {
-                SchemaVersion = 7,
+                SchemaVersion = 8,
                 CurrentDate = "2026-09-16",
                 Items =
                 [
@@ -3413,6 +3807,7 @@ internal static class Program
                 Settings = new AppSettings
                 {
                     AlwaysOnTop = false,
+                    RunAtStartup = false,
                     LanguageCode = "en-US",
                     ThemeCode = "dark"
                 }
@@ -3450,6 +3845,7 @@ internal static class Program
             AssertEx.Equal(420d, actual.Window.Width);
             AssertEx.Equal(640d, actual.Window.Height);
             AssertEx.False(actual.Settings.AlwaysOnTop, "Settings should round-trip.");
+            AssertEx.False(actual.Settings.RunAtStartup, "Startup preference should round-trip.");
             AssertEx.Equal("en-US", actual.Settings.LanguageCode);
             AssertEx.Equal("dark", actual.Settings.ThemeCode);
             AssertEx.False(File.Exists(statePath + ".tmp"), "Atomic-save temporary file should be cleaned up.");
@@ -3801,6 +4197,28 @@ internal sealed class RecordingThemeService : IThemeService
     public List<string> AppliedThemes { get; } = [];
 
     public void Apply(string themeCode) => AppliedThemes.Add(themeCode);
+}
+
+internal sealed class RecordingRunAtStartupService(bool result = true) : IRunAtStartupService
+{
+    public List<bool> Requests { get; } = [];
+
+    public bool TrySetEnabled(bool enabled)
+    {
+        Requests.Add(enabled);
+        return result;
+    }
+}
+
+internal sealed class ThrowingRunAtStartupService : IRunAtStartupService
+{
+    public int RequestCount { get; private set; }
+
+    public bool TrySetEnabled(bool enabled)
+    {
+        RequestCount++;
+        throw new InvalidOperationException("Synthetic startup registration failure.");
+    }
 }
 
 internal sealed class RecordingQuestAlarmService : IQuestAlarmService

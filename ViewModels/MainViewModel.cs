@@ -15,7 +15,7 @@ namespace DailyQuest.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private const int CurrentSchemaVersion = 7;
+    private const int CurrentSchemaVersion = 8;
     private const int MaximumScheduleOffset = 8;
     private const int MaximumTimerDurationMinutes = 480;
     private const int MaximumQuestLabels = 12;
@@ -31,6 +31,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly IStorageUsageService _storageUsageService;
     private readonly IThemeService _themeService;
     private readonly IQuestAlarmService? _alarmService;
+    private readonly IRunAtStartupService _runAtStartupService;
     private readonly Func<DateTimeOffset> _now;
     private readonly AppState _state;
     private readonly Dictionary<Guid, int> _manualSortOrders = [];
@@ -54,12 +55,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Func<DateTimeOffset>? now = null,
         IStorageUsageService? storageUsageService = null,
         IThemeService? themeService = null,
-        IQuestAlarmService? alarmService = null)
+        IQuestAlarmService? alarmService = null,
+        IRunAtStartupService? runAtStartupService = null)
     {
         _stateStore = stateStore ?? new JsonStateStore();
         _storageUsageService = storageUsageService ?? new StorageUsageService();
         _themeService = themeService ?? NullThemeService.Instance;
         _alarmService = alarmService;
+        _runAtStartupService = runAtStartupService ?? NullRunAtStartupService.Instance;
         _now = now ?? (() => DateTimeOffset.Now);
 
         var loadedState = _stateStore.Load();
@@ -69,6 +72,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var needsV1HistoryMigration = _state.SchemaVersion < 2;
         var didNormalize = NormalizeState();
         _themeService.Apply(_state.Settings.ThemeCode);
+        TryApplyRunAtStartup(_state.Settings.RunAtStartup);
         _sortMode = QuestSortModeCodes.Parse(_state.Settings.QuestSortMode);
         Labels = new ObservableCollection<QuestLabelViewModel>(
             _state.Labels
@@ -125,6 +129,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ToggleLanguageCommand = new RelayCommand(ToggleLanguage);
         SetLanguageCommand = new RelayCommand(SetLanguage);
         SetThemeCommand = new RelayCommand(SetTheme);
+        SetRunAtStartupCommand = new RelayCommand(
+            SetRunAtStartup,
+            parameter => TryGetBoolean(parameter, out _));
         SetScheduleOffsetCommand = new RelayCommand(
             SetScheduleOffset,
             parameter => TryGetScheduleOffset(parameter, out _));
@@ -202,6 +209,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ICommand SetThemeCommand { get; }
 
+    public ICommand SetRunAtStartupCommand { get; }
+
     public ICommand SetScheduleOffsetCommand { get; }
 
     public ICommand SetDurationCommand { get; }
@@ -259,6 +268,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool IsLightTheme => ThemeCode == ThemeCatalog.LightCode;
 
     public bool IsDarkTheme => ThemeCode == ThemeCatalog.DarkCode;
+
+    public bool RunAtStartup => _state.Settings.RunAtStartup;
 
     public bool IsTodayView => !_isHistoryView && !_isUpcomingView && !_isSettingsView;
 
@@ -748,6 +759,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public void Save() => _stateStore.Save(CreateSnapshot());
 
+    public void PauseTimersForShutdown()
+    {
+        var now = _now();
+        var changed = false;
+
+        foreach (var item in Items.Where(item => item.IsTimerRunning).ToList())
+        {
+            var result = item.AdvanceTimer(now);
+            var paused = item.IsTimerRunning && item.PauseTimer();
+            changed |= result != TimerAdvanceResult.None || paused;
+        }
+
+        StopTimerAlarm();
+        if (changed)
+        {
+            NotifyTimerStateChanged();
+            Save();
+        }
+    }
+
     private bool ApplyQuestSort()
     {
         if (Items.Count < 2)
@@ -956,6 +987,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Settings = new AppSettings
         {
             AlwaysOnTop = true,
+            RunAtStartup = true,
             LanguageCode = UiCopyCatalog.EnglishCode,
             ThemeCode = ThemeCatalog.LightCode,
             QuestSortMode = QuestSortModeCodes.Manual,
@@ -2292,6 +2324,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Save();
     }
 
+    private void SetRunAtStartup(object? parameter)
+    {
+        if (!TryGetBoolean(parameter, out var enabled) ||
+            enabled == RunAtStartup ||
+            !TryApplyRunAtStartup(enabled))
+        {
+            return;
+        }
+
+        _state.Settings.RunAtStartup = enabled;
+        OnPropertyChanged(nameof(RunAtStartup));
+        Save();
+    }
+
+    private bool TryApplyRunAtStartup(bool enabled)
+    {
+        try
+        {
+            return _runAtStartupService.TrySetEnabled(enabled);
+        }
+        catch (Exception)
+        {
+            // Startup registration is a convenience and must never prevent the app from opening.
+            return false;
+        }
+    }
+
     private void ShowToday()
     {
         if (IsTodayView)
@@ -2724,6 +2783,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Settings = new AppSettings
         {
             AlwaysOnTop = AlwaysOnTop,
+            RunAtStartup = RunAtStartup,
             LanguageCode = LanguageCode,
             ThemeCode = ThemeCode,
             QuestSortMode = SortModeCode,

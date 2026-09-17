@@ -11,6 +11,8 @@ Daily Quest menggunakan Inno Setup untuk membuat installer Windows per-user dari
 - Menggunakan ID aplikasi yang tetap agar installer versi berikutnya dapat memperbarui instalasi yang sudah ada.
 - Mendeteksi instance Daily Quest yang masih berjalan sebelum mengganti atau menghapus file.
 - Menyertakan uninstaller Windows standar.
+- Daily Quest mengaktifkan peluncuran saat masuk ke Windows untuk pengguna saat ini secara default setelah aplikasi pertama kali dijalankan; pengguna dapat mematikannya melalui Pengaturan.
+- Uninstaller hanya menghapus entri startup jika entri tersebut masih menunjuk ke executable yang terpasang, sehingga pendaftaran portable yang terpisah tidak ikut terhapus.
 - Mempertahankan folder `%LOCALAPPDATA%\DailyQuest` dan folder lama `%LOCALAPPDATA%\MorningCheckIn` saat upgrade maupun uninstall, sehingga quest, riwayat, dan preferensi tidak terhapus.
 - Mendukung Windows 10/11 x64 serta emulasi x64 pada perangkat Windows 11 Arm64 yang kompatibel.
 

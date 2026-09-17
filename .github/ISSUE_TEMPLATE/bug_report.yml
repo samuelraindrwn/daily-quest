@@ -16,7 +16,7 @@ body:
     attributes:
       label: Daily Quest version / Versi Daily Quest
       description: Find this in the app footer / Lihat informasi ini pada footer aplikasi
-      placeholder: "1.6.1"
+      placeholder: "1.7.0"
     validations:
       required: true
 

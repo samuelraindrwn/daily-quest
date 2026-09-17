@@ -2,7 +2,7 @@ namespace DailyQuest.Models;
 
 public sealed class AppState
 {
-    public int SchemaVersion { get; set; } = 7;
+    public int SchemaVersion { get; set; } = 8;
 
     public string CurrentDate { get; set; } = string.Empty;
 
@@ -95,6 +95,8 @@ public sealed class WidgetWindowState
 public sealed class AppSettings
 {
     public bool AlwaysOnTop { get; set; } = true;
+
+    public bool RunAtStartup { get; set; } = true;
 
     public string LanguageCode { get; set; } = "en-US";
 

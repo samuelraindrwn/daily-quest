@@ -35,10 +35,12 @@ public partial class App : Application
         base.OnStartup(e);
 
         var themeService = new WpfThemeService(this);
+        var runAtStartupService = new WindowsRunAtStartupService();
         _questAlarmService = new WindowsQuestAlarmService();
         var viewModel = new MainViewModel(
             themeService: themeService,
-            alarmService: _questAlarmService);
+            alarmService: _questAlarmService,
+            runAtStartupService: runAtStartupService);
         var mainWindow = new MainWindow(viewModel);
         MainWindow = mainWindow;
         mainWindow.Show();

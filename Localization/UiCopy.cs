@@ -90,6 +90,10 @@ public sealed record UiCopy
     public string LanguageSetting { get; init; } = "Bahasa";
     public string IndonesianLanguage { get; init; } = "Bahasa Indonesia";
     public string EnglishLanguage { get; init; } = "English";
+    public string StartupSetting { get; init; } = "Jalankan saat startup";
+    public string StartupHint { get; init; } = "Buka Daily Quest otomatis saat masuk ke Windows.";
+    public string StartupOff { get; init; } = "Nonaktif";
+    public string StartupOn { get; init; } = "Aktif";
     public string AppearanceSetting { get; init; } = "Tampilan";
     public string AppearanceHint { get; init; } = "Pilih tema yang paling nyaman dilihat.";
     public string LightTheme { get; init; } = "Terang";
@@ -226,6 +230,10 @@ public static class UiCopyCatalog
         LanguageSetting = "Language",
         IndonesianLanguage = "Indonesian",
         EnglishLanguage = "English",
+        StartupSetting = "Launch at startup",
+        StartupHint = "Open Daily Quest automatically when you sign in to Windows.",
+        StartupOff = "Off",
+        StartupOn = "On",
         AppearanceSetting = "Appearance",
         AppearanceHint = "Choose the theme that feels best to you.",
         LightTheme = "Light",

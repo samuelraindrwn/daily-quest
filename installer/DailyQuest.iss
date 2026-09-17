@@ -73,6 +73,8 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(
 [Code]
 const
   UninstallRegistryKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{9F5BE714-FBF2-4A86-BD6F-A563ECF7BDA3}_is1';
+  StartupRegistryKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
+  StartupRegistryValue = 'DailyQuest';
 
 function InitializeSetup: Boolean;
 var
@@ -94,5 +96,30 @@ begin
       MB_OK,
       IDOK);
     Result := False;
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  StartupCommand: String;
+  InstalledExecutable: String;
+  InstalledStartupCommand: String;
+begin
+  if CurUninstallStep <> usUninstall then
+  begin
+    Exit;
+  end;
+
+  InstalledExecutable := ExpandConstant('{app}\{#AppExeName}');
+  InstalledStartupCommand := '"' + InstalledExecutable + '" --startup';
+  if RegQueryStringValue(
+       HKEY_CURRENT_USER,
+       StartupRegistryKey,
+       StartupRegistryValue,
+       StartupCommand) and
+     ((CompareText(Trim(StartupCommand), InstalledStartupCommand) = 0) or
+      (CompareText(Trim(StartupCommand), '"' + InstalledExecutable + '"') = 0)) then
+  begin
+    RegDeleteValue(HKEY_CURRENT_USER, StartupRegistryKey, StartupRegistryValue);
   end;
 end;

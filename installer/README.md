@@ -11,6 +11,8 @@ Daily Quest uses Inno Setup to produce a per-user Windows installer around the s
 - Uses a stable application ID so a newer installer upgrades the existing installation in place.
 - Detects a running Daily Quest instance before replacing or removing files.
 - Includes a standard Windows uninstaller.
+- Daily Quest enables per-user launch-at-sign-in by default after the app first runs; users can turn it off in Settings.
+- The uninstaller removes the startup entry only when it still points to this installed executable, so a separate portable registration is not removed accidentally.
 - Preserves `%LOCALAPPDATA%\DailyQuest` and the legacy `%LOCALAPPDATA%\MorningCheckIn` folder during upgrades and uninstall, so quests, history, and preferences remain intact.
 - Supports x64 Windows 10/11 and x64 emulation on compatible Windows 11 Arm64 systems.
 

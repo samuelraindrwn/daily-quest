@@ -20,7 +20,7 @@
 
 Daily Quest keeps today's priorities visible without turning them into a complicated project-management system. It combines quick check-ins, customizable labels, optional quest timers, flexible sorting, automatic local saving, progress tracking, and expandable daily history in a compact desktop widget.
 
-This guide covers Daily Quest v1.6.1.
+This guide covers Daily Quest v1.7.0.
 
 <p align="center">
   <img src="docs/images/daily-quest-en.png" width="360" alt="Daily Quest main window in English showing a running quest timer">
@@ -36,6 +36,7 @@ This guide covers Daily Quest v1.6.1.
 - Assign a customizable color label when adding a quest, or change it later from the quest card.
 - Give a new quest no timer, a 5/10/15/25/30/45/60-minute preset, or a custom duration from 1 to 480 minutes.
 - Start, pause, resume, or reset a quest countdown, with at most one timer running at a time.
+- Close Daily Quest to save and pause the active countdown or overtime timer; reopening keeps it paused at the saved value.
 - In the official Windows release, hear the bundled facility-alarm ringtone for up to one minute and receive one native notification when time runs out while Daily Quest is open, compact, or minimized; optionally continue into red overtime after silencing it.
 - See today's greeting, completion count, percentage, and progress bar at a glance.
 - Treat every active quest as a Daily Quest: keep it for the next day and reset its completion automatically.
@@ -45,7 +46,8 @@ This guide covers Daily Quest v1.6.1.
 - Keep a saved manual quest order, or sort unfinished quests by label, shortest duration, or longest duration; completed quests always stay at the bottom.
 - Shrink the widget into a smaller top-right compact view that prioritizes the actively timed quest, then shows the next unfinished quest, with pin and expand controls always available.
 - Start new installations in English, then choose English or Indonesian from Settings; existing saved preferences stay unchanged.
-- Choose a Light or Dark theme, manage labels, and enable or disable overtime from Settings; every preference is saved locally.
+- Choose a Light or Dark theme, manage labels, enable or disable overtime, and control Windows startup from Settings; every preference is saved locally.
+- Launch automatically when you sign in to Windows by default, with an explicit Off/On setting.
 - Pin the widget above other windows, minimize it to the taskbar, or move and resize the expanded window freely.
 - Open at the top-right of the primary work area with a comfortable edge gap, while restoring the saved size, language, theme, and pin preference. Reset the expanded window to its 520 × 680 default from Settings when needed.
 - Check local storage usage, clear history, open the Q&A, or report a bug from Settings.
@@ -58,7 +60,7 @@ This guide covers Daily Quest v1.6.1.
 2. Download and run the `win-x64-setup.exe` asset for the standard Windows install experience.
 3. For portable use, download and extract `win-x64.zip`, or download the standalone `win-x64.exe` asset.
 
-All release options are self-contained for 64-bit Windows 10/11, so the .NET runtime does not need to be installed separately. The installer adds Start Menu and uninstall entries, offers an optional Desktop shortcut, and upgrades in place. Portable users can update by closing Daily Quest and replacing the old executable. Either method preserves data in Local AppData.
+All release options are self-contained for 64-bit Windows 10/11, so the .NET runtime does not need to be installed separately. The installer adds Start Menu and uninstall entries, offers an optional Desktop shortcut, and upgrades in place. Daily Quest enables launch-at-sign-in after its first run; it can be disabled in Settings. Portable users can update by closing Daily Quest and replacing the old executable. Either method preserves data in Local AppData.
 
 > [!NOTE]
 > The installer and application are not code-signed yet, so Windows may show a SmartScreen warning. Continue only when the file came from this repository's official Releases page. You can verify it with the included `SHA256SUMS.txt`.
@@ -85,7 +87,7 @@ All release options are self-contained for 64-bit Windows 10/11, so the .NET run
 | **Today** | Return to the active checklist. |
 | **Upcoming** | Review or cancel quests scheduled for a future date. |
 | **History** | View daily completion summaries. Select a card to expand its details. |
-| Settings button | Open language, theme, label, overtime, storage, history, Q&A, and bug-report options. |
+| Settings button | Open language, Windows startup, theme, label, overtime, storage, history, Q&A, and bug-report options. |
 | Compact button | Instantly shrink the widget at the top-right and show the actively timed quest, or the next unfinished quest when no timer is running. Complete it to advance to an unchecked next quest. |
 | Pin button in compact mode | Keep the compact widget above other windows or return it to normal stacking. |
 | Expand button | Return from compact mode to the full widget. |
@@ -99,7 +101,7 @@ Every active quest is a **Daily Quest**. When the date changes, Daily Quest arch
 
 - Choose **No timer** or a duration while adding the quest. Presets cover 5, 10, 15, 25, 30, 45, and 60 minutes; a custom timer accepts any whole number from 1 through 480 minutes.
 - Use the quest's timer controls to start, pause, resume, or reset its countdown. Only one quest timer can run at a time.
-- A running countdown is saved with a timestamp. If Daily Quest is closed and reopened, elapsed time is calculated from that timestamp instead of restarting the timer.
+- Closing Daily Quest advances the active countdown or overtime timer only to the close moment, pauses it, and saves the result. Reopening the app keeps that timer paused, so time spent with the app closed is not counted.
 - Reaching zero does not mark the quest complete. Complete the quest separately with its checkbox.
 - Overtime mode is off by default. With it off, an expired timer plays the same one-minute-maximum alarm and shows no **Overtime** action.
 - In the official Windows release, every expired timer loops the bundled ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds instead. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when Daily Quest exits.
@@ -130,13 +132,14 @@ Every active quest is a **Daily Quest**. When the date changes, Daily Quest arch
 - If Daily Quest was closed on the scheduled date, the overdue quest is activated the next time the app opens. It is activated only once.
 - Open the upcoming list to review or cancel a scheduled quest before it becomes active.
 
-Scheduling by itself does not create a Windows notification, run a background service, or launch Daily Quest automatically. Timer expiry notifications follow the behavior described above.
+Scheduling by itself does not create a Windows notification or run a separate background service. Daily Quest can still launch at Windows sign-in through the default-on startup preference described below. Timer expiry notifications follow the behavior described above.
 
 ### Settings and support
 
 - **Theme:** choose Light or Dark. The change applies immediately and is saved locally for the next launch.
 - **Window size:** resize the expanded window from 390 × 500 up to 1200 × 1200. Select **Reset size** under Appearance to restore its 520 × 680 default.
 - **Language:** choose Indonesian or English explicitly. The choice is saved locally.
+- **Launch at startup:** enabled by default. Choose Off to remove Daily Quest from the current user's Windows startup list, or On to register the executable at its current location.
 - **Labels:** add, rename, recolor, drag to reorder, or delete up to 12 quest labels. Label names, colors, and priority order are saved locally.
 - **Overtime:** enable the **Overtime** action for expired timers, or leave the default off. The one-minute-maximum expiry alarm works in either mode.
 - **Storage:** view the size of the application executable, Daily Quest's local data folder, and the serialized history data. These values are local estimates and may be rounded in the interface.
@@ -144,7 +147,7 @@ Scheduling by itself does not create a Windows notification, run a background se
 - **Q&A:** open the bilingual [Frequently Asked Questions](docs/FAQ.md).
 - **Report a bug:** open the repository's pre-filled GitHub issue form in the default browser.
 
-The footer on the full Today view shows the app name and installed version (v1.6.1 for this release).
+The footer on the full Today view shows the app name and installed version (v1.7.0 for this release).
 
 ### Keyboard navigation
 
@@ -165,7 +168,9 @@ All data stays on the device in:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-The state file contains active and scheduled quest text and order, label definitions and assignments, the selected sort mode and saved manual order, timer durations and countdown or overtime state, running-timer timestamps, scheduled target dates, daily history, theme, language, overtime preference, always-on-top preference, and window size. Daily Quest does not require an account, include telemetry, or upload this data anywhere. Compact mode does not replace the native minimize action and is not stored as a separate checklist state.
+The state file contains active and scheduled quest text and order, label definitions and assignments, the selected sort mode and saved manual order, timer durations and countdown or overtime state, running-timer timestamps, scheduled target dates, daily history, theme, language, startup, overtime, always-on-top preferences, and window size. Daily Quest does not require an account, include telemetry, or upload this data anywhere. Compact mode does not replace the native minimize action and is not stored as a separate checklist state.
+
+When **Launch at startup** is on, Daily Quest stores one command for the current user under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. It contains only the quoted local executable path and the `--startup` marker. Moving a portable executable requires one manual launch from its new location so this path can be refreshed. Turning the setting off removes only Daily Quest's entry; uninstalling the installed copy also removes its matching entry without deleting quest data.
 
 The storage panel reads file sizes from the local application and data locations. **Saved data** includes the future-quest queue, while **History** estimates only serialized history records. **Clear history** removes history records only; it does not remove active or scheduled quests. The current day's history may be generated again after a later checklist change.
 
@@ -203,7 +208,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-The dependency-free test harness covers checklist mutations, labels and their migrations, manual and automatic sort modes, completed-item ordering, timer duration validation and persistence, start/pause/resume/reset and overtime behavior, the single-running-timer rule, timestamp-based countdown recovery and expiry alarms, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, daily quest rollover, history retention and clearing, persisted settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
+The dependency-free test harness covers checklist mutations, labels and their migrations, manual and automatic sort modes, completed-item ordering, timer duration validation and persistence, start/pause/resume/reset and overtime behavior, graceful-close timer pausing, the single-running-timer rule, timestamp-based crash recovery and expiry alarms, Windows startup registration, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, daily quest rollover, history retention and clearing, persisted settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
 
 ## Create a portable build
 
@@ -248,7 +253,7 @@ tests/           Dependency-free logic test runner
 - **Windows shows “unknown publisher”:** the app is not code-signed yet. Use only the official release and verify its SHA-256 checksum.
 - **Opening the app again does not create another window:** Daily Quest allows one instance and restores the existing window instead.
 - **The compact widget is not in the taskbar:** compact mode keeps a small quest window visible. Use the `−` button when you want the native Windows minimize behavior.
-- **A timer expired without an alarm while the app was closed:** the countdown is restored from its saved timestamp at the next launch, but Daily Quest cannot play a sound or deliver a notification while its process is not running.
+- **A timer did not continue while the app was closed:** this is intentional. A normal close saves and pauses the active countdown or overtime timer. Resume it manually after reopening Daily Quest.
 - **There is no Overtime button:** enable overtime mode in Settings before the timer expires. With overtime disabled, the alarm still runs for up to one minute, but the timer does not offer overtime.
 - **Cleared history returns for today:** the active checklist is intentionally preserved, so the current-day summary can be written again after a quest changes. Clear history after finishing changes if you want the History view to stay empty for the moment.
 - **The source project reports a missing SDK:** install the .NET 10 SDK, then confirm it appears in `dotnet --list-sdks`.

@@ -4,7 +4,7 @@
 
 ## English
 
-This Q&A covers Daily Quest v1.6.1.
+This Q&A covers Daily Quest v1.7.0.
 
 ### Does Daily Quest require an account or internet connection?
 
@@ -18,7 +18,7 @@ Daily Quest stores its state in:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-The app does not send this file to a server and does not include telemetry. The state includes label definitions and assignments, sort and manual-order data, quest timer durations and countdown or overtime state, running-timer timestamps, and saved settings such as theme, language, overtime mode, pin preference, and window size.
+The app does not send this file to a server and does not include telemetry. The state includes label definitions and assignments, sort and manual-order data, quest timer durations and countdown or overtime state, running-timer timestamps, and saved settings such as theme, language, Windows startup, overtime mode, pin preference, and window size.
 
 ### What is the difference between compact mode and minimize?
 
@@ -48,15 +48,15 @@ Choose a timer in the composer before adding the quest. You can select **No time
 
 After adding the quest, use its controls to start or pause the countdown, resume it, or reset it to the full duration. Only one quest timer can run at a time. Reaching zero does not automatically complete the quest; use its checkbox when the work is actually done.
 
-### Does a running timer survive an app restart?
+### What happens to a running timer when I close the app?
 
-Yes. Daily Quest saves the countdown state and a running timer's timestamp locally. When you reopen the app, it calculates the elapsed time from that timestamp rather than restarting the countdown.
+During a normal close, Daily Quest advances the active countdown or overtime timer only to the close moment, pauses it, and saves the result. Reopening the app keeps that timer paused, so time spent with the app closed is not counted. If the process is forcibly terminated before it can save, the last running timestamp can still be reconciled on the next launch so elapsed work is not silently lost.
 
 ### When will the timer alarm and notification work?
 
 When a timer reaches zero while the Daily Quest process is running, the official Windows release loops its bundled facility-alarm ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds. This works when the app is in its full view, compact mode, or minimized to the taskbar. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when the app exits. With overtime disabled, which is the default, there is no **Overtime** action.
 
-Daily Quest does not run a background service. If you fully close its process, it cannot play the alarm or deliver the notification while closed; the countdown is reconciled from its saved timestamp the next time the app starts. The expired timer still does not auto-complete its quest.
+Daily Quest does not run a background service. If you fully close its process, it cannot play the alarm or deliver a notification while closed. A normal close pauses the timer as described above, and an expired timer still does not auto-complete its quest.
 
 ### How does overtime mode work?
 
@@ -84,7 +84,7 @@ The source is never moved or changed. Each copy keeps its text, label, and confi
 
 ### What happens if Daily Quest is closed on the scheduled date?
 
-The overdue quest is added to Today, unchecked, the next time Daily Quest opens. It is activated only once. Daily Quest does not create a Windows notification, run in the background, or launch itself automatically.
+The overdue quest is added to Today, unchecked, the next time Daily Quest opens. It is activated only once. Scheduling does not create a Windows notification or background service. Separately, **Launch at startup** is enabled by default, so Daily Quest normally opens when you sign in to Windows unless you turn that preference off.
 
 Once activated, the quest becomes a regular active quest. It follows the normal daily reset and remains in the reusable checklist until you remove it.
 
@@ -110,7 +110,11 @@ New installations start in **English**. Open Settings to choose **Indonesian** o
 
 Open Settings, find **Theme**, and choose **Light** or **Dark**. The change applies immediately across the full and compact views and is saved for the next launch. This version does not automatically follow the Windows theme.
 
-Language, theme, label definitions and order, sort mode, overtime mode, pin preference, and expanded window size are also saved locally and restored on the next launch.
+Language, Windows startup, theme, label definitions and order, sort mode, overtime mode, pin preference, and expanded window size are also saved locally and restored on the next launch.
+
+### How do I control whether Daily Quest launches with Windows?
+
+Open Settings and use **Launch at startup**. It is **On** by default and registers Daily Quest only for the current Windows user, without administrator access. Choosing **Off** removes that registration. If you move the portable executable while the setting is on, launch it manually once from the new location so Daily Quest can refresh the saved path. Uninstalling the installed copy removes its matching startup entry without deleting quest data.
 
 ### Can I resize the window, and is its size saved?
 
@@ -142,7 +146,7 @@ Use **Report a bug** in Settings or open the [bug report form](https://github.co
 
 ## Bahasa Indonesia
 
-Tanya jawab ini membahas Daily Quest v1.6.1.
+Tanya jawab ini membahas Daily Quest v1.7.0.
 
 ### Apakah Daily Quest membutuhkan akun atau koneksi internet?
 
@@ -156,7 +160,7 @@ Daily Quest menyimpan state di:
 %LOCALAPPDATA%\DailyQuest\state.json
 ```
 
-Aplikasi tidak mengirim file ini ke server dan tidak memiliki telemetri. State tersebut mencakup definisi dan penetapan label, data mode urutan dan urutan manual, durasi serta state hitung mundur atau overtime, timestamp timer yang berjalan, dan pengaturan tersimpan seperti tema, bahasa, mode overtime, preferensi pin, serta ukuran jendela.
+Aplikasi tidak mengirim file ini ke server dan tidak memiliki telemetri. State tersebut mencakup definisi dan penetapan label, data mode urutan dan urutan manual, durasi serta state hitung mundur atau overtime, timestamp timer yang berjalan, dan pengaturan tersimpan seperti tema, bahasa, startup Windows, mode overtime, preferensi pin, serta ukuran jendela.
 
 ### Apa perbedaan mode ringkas dan minimize?
 
@@ -186,15 +190,15 @@ Pilih timer pada composer sebelum menambahkan quest. Kamu dapat memilih **Tanpa 
 
 Setelah quest ditambahkan, gunakan kontrolnya untuk memulai atau menjeda hitung mundur, melanjutkannya, atau me-reset ke durasi penuh. Hanya satu timer quest yang dapat berjalan dalam satu waktu. Timer yang mencapai nol tidak otomatis menyelesaikan quest; gunakan checkbox setelah pekerjaannya benar-benar selesai.
 
-### Apakah timer yang berjalan tetap berlanjut setelah aplikasi dibuka kembali?
+### Apa yang terjadi pada timer berjalan saat aplikasi ditutup?
 
-Ya. Daily Quest menyimpan state hitung mundur dan timestamp timer yang berjalan secara lokal. Saat aplikasi dibuka kembali, waktu yang telah berlalu dihitung dari timestamp tersebut sehingga hitung mundur tidak dimulai ulang.
+Saat ditutup secara normal, Daily Quest hanya menghitung timer hitung mundur atau overtime yang aktif sampai momen penutupan, lalu menjeda dan menyimpan hasilnya. Saat aplikasi dibuka kembali, timer tetap dijeda sehingga waktu selama aplikasi tertutup tidak ikut dihitung. Jika proses dihentikan paksa sebelum sempat menyimpan, timestamp terakhir yang berjalan masih dapat disesuaikan pada peluncuran berikutnya agar waktu kerja yang sudah berlalu tidak hilang diam-diam.
 
 ### Kapan alarm dan notifikasi timer dapat bekerja?
 
 Saat timer mencapai nol selama proses Daily Quest masih berjalan, rilis resmi Windows memutar berulang ringtone facility-alarm bawaan selama maksimal 60 detik dan menampilkan satu notifikasi bawaan. Build dari source tanpa aset ringtone opsional memakai bunyi sistem Windows bergantian. Fitur ini bekerja ketika aplikasi menggunakan tampilan penuh, mode ringkas, atau diminimalkan ke taskbar. Bunyi berhenti lebih awal saat quest di-reset, diselesaikan, atau dihapus; saat overtime dimatikan melalui Pengaturan; ketika hari berganti; atau ketika aplikasi ditutup. Saat overtime nonaktif—yang merupakan pengaturan default—tindakan **Overtime** tidak tersedia.
 
-Daily Quest tidak menjalankan layanan latar belakang. Jika prosesnya benar-benar ditutup, aplikasi tidak dapat memutar alarm atau mengirim notifikasi selama tertutup; hitung mundur disesuaikan dari timestamp tersimpan saat aplikasi berikutnya dibuka. Timer yang sudah habis tetap tidak otomatis menyelesaikan quest.
+Daily Quest tidak menjalankan layanan latar belakang. Jika prosesnya benar-benar ditutup, aplikasi tidak dapat memutar alarm atau mengirim notifikasi selama tertutup. Penutupan normal menjeda timer seperti dijelaskan di atas, dan timer yang habis tetap tidak otomatis menyelesaikan quest.
 
 ### Bagaimana cara kerja mode overtime?
 
@@ -222,7 +226,7 @@ Sumber tidak pernah dipindahkan atau diubah. Setiap salinan mempertahankan teks,
 
 ### Apa yang terjadi jika Daily Quest ditutup pada tanggal yang dijadwalkan?
 
-Quest yang lewat jatuh tempo ditambahkan ke Hari ini tanpa centang saat Daily Quest berikutnya dibuka. Setiap quest hanya diaktifkan satu kali. Daily Quest tidak membuat notifikasi Windows, berjalan di latar belakang, atau membuka dirinya secara otomatis.
+Quest yang lewat jatuh tempo ditambahkan ke Hari ini tanpa centang saat Daily Quest berikutnya dibuka. Setiap quest hanya diaktifkan satu kali. Penjadwalan tidak membuat notifikasi Windows atau layanan latar belakang. Secara terpisah, **Jalankan saat startup** aktif secara default sehingga Daily Quest biasanya terbuka saat kamu masuk ke Windows, kecuali preferensi tersebut dimatikan.
 
 Setelah aktif, quest menjadi quest aktif biasa. Quest mengikuti reset harian normal dan tetap berada dalam checklist yang digunakan kembali sampai kamu menghapusnya.
 
@@ -248,7 +252,11 @@ Instalasi baru dimulai dalam **English**. Buka Pengaturan untuk memilih **Bahasa
 
 Buka Pengaturan, cari bagian **Tema**, lalu pilih **Terang** atau **Gelap**. Perubahan langsung diterapkan pada tampilan penuh dan mode ringkas serta disimpan untuk peluncuran berikutnya. Versi ini belum mengikuti tema Windows secara otomatis.
 
-Bahasa, tema, definisi dan urutan label, mode urutan quest, mode overtime, preferensi pin, serta ukuran jendela penuh juga disimpan secara lokal dan dipulihkan pada peluncuran berikutnya.
+Bahasa, startup Windows, tema, definisi dan urutan label, mode urutan quest, mode overtime, preferensi pin, serta ukuran jendela penuh juga disimpan secara lokal dan dipulihkan pada peluncuran berikutnya.
+
+### Bagaimana cara mengatur agar Daily Quest dibuka bersama Windows?
+
+Buka Pengaturan lalu gunakan **Jalankan saat startup**. Fitur ini **Aktif** secara default dan hanya mendaftarkan Daily Quest untuk pengguna Windows saat ini tanpa akses administrator. Memilih **Nonaktif** akan menghapus pendaftaran tersebut. Jika executable portable dipindahkan saat pengaturan aktif, jalankan sekali secara manual dari lokasi baru agar Daily Quest memperbarui path tersimpan. Uninstall versi terpasang menghapus entri startup yang cocok tanpa menghapus data quest.
 
 ### Apakah ukuran jendela dapat diubah dan tetap tersimpan?
 
