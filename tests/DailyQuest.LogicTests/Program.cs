@@ -22,6 +22,14 @@ internal static class Program
         ("invalid theme falls back to light without data loss", InvalidThemeFallsBackToLightWithoutDataLoss),
         ("current-day history tracks add, toggle, remove, and clear", CurrentDayHistoryTracksChecklistMutations),
         ("composer schedules only today through H plus eight", ComposerSchedulesOnlyTodayThroughEightDays),
+        ("copy to today creates fresh quests without mutating their sources", CopyToTodayCreatesFreshQuestsWithoutMutatingSources),
+        ("copy to future dates queues independent quests without changing today", CopyToFutureDatesQueuesIndependentQuestsWithoutChangingToday),
+        ("copy rejects invalid destinations and foreign quests", CopyRejectsInvalidDestinationsAndForeignQuests),
+        ("copying today's schedule preserves every quest definition without mutating today", CopyingTodaySchedulePreservesEveryDefinitionWithoutMutatingToday),
+        ("copying a future schedule to today creates fresh active quests", CopyingFutureScheduleToTodayCreatesFreshActiveQuests),
+        ("copying between future dates uses only the selected source day", CopyingBetweenFutureDatesUsesOnlySelectedSourceDay),
+        ("same-day schedule copies use a finite source snapshot", SameDayScheduleCopiesUseFiniteSourceSnapshot),
+        ("empty and invalid schedule copies do not save", EmptyAndInvalidScheduleCopiesDoNotSave),
         ("scheduled quests stay outside today's checklist until due", ScheduledQuestsStayOutsideTodayUntilDue),
         ("upcoming quests can be canceled without changing today", UpcomingQuestsCanBeCanceledWithoutChangingToday),
         ("duration selection supports custom values and no timer", DurationSelectionSupportsCustomValuesAndNoTimer),
@@ -676,6 +684,584 @@ internal static class Program
         AssertEx.Equal(0, viewModel.SelectedScheduleOffset);
     }
 
+    private static void CopyToTodayCreatesFreshQuestsWithoutMutatingSources()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 14, 30, 0, TimeSpan.FromHours(7));
+        var firstId = Guid.NewGuid();
+        var overtimeId = Guid.NewGuid();
+        var completedId = Guid.NewGuid();
+        var labelId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            Items =
+            [
+                CreateItemState(firstId, "First pending", false, 0, now.AddMinutes(-30)),
+                CreateItemState(
+                    overtimeId,
+                    "Timed focus",
+                    false,
+                    1,
+                    now.AddMinutes(-20),
+                    plannedDurationMinutes: 25,
+                    remainingSeconds: 0,
+                    labelId: labelId,
+                    manualSortOrder: 1,
+                    isOvertime: true,
+                    overtimeSeconds: 93),
+                CreateItemState(
+                    completedId,
+                    "Completed source",
+                    true,
+                    2,
+                    now.AddMinutes(-10),
+                    plannedDurationMinutes: 15,
+                    remainingSeconds: 240,
+                    labelId: labelId,
+                    manualSortOrder: 2)
+            ],
+            Labels =
+            [
+                new QuestLabelState
+                {
+                    Id = labelId,
+                    Name = "Important",
+                    ColorHex = "#D95757",
+                    SortOrder = 0
+                }
+            ],
+            Settings = new AppSettings
+            {
+                OvertimeEnabled = true,
+                QuestSortMode = QuestSortModeCodes.Manual
+            }
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var overtimeSource = viewModel.Items.Single(item => item.Id == overtimeId);
+        var completedSource = viewModel.Items.Single(item => item.Id == completedId);
+
+        var request = new QuestCopyRequest(overtimeSource, 0);
+        AssertEx.True(viewModel.CopyItemCommand.CanExecute(request));
+        viewModel.CopyItemCommand.Execute(request);
+
+        var overtimeCopy = viewModel.Items.Single(item =>
+            item.Text == overtimeSource.Text && item.Id != overtimeSource.Id);
+        AssertEx.True(overtimeCopy.Id != Guid.Empty && overtimeCopy.Id != overtimeSource.Id);
+        AssertEx.Equal(overtimeSource.Text, overtimeCopy.Text);
+        AssertEx.False(overtimeCopy.IsCompleted);
+        AssertEx.Equal(now, overtimeCopy.CreatedAt);
+        AssertEx.Equal(25, overtimeCopy.PlannedDurationMinutes);
+        AssertEx.Equal(25 * 60, overtimeCopy.RemainingSeconds);
+        AssertEx.Equal<DateTimeOffset?>(null, overtimeCopy.TimerStartedAt);
+        AssertEx.False(overtimeCopy.IsTimerRunning);
+        AssertEx.False(overtimeCopy.IsOvertime);
+        AssertEx.Equal(0, overtimeCopy.OvertimeSeconds);
+        AssertEx.Equal(labelId, overtimeCopy.LabelId);
+        AssertEx.Equal("Important", overtimeCopy.LabelName);
+        AssertEx.Equal("#D95757", overtimeCopy.LabelColorHex);
+
+        AssertEx.False(overtimeSource.IsCompleted);
+        AssertEx.Equal(0, overtimeSource.RemainingSeconds);
+        AssertEx.Equal<DateTimeOffset?>(null, overtimeSource.TimerStartedAt);
+        AssertEx.True(overtimeSource.IsOvertime);
+        AssertEx.Equal(93, overtimeSource.OvertimeSeconds);
+        AssertEx.Equal(labelId, overtimeSource.LabelId);
+
+        AssertEx.True(viewModel.CopyItemTo(completedSource, 0));
+        var completedCopy = viewModel.Items.Single(item =>
+            item.Text == completedSource.Text && item.Id != completedSource.Id);
+        AssertEx.True(completedCopy.Id != Guid.Empty && completedCopy.Id != completedSource.Id);
+        AssertEx.False(completedCopy.IsCompleted, "A copy of a completed quest must start unchecked.");
+        AssertEx.Equal(15, completedCopy.PlannedDurationMinutes);
+        AssertEx.Equal(15 * 60, completedCopy.RemainingSeconds);
+        AssertEx.Equal<DateTimeOffset?>(null, completedCopy.TimerStartedAt);
+        AssertEx.False(completedCopy.IsOvertime);
+        AssertEx.Equal(labelId, completedCopy.LabelId);
+        AssertEx.True(completedSource.IsCompleted, "Copying must not reopen the source quest.");
+        AssertEx.Equal(240, completedSource.RemainingSeconds);
+
+        AssertEx.SequenceEqual(
+            [firstId, overtimeId, overtimeCopy.Id, completedCopy.Id, completedId],
+            viewModel.Items.Select(item => item.Id));
+        AssertEx.Equal(2, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.SequenceEqual([0, 1, 3, 4, 2], saved.Items.Select(item => item.ManualSortOrder.GetValueOrDefault()));
+        AssertEx.SequenceEqual([0, 1, 2, 3, 4], saved.Items.Select(item => item.SortOrder));
+        AssertEx.SequenceEqual(
+            viewModel.Items.Select(item => item.Id),
+            HistoryFor(saved, "2026-09-17").Items.Select(item => item.Id));
+    }
+
+    private static void CopyToFutureDatesQueuesIndependentQuestsWithoutChangingToday()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 15, 0, 0, TimeSpan.FromHours(7));
+        var sourceId = Guid.NewGuid();
+        var historicalId = Guid.NewGuid();
+        var existingScheduledId = Guid.NewGuid();
+        var labelId = Guid.NewGuid();
+        var sourceState = CreateItemState(
+            sourceId,
+            "Reusable quest",
+            false,
+            0,
+            now.AddHours(-1),
+            plannedDurationMinutes: 40,
+            remainingSeconds: 1_620,
+            labelId: labelId);
+        var historicalState = CreateItemState(
+            historicalId,
+            "Already removed",
+            true,
+            1,
+            now.AddHours(-2));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            Items = [sourceState],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-17",
+                    Items = [sourceState, historicalState]
+                }
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    existingScheduledId,
+                    "Existing future quest",
+                    "2026-09-21",
+                    0,
+                    now.AddMinutes(-5))
+            ],
+            Labels =
+            [
+                new QuestLabelState
+                {
+                    Id = labelId,
+                    Name = "Focus",
+                    ColorHex = "#5E7FA3",
+                    SortOrder = 0
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var source = viewModel.Items.Single();
+        var before = AssertEx.NotNull(store.Snapshot);
+        var historyBefore = JsonSerializer.Serialize(before.History);
+        var itemsBefore = JsonSerializer.Serialize(before.Items);
+
+        AssertEx.True(viewModel.CopyItemTo(source, 1));
+        var dayEightRequest = new QuestCopyRequest(source, 8);
+        AssertEx.True(viewModel.CopyItemCommand.CanExecute(dayEightRequest));
+        viewModel.CopyItemCommand.Execute(dayEightRequest);
+
+        AssertEx.Equal(1, viewModel.Items.Count);
+        AssertEx.Equal(sourceId, viewModel.Items.Single().Id);
+        AssertEx.Equal(1_620, source.RemainingSeconds);
+        AssertEx.False(source.IsTimerRunning);
+        AssertEx.Equal(3, viewModel.UpcomingQuests.Count);
+        AssertEx.Equal(2, store.SaveCount);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(historyBefore, JsonSerializer.Serialize(saved.History));
+        AssertEx.Equal(itemsBefore, JsonSerializer.Serialize(saved.Items));
+        AssertEx.SequenceEqual(
+            ["2026-09-18", "2026-09-21", "2026-09-25"],
+            saved.ScheduledQuests.Select(item => item.ScheduledDate));
+        AssertEx.SequenceEqual([0, 1, 2], saved.ScheduledQuests.Select(item => item.SortOrder));
+
+        var copies = saved.ScheduledQuests
+            .Where(item => item.Text == source.Text)
+            .OrderBy(item => item.ScheduledDate, StringComparer.Ordinal)
+            .ToList();
+        AssertEx.Equal(2, copies.Count);
+        AssertEx.SequenceEqual(["2026-09-18", "2026-09-25"], copies.Select(item => item.ScheduledDate));
+        AssertEx.True(copies.All(item => item.Id != Guid.Empty && item.Id != source.Id));
+        AssertEx.Equal(2, copies.Select(item => item.Id).Distinct().Count());
+        AssertEx.True(copies.All(item => item.CreatedAt == now));
+        AssertEx.True(copies.All(item => item.PlannedDurationMinutes == 40));
+        AssertEx.True(copies.All(item => item.LabelId == labelId));
+        AssertEx.Equal(existingScheduledId, saved.ScheduledQuests[1].Id);
+    }
+
+    private static void CopyRejectsInvalidDestinationsAndForeignQuests()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 16, 0, 0, TimeSpan.FromHours(7));
+        var sourceId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            Items =
+            [
+                CreateItemState(sourceId, "Owned quest", false, 0, now.AddMinutes(-1))
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var source = viewModel.Items.Single();
+        var foreign = new ChecklistItem(Guid.NewGuid(), "Foreign quest", false, now);
+        var before = JsonSerializer.Serialize(AssertEx.NotNull(store.Snapshot));
+
+        AssertEx.False(viewModel.CopyItemCommand.CanExecute(null));
+        AssertEx.False(viewModel.CopyItemCommand.CanExecute(new QuestCopyRequest(source, -1)));
+        AssertEx.False(viewModel.CopyItemCommand.CanExecute(new QuestCopyRequest(source, 9)));
+        AssertEx.False(viewModel.CopyItemCommand.CanExecute(new QuestCopyRequest(foreign, 0)));
+        AssertEx.True(viewModel.CopyItemCommand.CanExecute(new QuestCopyRequest(source, 0)));
+
+        AssertEx.False(viewModel.CopyItemTo(source, -1));
+        AssertEx.False(viewModel.CopyItemTo(source, 9));
+        AssertEx.False(viewModel.CopyItemTo(foreign, 0));
+        viewModel.CopyItemCommand.Execute(new QuestCopyRequest(source, -1));
+        viewModel.CopyItemCommand.Execute(new QuestCopyRequest(source, 9));
+        viewModel.CopyItemCommand.Execute(new QuestCopyRequest(foreign, 0));
+        viewModel.CopyItemCommand.Execute("not a copy request");
+
+        AssertEx.Equal(0, store.SaveCount);
+        AssertEx.Equal(before, JsonSerializer.Serialize(AssertEx.NotNull(store.Snapshot)));
+        AssertEx.SequenceEqual([sourceId], viewModel.Items.Select(item => item.Id));
+        AssertEx.Equal(0, viewModel.UpcomingQuests.Count);
+    }
+
+    private static void CopyingTodaySchedulePreservesEveryDefinitionWithoutMutatingToday()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 16, 30, 0, TimeSpan.FromHours(7));
+        var pendingId = Guid.NewGuid();
+        var runningId = Guid.NewGuid();
+        var overtimeId = Guid.NewGuid();
+        var completedId = Guid.NewGuid();
+        var labelId = Guid.NewGuid();
+        var activeStates = new List<ChecklistItemState>
+        {
+            CreateItemState(pendingId, "Pending", false, 0, now.AddHours(-4)),
+            CreateItemState(
+                runningId,
+                "Running",
+                false,
+                1,
+                now.AddHours(-3),
+                plannedDurationMinutes: 20,
+                remainingSeconds: 900,
+                timerStartedAt: now,
+                labelId: labelId),
+            CreateItemState(
+                overtimeId,
+                "Overtime",
+                false,
+                2,
+                now.AddHours(-2),
+                plannedDurationMinutes: 10,
+                remainingSeconds: 0,
+                labelId: labelId,
+                isOvertime: true,
+                overtimeSeconds: 42),
+            CreateItemState(
+                completedId,
+                "Completed",
+                true,
+                3,
+                now.AddHours(-1),
+                plannedDurationMinutes: 15,
+                remainingSeconds: 120,
+                labelId: labelId)
+        };
+        var historyStates = activeStates
+            .Select(item => CreateItemState(
+                item.Id,
+                item.Text,
+                item.IsCompleted,
+                item.SortOrder,
+                item.CreatedAt,
+                item.PlannedDurationMinutes,
+                item.RemainingSeconds,
+                labelId: item.LabelId,
+                manualSortOrder: item.ManualSortOrder))
+            .ToList();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            Items = activeStates,
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-17",
+                    Items = historyStates
+                }
+            ],
+            Labels =
+            [
+                new QuestLabelState
+                {
+                    Id = labelId,
+                    Name = "Focus",
+                    ColorHex = "#5E7FA3",
+                    SortOrder = 0
+                }
+            ],
+            Settings = new AppSettings { OvertimeEnabled = true }
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var savesBeforeCopy = store.SaveCount;
+        var before = AssertEx.NotNull(store.Snapshot);
+        var itemsBefore = JsonSerializer.Serialize(before.Items);
+        var historyBefore = JsonSerializer.Serialize(before.History);
+        var request = new ScheduleDayCopyRequest(0, 3);
+
+        AssertEx.True(viewModel.CopyScheduleDayCommand.CanExecute(request));
+        viewModel.CopyScheduleDayCommand.Execute(request);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(savesBeforeCopy + 1, store.SaveCount);
+        AssertEx.Equal(itemsBefore, JsonSerializer.Serialize(saved.Items));
+        AssertEx.Equal(historyBefore, JsonSerializer.Serialize(saved.History));
+        AssertEx.True(viewModel.Items.Single(item => item.Id == runningId).IsTimerRunning);
+        AssertEx.True(viewModel.Items.Single(item => item.Id == overtimeId).IsOvertime);
+        AssertEx.True(viewModel.Items.Single(item => item.Id == completedId).IsCompleted);
+
+        var copies = saved.ScheduledQuests
+            .Where(item => item.ScheduledDate == "2026-09-20")
+            .ToList();
+        AssertEx.Equal(4, copies.Count);
+        AssertEx.SequenceEqual(
+            ["Pending", "Running", "Overtime", "Completed"],
+            copies.Select(item => item.Text));
+        AssertEx.SequenceEqual<int?>([null, 20, 10, 15], copies.Select(item => item.PlannedDurationMinutes));
+        AssertEx.SequenceEqual<Guid?>([null, labelId, labelId, labelId], copies.Select(item => item.LabelId));
+        AssertEx.True(copies.All(item => item.Id != Guid.Empty));
+        AssertEx.Equal(4, copies.Select(item => item.Id).Distinct().Count());
+        AssertEx.True(copies.All(item => item.CreatedAt == now));
+        AssertEx.True(copies.All(item => !viewModel.Items.Any(source => source.Id == item.Id)));
+    }
+
+    private static void CopyingFutureScheduleToTodayCreatesFreshActiveQuests()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 17, 0, 0, TimeSpan.FromHours(7));
+        var existingId = Guid.NewGuid();
+        var timedSourceId = Guid.NewGuid();
+        var untimedSourceId = Guid.NewGuid();
+        var labelId = Guid.NewGuid();
+        var existingState = CreateItemState(
+            existingId,
+            "Existing today",
+            true,
+            0,
+            now.AddHours(-1));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            Items = [existingState],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-17",
+                    Items = [existingState]
+                }
+            ],
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(
+                    timedSourceId,
+                    "Timed future",
+                    "2026-09-19",
+                    0,
+                    now.AddMinutes(-2),
+                    plannedDurationMinutes: 25,
+                    labelId: labelId),
+                CreateScheduledQuestState(
+                    untimedSourceId,
+                    "Untimed future",
+                    "2026-09-19",
+                    1,
+                    now.AddMinutes(-1))
+            ],
+            Labels =
+            [
+                new QuestLabelState
+                {
+                    Id = labelId,
+                    Name = "Important",
+                    ColorHex = "#D95757",
+                    SortOrder = 0
+                }
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var savesBeforeCopy = store.SaveCount;
+        var scheduleBefore = JsonSerializer.Serialize(
+            AssertEx.NotNull(store.Snapshot).ScheduledQuests);
+
+        AssertEx.Equal(2, viewModel.CopyScheduleDayTo(2, 0));
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(savesBeforeCopy + 1, store.SaveCount);
+        AssertEx.Equal(scheduleBefore, JsonSerializer.Serialize(saved.ScheduledQuests));
+        AssertEx.Equal(3, viewModel.Items.Count);
+        AssertEx.True(viewModel.Items.Single(item => item.Id == existingId).IsCompleted);
+
+        var timedCopy = viewModel.Items.Single(item => item.Text == "Timed future");
+        AssertEx.True(timedCopy.Id != Guid.Empty && timedCopy.Id != timedSourceId);
+        AssertEx.False(timedCopy.IsCompleted);
+        AssertEx.Equal(25, timedCopy.PlannedDurationMinutes);
+        AssertEx.Equal(25 * 60, timedCopy.RemainingSeconds);
+        AssertEx.Equal<DateTimeOffset?>(null, timedCopy.TimerStartedAt);
+        AssertEx.False(timedCopy.IsOvertime);
+        AssertEx.Equal(labelId, timedCopy.LabelId);
+        AssertEx.Equal("Important", timedCopy.LabelName);
+
+        var untimedCopy = viewModel.Items.Single(item => item.Text == "Untimed future");
+        AssertEx.True(untimedCopy.Id != Guid.Empty && untimedCopy.Id != untimedSourceId);
+        AssertEx.False(untimedCopy.IsCompleted);
+        AssertEx.Equal<int?>(null, untimedCopy.PlannedDurationMinutes);
+        AssertEx.False(untimedCopy.IsTimerRunning);
+        AssertEx.SequenceEqual(
+            viewModel.Items.Select(item => item.Id),
+            HistoryFor(saved, "2026-09-17").Items.Select(item => item.Id));
+    }
+
+    private static void CopyingBetweenFutureDatesUsesOnlySelectedSourceDay()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 17, 30, 0, TimeSpan.FromHours(7));
+        var firstSourceId = Guid.NewGuid();
+        var secondSourceId = Guid.NewGuid();
+        var decoyId = Guid.NewGuid();
+        var existingTargetId = Guid.NewGuid();
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            ScheduledQuests =
+            [
+                CreateScheduledQuestState(firstSourceId, "Source A", "2026-09-18", 0, now.AddMinutes(-4), 5),
+                CreateScheduledQuestState(secondSourceId, "Source B", "2026-09-18", 1, now.AddMinutes(-3), 10),
+                CreateScheduledQuestState(decoyId, "Different day", "2026-09-19", 2, now.AddMinutes(-2), 15),
+                CreateScheduledQuestState(existingTargetId, "Existing target", "2026-09-21", 3, now.AddMinutes(-1), 20)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var savesBeforeCopy = store.SaveCount;
+
+        AssertEx.Equal(2, viewModel.CopyScheduleDayTo(1, 4));
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal(savesBeforeCopy + 1, store.SaveCount);
+        AssertEx.SequenceEqual(
+            [firstSourceId, secondSourceId],
+            saved.ScheduledQuests
+                .Where(item => item.ScheduledDate == "2026-09-18")
+                .Select(item => item.Id));
+        AssertEx.SequenceEqual(
+            [decoyId],
+            saved.ScheduledQuests
+                .Where(item => item.ScheduledDate == "2026-09-19")
+                .Select(item => item.Id));
+
+        var target = saved.ScheduledQuests
+            .Where(item => item.ScheduledDate == "2026-09-21")
+            .ToList();
+        AssertEx.SequenceEqual(
+            ["Existing target", "Source A", "Source B"],
+            target.Select(item => item.Text));
+        AssertEx.Equal(existingTargetId, target[0].Id);
+        AssertEx.True(target[1].Id != firstSourceId && target[1].Id != Guid.Empty);
+        AssertEx.True(target[2].Id != secondSourceId && target[2].Id != Guid.Empty);
+        AssertEx.SequenceEqual<int?>([20, 5, 10], target.Select(item => item.PlannedDurationMinutes));
+        AssertEx.Equal(0, saved.Items.Count);
+        AssertEx.Equal(0, saved.History.Count);
+    }
+
+    private static void SameDayScheduleCopiesUseFiniteSourceSnapshot()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 18, 0, 0, TimeSpan.FromHours(7));
+        var todayA = CreateItemState(Guid.NewGuid(), "Today A", false, 0, now.AddMinutes(-4));
+        var todayB = CreateItemState(Guid.NewGuid(), "Today B", false, 1, now.AddMinutes(-3), 15);
+        var futureA = CreateScheduledQuestState(
+            Guid.NewGuid(), "Future A", "2026-09-18", 0, now.AddMinutes(-2), 20);
+        var futureB = CreateScheduledQuestState(
+            Guid.NewGuid(), "Future B", "2026-09-18", 1, now.AddMinutes(-1));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17",
+            Items = [todayA, todayB],
+            History =
+            [
+                new DailyHistoryState
+                {
+                    Date = "2026-09-17",
+                    Items = [todayA, todayB]
+                }
+            ],
+            ScheduledQuests = [futureA, futureB]
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var savesBeforeCopy = store.SaveCount;
+
+        AssertEx.Equal(2, viewModel.CopyScheduleDayTo(0, 0));
+        AssertEx.Equal(2, viewModel.CopyScheduleDayTo(1, 1));
+
+        AssertEx.Equal(savesBeforeCopy + 2, store.SaveCount);
+        AssertEx.SequenceEqual(
+            ["Today A", "Today B", "Today A", "Today B"],
+            viewModel.Items.Select(item => item.Text));
+        AssertEx.Equal(4, viewModel.Items.Select(item => item.Id).Distinct().Count());
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        var future = saved.ScheduledQuests
+            .Where(item => item.ScheduledDate == "2026-09-18")
+            .ToList();
+        AssertEx.SequenceEqual(
+            ["Future A", "Future B", "Future A", "Future B"],
+            future.Select(item => item.Text));
+        AssertEx.Equal(4, future.Select(item => item.Id).Distinct().Count());
+        AssertEx.Equal(4, HistoryFor(saved, "2026-09-17").Items.Count);
+    }
+
+    private static void EmptyAndInvalidScheduleCopiesDoNotSave()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 18, 30, 0, TimeSpan.FromHours(7));
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 7,
+            CurrentDate = "2026-09-17"
+        });
+        var viewModel = new MainViewModel(store, () => now);
+        var savesBeforeCopy = store.SaveCount;
+        var before = JsonSerializer.Serialize(AssertEx.NotNull(store.Snapshot));
+
+        AssertEx.False(viewModel.HasScheduleDayQuests(-1));
+        AssertEx.False(viewModel.HasScheduleDayQuests(0));
+        AssertEx.False(viewModel.HasScheduleDayQuests(1));
+        AssertEx.False(viewModel.HasScheduleDayQuests(9));
+        AssertEx.False(viewModel.CopyScheduleDayCommand.CanExecute(null));
+        AssertEx.False(viewModel.CopyScheduleDayCommand.CanExecute(new ScheduleDayCopyRequest(-1, 0)));
+        AssertEx.False(viewModel.CopyScheduleDayCommand.CanExecute(new ScheduleDayCopyRequest(0, 9)));
+        AssertEx.False(viewModel.CopyScheduleDayCommand.CanExecute(new ScheduleDayCopyRequest(0, 1)));
+        AssertEx.False(viewModel.CopyScheduleDayCommand.CanExecute(new ScheduleDayCopyRequest(1, 0)));
+
+        AssertEx.Equal(0, viewModel.CopyScheduleDayTo(-1, 0));
+        AssertEx.Equal(0, viewModel.CopyScheduleDayTo(0, 9));
+        AssertEx.Equal(0, viewModel.CopyScheduleDayTo(0, 1));
+        AssertEx.Equal(0, viewModel.CopyScheduleDayTo(1, 0));
+        viewModel.CopyScheduleDayCommand.Execute(new ScheduleDayCopyRequest(-1, 0));
+        viewModel.CopyScheduleDayCommand.Execute(new ScheduleDayCopyRequest(0, 9));
+        viewModel.CopyScheduleDayCommand.Execute(new ScheduleDayCopyRequest(0, 1));
+        viewModel.CopyScheduleDayCommand.Execute(new ScheduleDayCopyRequest(1, 0));
+        viewModel.CopyScheduleDayCommand.Execute("not a schedule copy request");
+
+        AssertEx.Equal(savesBeforeCopy, store.SaveCount);
+        AssertEx.Equal(before, JsonSerializer.Serialize(AssertEx.NotNull(store.Snapshot)));
+        AssertEx.Equal(0, viewModel.Items.Count);
+        AssertEx.Equal(0, viewModel.UpcomingQuests.Count);
+    }
+
     private static void ScheduledQuestsStayOutsideTodayUntilDue()
     {
         var now = new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7));
@@ -1227,24 +1813,27 @@ internal static class Program
         viewModel.StartOvertimeCommand.Execute(item);
         AssertEx.True(item.IsOvertime);
         AssertEx.True(item.IsTimerRunning);
-        AssertEx.Equal("+00:00", item.RemainingTimeText);
+        AssertEx.Equal(0, item.OvertimeSeconds);
+        AssertEx.Equal("+01:00", item.RemainingTimeText);
         AssertEx.Equal(1, alarm.StopCount);
 
         clock.Now = clock.Now.AddSeconds(65);
         AssertEx.True(viewModel.TickTimers());
         AssertEx.Equal(65, item.OvertimeSeconds);
-        AssertEx.Equal("+01:05", item.RemainingTimeText);
+        AssertEx.Equal("+02:05", item.RemainingTimeText);
 
         viewModel.ToggleTimerCommand.Execute(item);
         AssertEx.False(item.IsTimerRunning);
         clock.Now = clock.Now.AddSeconds(10);
         AssertEx.False(viewModel.TickTimers());
         AssertEx.Equal(65, item.OvertimeSeconds);
+        AssertEx.Equal("+02:05", item.RemainingTimeText);
 
         viewModel.ToggleTimerCommand.Execute(item);
         clock.Now = clock.Now.AddSeconds(5);
         AssertEx.True(viewModel.TickTimers());
         AssertEx.Equal(70, item.OvertimeSeconds);
+        AssertEx.Equal("+02:10", item.RemainingTimeText);
         viewModel.Save();
 
         var saved = AssertEx.NotNull(store.Snapshot);
@@ -1256,7 +1845,7 @@ internal static class Program
         AssertEx.True(restored.IsOvertime);
         AssertEx.True(restored.IsTimerRunning);
         AssertEx.Equal(70, restored.OvertimeSeconds);
-        AssertEx.Equal("+01:10", restored.RemainingTimeText);
+        AssertEx.Equal("+02:10", restored.RemainingTimeText);
     }
 
     private static void DisabledOvertimeRejectsCountUpAndAlarmCanStop()

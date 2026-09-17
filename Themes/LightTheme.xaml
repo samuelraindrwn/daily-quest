@@ -12,6 +12,8 @@
     <SolidColorBrush x:Key="GlassCardBrush" Color="#B8FFFFFF" />
     <SolidColorBrush x:Key="GlassSubtleBrush" Color="#78FFFFFF" />
     <SolidColorBrush x:Key="GlassEdgeBrush" Color="#C7FFFFFF" />
+    <SolidColorBrush x:Key="UnlabeledChipBackgroundBrush" Color="#B8E8EDF2" />
+    <SolidColorBrush x:Key="UnlabeledChipBorderBrush" Color="#8095A3B3" />
     <SolidColorBrush x:Key="GlassLowerEdgeBrush" Color="#24364758" />
     <SolidColorBrush x:Key="SurfaceLightBrush" Color="#D9FFFFFF" />
     <SolidColorBrush x:Key="SurfaceDeepBrush" Color="#A8FFFFFF" />

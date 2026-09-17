@@ -4,7 +4,7 @@
 
 ## English
 
-This Q&A covers Daily Quest v1.5.0.
+This Q&A covers Daily Quest v1.6.0.
 
 ### Does Daily Quest require an account or internet connection?
 
@@ -60,7 +60,7 @@ Daily Quest does not run a background service. If you fully close its process, i
 
 ### How does overtime mode work?
 
-Enable overtime in Settings before a timer expires. At zero, the same one-minute-maximum alarm plays and the quest offers **Overtime**. Selecting **Overtime** silences the alarm immediately and continues the timer upward in red until you pause or reset it, or complete the quest. Reaching zero or entering overtime never completes the quest automatically.
+Enable overtime in Settings before a timer expires. At zero, the same one-minute-maximum alarm plays and the quest offers **Overtime**. Selecting **Overtime** silences the alarm immediately and continues a cumulative timer upward in red from its configured duration, so a one-minute timer begins overtime at `+01:00`. It keeps counting until you pause or reset it, or complete the quest. Reaching zero or entering overtime never completes the quest automatically.
 
 If overtime is disabled, Daily Quest still uses the one-minute-maximum expiry alarm but does not show the **Overtime** action. The overtime preference and timer state are saved locally.
 
@@ -69,6 +69,18 @@ If overtime is disabled, Daily Quest still uses the one-minute-maximum expiry al
 Type the quest in the composer, then choose **Tomorrow** or one of the following seven dates before adding it. The picker supports **Today** through **D+8** (shown as Hari ini through H+8 in Indonesian), based on the local date reported by Windows. Keep **Today** selected when the quest should be active immediately.
 
 A scheduled quest stays in the upcoming queue and does not affect Today's checklist, progress, compact mode, or History before it is due. You can open the upcoming list and cancel it while it is still queued.
+
+### How do I copy an existing quest to another day?
+
+Right-click an active quest, open **Copy to**, and choose **Today**, **Tomorrow**, or **D+2** through **D+8**. The source quest is not changed.
+
+The copy keeps the original text, label, and configured timer duration. It is always created as a fresh unchecked quest with its timer reset and idle, even when the source is completed, running, paused, expired, or in overtime. A copy made for **Today** appears in the active checklist; a copy made for a future date appears in **Upcoming** until it is due.
+
+### How do I copy every quest from one date to another?
+
+Open **Schedule for**, right-click any date tile—not only **Today**—open **Copy all quests to**, and choose a destination from **Today** through **D+8**. When **Today** is the source, Daily Quest copies every quest in the currently visible active list, including completed quests. For a future source date, it copies every quest explicitly scheduled for that exact date.
+
+The source is never moved or changed. Each copy keeps its text, label, and configured timer duration, but starts as a fresh unchecked quest with its timer reset and idle. An empty source is a no-op. If the source and destination are the same date, Daily Quest duplicates the snapshot that existed when the action began exactly once; the new copies are not copied again during that action.
 
 ### What happens if Daily Quest is closed on the scheduled date?
 
@@ -130,7 +142,7 @@ Use **Report a bug** in Settings or open the [bug report form](https://github.co
 
 ## Bahasa Indonesia
 
-Tanya jawab ini membahas Daily Quest v1.5.0.
+Tanya jawab ini membahas Daily Quest v1.6.0.
 
 ### Apakah Daily Quest membutuhkan akun atau koneksi internet?
 
@@ -186,7 +198,7 @@ Daily Quest tidak menjalankan layanan latar belakang. Jika prosesnya benar-benar
 
 ### Bagaimana cara kerja mode overtime?
 
-Aktifkan overtime di Pengaturan sebelum timer habis. Saat mencapai nol, alarm yang sama berbunyi selama maksimal satu menit dan quest menawarkan **Overtime**. Memilih **Overtime** akan langsung mematikan alarm dan melanjutkan timer sebagai hitungan naik berwarna merah sampai kamu menjeda atau me-reset timer, atau menyelesaikan quest. Mencapai nol maupun memasuki overtime tidak pernah otomatis menyelesaikan quest.
+Aktifkan overtime di Pengaturan sebelum timer habis. Saat mencapai nol, alarm yang sama berbunyi selama maksimal satu menit dan quest menawarkan **Overtime**. Memilih **Overtime** akan langsung mematikan alarm dan melanjutkan timer sebagai hitungan naik kumulatif berwarna merah dari durasi yang ditetapkan, sehingga timer satu menit memulai overtime pada `+01:00`. Hitungan berlanjut sampai kamu menjeda atau me-reset timer, atau menyelesaikan quest. Mencapai nol maupun memasuki overtime tidak pernah otomatis menyelesaikan quest.
 
 Jika overtime nonaktif, Daily Quest tetap menggunakan alarm kedaluwarsa maksimal satu menit tetapi tidak menampilkan tindakan **Overtime**. Preferensi overtime dan state timer disimpan secara lokal.
 
@@ -195,6 +207,18 @@ Jika overtime nonaktif, Daily Quest tetap menggunakan alarm kedaluwarsa maksimal
 Ketik quest di composer, lalu pilih **Besok** atau salah satu dari tujuh tanggal berikutnya sebelum menambahkannya. Pemilih tanggal mendukung **Hari ini** sampai **H+8**, berdasarkan tanggal lokal yang dilaporkan Windows. Pertahankan pilihan **Hari ini** jika quest harus langsung aktif.
 
 Quest terjadwal tetap berada di antrean mendatang dan tidak memengaruhi checklist Hari ini, progres, mode ringkas, atau Riwayat sebelum jatuh tempo. Kamu dapat membuka daftar mendatang dan membatalkannya selama quest masih berada dalam antrean.
+
+### Bagaimana cara menyalin quest yang sudah ada ke hari lain?
+
+Klik kanan quest aktif, buka **Salin ke**, lalu pilih **Hari ini**, **Besok**, atau **H+2** hingga **H+8**. Quest sumber tidak berubah.
+
+Salinan mempertahankan teks, label, dan durasi timer yang diatur pada quest sumber. Salinan selalu dibuat sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan, meskipun quest sumber sudah selesai, sedang berjalan, dijeda, habis, atau dalam overtime. Salinan untuk **Hari ini** muncul di checklist aktif; salinan untuk tanggal mendatang muncul di **Mendatang** sampai waktunya tiba.
+
+### Bagaimana cara menyalin semua quest dari satu tanggal ke tanggal lain?
+
+Buka **Jadwalkan untuk**, klik kanan kartu tanggal mana pun—bukan hanya **Hari ini**—buka **Salin semua quest ke**, lalu pilih tujuan dari **Hari ini** hingga **H+8**. Jika **Hari ini** menjadi sumber, Daily Quest menyalin semua quest dalam daftar aktif yang sedang ditampilkan, termasuk quest selesai. Untuk tanggal sumber mendatang, aplikasi menyalin semua quest yang dijadwalkan secara khusus untuk tanggal tersebut.
+
+Sumber tidak pernah dipindahkan atau diubah. Setiap salinan mempertahankan teks, label, dan durasi timer yang diatur, tetapi dimulai sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan. Sumber kosong tidak melakukan apa pun. Jika sumber dan tujuan adalah tanggal yang sama, Daily Quest menduplikasi snapshot yang ada saat tindakan dimulai tepat satu kali; salinan baru tidak ikut disalin lagi dalam tindakan tersebut.
 
 ### Apa yang terjadi jika Daily Quest ditutup pada tanggal yang dijadwalkan?
 

@@ -48,6 +48,10 @@ public partial class MainWindow : Window
     private bool? _sortPopupWasOpenOnPointerDown;
     private bool? _itemLabelPopupWasOpenOnPointerDown;
     private ChecklistItem? _itemLabelTarget;
+    private ContextMenu? _activeQuestCopyMenu;
+    private ChecklistItem? _questCopySource;
+    private ContextMenu? _activeScheduleDayCopyMenu;
+    private int? _scheduleDayCopySourceOffset;
 
     public MainWindow()
         : this(new MainViewModel())
@@ -131,6 +135,16 @@ public partial class MainWindow : Window
         {
             ItemLabelPopup.IsOpen = false;
         }
+
+        if (_activeQuestCopyMenu is not null)
+        {
+            _activeQuestCopyMenu.IsOpen = false;
+        }
+
+        if (_activeScheduleDayCopyMenu is not null)
+        {
+            _activeScheduleDayCopyMenu.IsOpen = false;
+        }
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -177,6 +191,14 @@ public partial class MainWindow : Window
         NewItemTextBox.Focus();
     }
 
+    private void ScheduleOption_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is Button { DataContext: ScheduleOptionViewModel })
+        {
+            SchedulePopup.StaysOpen = true;
+        }
+    }
+
     private void SchedulePickerButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         // A StaysOpen="False" popup can close before this button receives its
@@ -216,6 +238,12 @@ public partial class MainWindow : Window
 
     private void SchedulePopup_Closed(object? sender, EventArgs e)
     {
+        SchedulePopup.StaysOpen = false;
+        if (_activeScheduleDayCopyMenu is not null)
+        {
+            _activeScheduleDayCopyMenu.IsOpen = false;
+        }
+
         // StaysOpen="False" can close the popup on mouse-down before the
         // ToggleButton processes the same click. Defer the visual reset so a
         // second click still toggles from checked to unchecked instead of
@@ -491,6 +519,150 @@ public partial class MainWindow : Window
 
         ItemLabelPopup.IsOpen = false;
         _itemLabelTarget = null;
+    }
+
+    private void QuestContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu ||
+            menu.PlacementTarget is not FrameworkElement { DataContext: ChecklistItem item } ||
+            !_viewModel.Items.Contains(item))
+        {
+            if (sender is ContextMenu invalidMenu)
+            {
+                invalidMenu.IsOpen = false;
+            }
+
+            return;
+        }
+
+        _viewModel.RollOverToCurrentDay();
+        if (!_viewModel.Items.Contains(item))
+        {
+            menu.IsOpen = false;
+            return;
+        }
+
+        if (_activeScheduleDayCopyMenu is not null)
+        {
+            _activeScheduleDayCopyMenu.IsOpen = false;
+        }
+
+        _activeScheduleDayCopyMenu = null;
+        _scheduleDayCopySourceOffset = null;
+        SchedulePopup.StaysOpen = false;
+        _activeQuestCopyMenu = menu;
+        _questCopySource = item;
+        menu.DataContext = CreateCopyDestinationMenu(
+            _viewModel.Copy.CopyTo,
+            hasSourceQuests: true);
+    }
+
+    private void QuestContextMenu_Closed(object sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _activeQuestCopyMenu))
+        {
+            _activeQuestCopyMenu = null;
+            _questCopySource = null;
+        }
+    }
+
+    private void ScheduleDayContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu ||
+            menu.PlacementTarget is not FrameworkElement
+            {
+                DataContext: ScheduleOptionViewModel sourceOption
+            })
+        {
+            if (sender is ContextMenu invalidMenu)
+            {
+                invalidMenu.IsOpen = false;
+            }
+
+            return;
+        }
+
+        _viewModel.RollOverToCurrentDay();
+        if (_activeQuestCopyMenu is not null)
+        {
+            _activeQuestCopyMenu.IsOpen = false;
+        }
+
+        _activeQuestCopyMenu = null;
+        _questCopySource = null;
+        _activeScheduleDayCopyMenu = menu;
+        _scheduleDayCopySourceOffset = sourceOption.Offset;
+        SchedulePopup.StaysOpen = true;
+        menu.DataContext = CreateCopyDestinationMenu(
+            _viewModel.Copy.CopyAllTo,
+            _viewModel.HasScheduleDayQuests(sourceOption.Offset));
+    }
+
+    private void ScheduleDayContextMenu_Closed(object sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _activeScheduleDayCopyMenu))
+        {
+            _activeScheduleDayCopyMenu = null;
+            _scheduleDayCopySourceOffset = null;
+        }
+
+        SchedulePopup.StaysOpen = false;
+    }
+
+    private CopyDestinationMenuViewModel CreateCopyDestinationMenu(
+        string title,
+        bool hasSourceQuests) => new()
+        {
+            Title = title,
+            EmptyMessage = _viewModel.Copy.NoQuestsToCopy,
+            ScheduleOptions = [.. _viewModel.ScheduleOptions],
+            HasSourceQuests = hasSourceQuests
+        };
+
+    private void CopyDestinationOption_Click(object sender, RoutedEventArgs e)
+    {
+        var questMenu = _activeQuestCopyMenu;
+        var scheduleDayMenu = _activeScheduleDayCopyMenu;
+        var isScheduleDayCopy = _scheduleDayCopySourceOffset.HasValue;
+
+        if (sender is Button { DataContext: ScheduleOptionViewModel option })
+        {
+            if (_questCopySource is not null)
+            {
+                var request = new QuestCopyRequest(_questCopySource, option.Offset);
+                if (_viewModel.CopyItemCommand.CanExecute(request))
+                {
+                    _viewModel.CopyItemCommand.Execute(request);
+                }
+            }
+            else if (_scheduleDayCopySourceOffset is int sourceOffset)
+            {
+                var request = new ScheduleDayCopyRequest(sourceOffset, option.Offset);
+                if (_viewModel.CopyScheduleDayCommand.CanExecute(request))
+                {
+                    _viewModel.CopyScheduleDayCommand.Execute(request);
+                }
+            }
+        }
+
+        if (questMenu is not null)
+        {
+            questMenu.IsOpen = false;
+        }
+
+        if (scheduleDayMenu is not null)
+        {
+            scheduleDayMenu.IsOpen = false;
+        }
+
+        if (isScheduleDayCopy)
+        {
+            SchedulePopup.StaysOpen = false;
+            SchedulePopup.IsOpen = false;
+            SchedulePickerButton.IsChecked = false;
+        }
+
+        e.Handled = true;
     }
 
     private void Compact_Click(object sender, RoutedEventArgs e) => SetCompactMode(true);

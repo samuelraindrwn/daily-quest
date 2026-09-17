@@ -20,7 +20,7 @@
 
 Daily Quest keeps today's priorities visible without turning them into a complicated project-management system. It combines quick check-ins, customizable labels, optional quest timers, flexible sorting, automatic local saving, progress tracking, and expandable daily history in a compact desktop widget.
 
-This guide covers Daily Quest v1.5.0.
+This guide covers Daily Quest v1.6.0.
 
 <p align="center">
   <img src="docs/images/daily-quest-en.png" width="360" alt="Daily Quest main window in English showing a running quest timer">
@@ -31,6 +31,8 @@ This guide covers Daily Quest v1.5.0.
 - Starts with an empty checklist—your routine stays yours.
 - Add, complete, and remove activities in a few clicks.
 - Add a quest to Today immediately, or schedule it for any date from Tomorrow through D+8.
+- Right-click an active quest to copy it to Today or any date through D+8 without retyping it.
+- Right-click any date in **Schedule for** to copy every quest from that date to another date from Today through D+8.
 - Assign a customizable color label when adding a quest, or change it later from the quest card.
 - Give a new quest no timer, a 5/10/15/25/30/45/60-minute preset, or a custom duration from 1 to 480 minutes.
 - Start, pause, resume, or reset a quest countdown, with at most one timer running at a time.
@@ -71,8 +73,10 @@ The release is portable and self-contained for 64-bit Windows 10/11, so there is
 | Label choice in the composer | Keep **No label** or assign one of your configured labels to the new quest. |
 | Checkbox | Mark an activity as complete or incomplete. A completed quest automatically moves to the bottom. |
 | Timer controls on a quest | Start or pause the countdown, resume a paused timer, or reset it to the quest's full duration. |
-| **Overtime** on an expired quest | When overtime mode is enabled, silence the alarm immediately and continue counting upward in red until paused, reset, or completed. |
+| **Overtime** on an expired quest | When overtime mode is enabled, silence the alarm immediately and continue a cumulative red count-up from the configured duration until paused, reset, or completed. |
 | Label on a quest | Change or remove the label assigned to an existing quest. |
+| Right-click an active quest | Open **Copy to**, then choose **Today**, **Tomorrow**, or **D+2** through **D+8**. |
+| Right-click a date in **Schedule for** | Open **Copy all quests to**, then choose a destination from **Today** through **D+8**. This works on every date in the picker, not only Today. |
 | Sort control | Use the saved manual order, label order, shortest duration, or longest duration. |
 | Drag handle beside an activity | In **Manual** sort mode, drag and drop the activity to change its saved order. |
 | `×` beside an activity | Remove that activity from the active checklist. |
@@ -99,7 +103,7 @@ Every active quest is a **Daily Quest**. When the date changes, Daily Quest arch
 - Reaching zero does not mark the quest complete. Complete the quest separately with its checkbox.
 - Overtime mode is off by default. With it off, an expired timer plays the same one-minute-maximum alarm and shows no **Overtime** action.
 - In the official Windows release, every expired timer loops the bundled ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds instead. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when Daily Quest exits.
-- When overtime mode is enabled, an expired timer offers **Overtime**. Selecting it silences the alarm immediately and starts a red count-up that continues until you pause or reset the timer, or complete the quest.
+- When overtime mode is enabled, an expired timer offers **Overtime**. Selecting it silences the alarm immediately and starts a red cumulative count-up from the configured duration—a one-minute timer begins overtime at `+01:00`—until you pause or reset the timer, or complete the quest.
 - Timer alarms and native Windows notifications work in the full view, compact mode, and while the window is minimized, as long as the Daily Quest process is running.
 - Daily Quest does not run a background service, so it cannot play the alarm or show the notification while its process is fully closed.
 
@@ -118,6 +122,9 @@ Every active quest is a **Daily Quest**. When the date changes, Daily Quest arch
 
 - The composer offers **Today**, **Tomorrow**, and **D+2** through **D+8**, based on the local date reported by Windows.
 - The progress summary hides while the date picker is open so the schedule remains visually clear.
+- To reuse an active quest, right-click its card, open **Copy to**, and choose **Today** through **D+8**. The copy keeps the quest text, label, and configured duration, but is created as a fresh unchecked quest with its timer reset and idle. Copies for a future date appear in **Upcoming** until they are due.
+- To reuse a whole day, open **Schedule for**, right-click any date tile, open **Copy all quests to**, and choose any destination from **Today** through **D+8**. Today uses every quest in the currently visible active list, including completed quests; a future source date uses every quest explicitly scheduled for that exact date.
+- Bulk copying leaves the source unchanged. Every copy is fresh and unchecked, with its timer reset and idle. An empty source does nothing. Choosing the same source and destination duplicates the source snapshot exactly once, so newly created copies are not copied again during the same action.
 - A future quest is stored in a separate upcoming queue. Before it is due, it does not affect Today's checklist, progress, compact mode, or History.
 - When its date arrives, the quest is added to Today unchecked after the previous day has been archived. It then behaves like a regular active quest and follows the normal daily reset until you remove it.
 - If Daily Quest was closed on the scheduled date, the overdue quest is activated the next time the app opens. It is activated only once.
@@ -137,7 +144,7 @@ Scheduling by itself does not create a Windows notification, run a background se
 - **Q&A:** open the bilingual [Frequently Asked Questions](docs/FAQ.md).
 - **Report a bug:** open the repository's pre-filled GitHub issue form in the default browser.
 
-The footer on the full Today view shows the app name and installed version (v1.5.0 for this release).
+The footer on the full Today view shows the app name and installed version (v1.6.0 for this release).
 
 ### Keyboard navigation
 

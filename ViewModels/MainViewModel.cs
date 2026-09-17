@@ -112,6 +112,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _alwaysOnTop = _state.Settings.AlwaysOnTop;
 
         AddItemCommand = new RelayCommand(AddItem, CanAddItem);
+        CopyItemCommand = new RelayCommand(CopyItem, CanCopyItem);
+        CopyScheduleDayCommand = new RelayCommand(CopyScheduleDay, CanCopyScheduleDay);
         RemoveItemCommand = new RelayCommand(RemoveItem, parameter => parameter is ChecklistItem);
         CompleteItemCommand = new RelayCommand(CompleteItem);
         RemoveScheduledQuestCommand = new RelayCommand(
@@ -177,6 +179,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public IReadOnlyList<int> DurationOptions { get; }
 
     public ICommand AddItemCommand { get; }
+
+    public ICommand CopyItemCommand { get; }
+
+    public ICommand CopyScheduleDayCommand { get; }
 
     public ICommand RemoveItemCommand { get; }
 
@@ -592,6 +598,150 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RefreshHistoryEntries();
         Save();
         return true;
+    }
+
+    public bool CopyItemTo(ChecklistItem item, int offset)
+    {
+        if (!Items.Contains(item) || offset is < 0 or > MaximumScheduleOffset)
+        {
+            return false;
+        }
+
+        // Resolve a possible midnight rollover before deriving the target date.
+        // Existing item instances remain active during rollover, so the source
+        // reference is still safe to use after this call.
+        RollOverToCurrentDay(saveAfterReset: false);
+        if (!Items.Contains(item))
+        {
+            return false;
+        }
+
+        var now = _now();
+        var label = FindLabel(item.LabelId);
+        if (offset > 0)
+        {
+            _state.ScheduledQuests.Add(new ScheduledQuestState
+            {
+                Id = Guid.NewGuid(),
+                Text = item.Text,
+                ScheduledDate = GetDateKey(GetLocalDate(now).AddDays(offset)),
+                SortOrder = _state.ScheduledQuests.Count,
+                CreatedAt = now,
+                PlannedDurationMinutes = item.PlannedDurationMinutes,
+                LabelId = label?.Id
+            });
+            SortAndRenumberScheduledQuests();
+            RefreshUpcomingQuests();
+            Save();
+            return true;
+        }
+
+        var copy = new ChecklistItem(
+            Guid.NewGuid(),
+            item.Text,
+            false,
+            now,
+            item.PlannedDurationMinutes,
+            labelId: label?.Id,
+            labelName: label?.Name,
+            labelColorHex: label?.ColorHex);
+        SubscribeToItem(copy);
+        Items.Add(copy);
+        AddToManualOrder(copy);
+        ApplyQuestSort();
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        NotifyProgressChanged();
+        RefreshHistoryEntries();
+        Save();
+        return true;
+    }
+
+    public int CopyScheduleDayTo(int sourceOffset, int targetOffset)
+    {
+        if (sourceOffset is < 0 or > MaximumScheduleOffset ||
+            targetOffset is < 0 or > MaximumScheduleOffset)
+        {
+            return 0;
+        }
+
+        var didRollOver = RollOverToCurrentDay(saveAfterReset: false);
+        var now = _now();
+        var today = GetLocalDate(now);
+        var definitions = GetScheduleDayCopyDefinitions(sourceOffset, today);
+        if (definitions.Count == 0)
+        {
+            if (didRollOver)
+            {
+                Save();
+            }
+
+            return 0;
+        }
+
+        if (targetOffset > 0)
+        {
+            var targetDateKey = GetDateKey(today.AddDays(targetOffset));
+            foreach (var definition in definitions)
+            {
+                var label = FindLabel(definition.LabelId);
+                _state.ScheduledQuests.Add(new ScheduledQuestState
+                {
+                    Id = Guid.NewGuid(),
+                    Text = definition.Text,
+                    ScheduledDate = targetDateKey,
+                    SortOrder = _state.ScheduledQuests.Count,
+                    CreatedAt = now,
+                    PlannedDurationMinutes = definition.PlannedDurationMinutes,
+                    LabelId = label?.Id
+                });
+            }
+
+            SortAndRenumberScheduledQuests();
+            RefreshUpcomingQuests(today);
+            Save();
+            return definitions.Count;
+        }
+
+        foreach (var definition in definitions)
+        {
+            var label = FindLabel(definition.LabelId);
+            var copy = new ChecklistItem(
+                Guid.NewGuid(),
+                definition.Text,
+                false,
+                now,
+                definition.PlannedDurationMinutes,
+                labelId: label?.Id,
+                labelName: label?.Name,
+                labelColorHex: label?.ColorHex);
+            SubscribeToItem(copy);
+            Items.Add(copy);
+            AddToManualOrder(copy);
+        }
+
+        ApplyQuestSort();
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        NotifyProgressChanged();
+        RefreshHistoryEntries();
+        Save();
+        return definitions.Count;
+    }
+
+    public bool HasScheduleDayQuests(int sourceOffset)
+    {
+        if (sourceOffset is < 0 or > MaximumScheduleOffset)
+        {
+            return false;
+        }
+
+        if (sourceOffset == 0)
+        {
+            return Items.Count > 0;
+        }
+
+        var sourceDateKey = GetDateKey(GetLocalDate(_now()).AddDays(sourceOffset));
+        return _state.ScheduledQuests.Any(item =>
+            string.Equals(item.ScheduledDate, sourceDateKey, StringComparison.Ordinal));
     }
 
     public bool TickTimers() => TickTimers(_now());
@@ -1336,6 +1486,62 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     private bool CanAddItem() => !string.IsNullOrWhiteSpace(NewItemText);
+
+    private bool CanCopyItem(object? parameter) =>
+        parameter is QuestCopyRequest request &&
+        request.Offset is >= 0 and <= MaximumScheduleOffset &&
+        Items.Contains(request.Item);
+
+    private void CopyItem(object? parameter)
+    {
+        if (parameter is QuestCopyRequest request)
+        {
+            CopyItemTo(request.Item, request.Offset);
+        }
+    }
+
+    private bool CanCopyScheduleDay(object? parameter) =>
+        parameter is ScheduleDayCopyRequest request &&
+        request.SourceOffset is >= 0 and <= MaximumScheduleOffset &&
+        request.TargetOffset is >= 0 and <= MaximumScheduleOffset &&
+        HasScheduleDayQuests(request.SourceOffset);
+
+    private void CopyScheduleDay(object? parameter)
+    {
+        if (parameter is ScheduleDayCopyRequest request)
+        {
+            CopyScheduleDayTo(request.SourceOffset, request.TargetOffset);
+        }
+    }
+
+    private List<QuestCopyDefinition> GetScheduleDayCopyDefinitions(
+        int sourceOffset,
+        DateOnly today)
+    {
+        if (sourceOffset == 0)
+        {
+            return Items
+                .Select(item => new QuestCopyDefinition(
+                    item.Text,
+                    item.PlannedDurationMinutes,
+                    item.LabelId))
+                .ToList();
+        }
+
+        var sourceDateKey = GetDateKey(today.AddDays(sourceOffset));
+        return _state.ScheduledQuests
+            .Where(item => string.Equals(
+                item.ScheduledDate,
+                sourceDateKey,
+                StringComparison.Ordinal))
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.CreatedAt)
+            .Select(item => new QuestCopyDefinition(
+                item.Text,
+                item.PlannedDurationMinutes,
+                item.LabelId))
+            .ToList();
+    }
 
     private static string NormalizeQuestText(string? text)
     {
@@ -2296,6 +2502,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(UpcomingQuests));
         OnPropertyChanged(nameof(HasUpcomingQuests));
         (RemoveScheduledQuestCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CopyScheduleDayCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private string GetScheduleLabel(int offset) => offset switch
@@ -2669,6 +2876,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void RaiseCommandStates()
     {
         (AddItemCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CopyItemCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CopyScheduleDayCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ResetTodayCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ClearCompletedCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ClearHistoryCommand as RelayCommand)?.RaiseCanExecuteChanged();
@@ -2713,6 +2922,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ? $"{safeBytes} {units[unitIndex]}"
             : $"{value:0.#} {units[unitIndex]}";
     }
+
+    private sealed record QuestCopyDefinition(
+        string Text,
+        int? PlannedDurationMinutes,
+        Guid? LabelId);
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {

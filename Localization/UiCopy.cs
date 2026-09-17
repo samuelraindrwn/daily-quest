@@ -20,6 +20,10 @@ public sealed record UiCopy
     public string Close { get; init; } = "Tutup";
     public string DeleteActivity { get; init; } = "Hapus aktivitas";
     public string ReorderActivity { get; init; } = "Tarik untuk mengubah urutan";
+    public string CopyTo { get; init; } = "Salin ke";
+    public string CopyAllTo { get; init; } = "Salin semua quest ke";
+    public string CopyScheduleDayTooltip { get; init; } = "Klik kanan untuk menyalin semua quest pada tanggal ini";
+    public string NoQuestsToCopy { get; init; } = "Tidak ada quest pada tanggal ini untuk disalin.";
     public string CompactAllDone { get; init; } = "Semua quest selesai";
     public string EmptyTitle { get; init; } = "Daftar masih kosong";
     public string EmptyHint { get; init; } = "Tambahkan satu kebiasaan kecil di bawah.";
@@ -152,6 +156,10 @@ public static class UiCopyCatalog
         Close = "Close",
         DeleteActivity = "Delete activity",
         ReorderActivity = "Drag to change order",
+        CopyTo = "Copy to",
+        CopyAllTo = "Copy all quests to",
+        CopyScheduleDayTooltip = "Right-click to copy every quest on this day",
+        NoQuestsToCopy = "There are no quests on this day to copy.",
         CompactAllDone = "All quests complete",
         EmptyTitle = "Your list is empty",
         EmptyHint = "Add one small habit below.",

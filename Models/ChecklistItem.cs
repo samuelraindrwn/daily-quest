@@ -94,7 +94,10 @@ public sealed class ChecklistItem : INotifyPropertyChanged
     {
         get
         {
-            var duration = TimeSpan.FromSeconds(IsOvertime ? OvertimeSeconds : RemainingSeconds);
+            var displayedSeconds = IsOvertime
+                ? ((long)PlannedDurationMinutes.GetValueOrDefault() * 60) + OvertimeSeconds
+                : RemainingSeconds;
+            var duration = TimeSpan.FromSeconds(displayedSeconds);
             var formatted = PlannedDurationMinutes >= 60 || duration.TotalHours >= 1
                 ? $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
                 : $"{duration.Minutes:00}:{duration.Seconds:00}";

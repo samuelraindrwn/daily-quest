@@ -22,6 +22,88 @@
         Loaded="Window_Loaded"
         SizeChanged="Window_SizeChanged"
         Closing="Window_Closing">
+    <Window.Resources>
+        <ControlTemplate x:Key="CopyDestinationContextMenuTemplate"
+                         TargetType="{x:Type ContextMenu}">
+            <Border MinWidth="248"
+                    Padding="8"
+                    Background="{DynamicResource PopupSurfaceBrush}"
+                    BorderBrush="{DynamicResource GlassEdgeBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    SnapsToDevicePixels="True">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="22"
+                                      Direction="270"
+                                      Opacity="0.24"
+                                      ShadowDepth="7"
+                                      Color="{DynamicResource PopupShadowColor}" />
+                </Border.Effect>
+                <StackPanel KeyboardNavigation.DirectionalNavigation="Cycle">
+                    <TextBlock Margin="9,5,9,7"
+                               Text="{Binding Title}"
+                               Foreground="{DynamicResource InkBrush}"
+                               FontSize="13"
+                               FontWeight="SemiBold" />
+                    <TextBlock Margin="9,0,9,7"
+                               Text="{Binding EmptyMessage}"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedInkBrush}"
+                               FontSize="10.5">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasSourceQuests}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding ScheduleOptions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button MinHeight="38"
+                                        Margin="0,1"
+                                        Padding="10,6"
+                                        HorizontalContentAlignment="Stretch"
+                                        IsEnabled="{Binding DataContext.HasSourceQuests, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                        Click="CopyDestinationOption_Click"
+                                        AutomationProperties.Name="{Binding DisplayText}">
+                                    <Button.Style>
+                                        <Style TargetType="Button"
+                                               BasedOn="{StaticResource SoftButtonStyle}">
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                        </Style>
+                                    </Button.Style>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Text="{Binding Label}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="1"
+                                                   Margin="14,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding DateText}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                   FontSize="10.5"
+                                                   Opacity="0.68" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </ControlTemplate>
+    </Window.Resources>
     <Grid>
     <Grid x:Name="ExpandedWidget"
           Margin="14">
@@ -563,6 +645,16 @@
                                                 DragOver="QuestCard_DragOver"
                                                 DragLeave="QuestCard_DragLeave"
                                                 Drop="QuestCard_Drop">
+                                            <Border.ContextMenu>
+                                                <ContextMenu Placement="MousePoint"
+                                                             Background="Transparent"
+                                                             BorderThickness="0"
+                                                             Padding="0"
+                                                             OverridesDefaultStyle="True"
+                                                             Template="{StaticResource CopyDestinationContextMenuTemplate}"
+                                                             Opened="QuestContextMenu_Opened"
+                                                             Closed="QuestContextMenu_Closed" />
+                                            </Border.ContextMenu>
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Background" Value="{DynamicResource GlassCardBrush}" />
@@ -670,12 +762,12 @@
                                                                 <Border x:Name="QuestLabelSurface"
                                                                         MinWidth="58"
                                                                         Padding="8,2"
-                                                                        BorderBrush="{DynamicResource GlassEdgeBrush}"
+                                                                        BorderBrush="{DynamicResource UnlabeledChipBorderBrush}"
                                                                         BorderThickness="1"
                                                                         CornerRadius="10">
                                                                     <Border.Style>
                                                                         <Style TargetType="Border">
-                                                                            <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
+                                                                            <Setter Property="Background" Value="{DynamicResource UnlabeledChipBackgroundBrush}" />
                                                                             <Style.Triggers>
                                                                                 <DataTrigger Binding="{Binding HasLabel}" Value="True">
                                                                                     <Setter Property="Background" Value="{Binding LabelColorHex, Converter={StaticResource HexColorBrushConverter}}" />
@@ -1231,7 +1323,20 @@
                                                 <Button MinHeight="58"
                                                         Margin="3"
                                                         Padding="7,6"
-                                                        Click="ScheduleOption_Click">
+                                                        Click="ScheduleOption_Click"
+                                                        PreviewMouseRightButtonDown="ScheduleOption_PreviewMouseRightButtonDown"
+                                                        ToolTip="{Binding DataContext.Copy.CopyScheduleDayTooltip, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                        AutomationProperties.HelpText="{Binding DataContext.Copy.CopyScheduleDayTooltip, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}">
+                                                    <Button.ContextMenu>
+                                                        <ContextMenu Placement="MousePoint"
+                                                                     Background="Transparent"
+                                                                     BorderThickness="0"
+                                                                     Padding="0"
+                                                                     OverridesDefaultStyle="True"
+                                                                     Template="{StaticResource CopyDestinationContextMenuTemplate}"
+                                                                     Opened="ScheduleDayContextMenu_Opened"
+                                                                     Closed="ScheduleDayContextMenu_Closed" />
+                                                    </Button.ContextMenu>
                                                     <Button.Style>
                                                         <Style TargetType="Button" BasedOn="{StaticResource SoftButtonStyle}">
                                                             <Setter Property="Background" Value="{DynamicResource GlassSubtleBrush}" />
