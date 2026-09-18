@@ -20,7 +20,7 @@
 
 Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi sistem manajemen proyek yang rumit. Aplikasi ini menggabungkan check-in cepat, label yang dapat diatur, timer quest opsional, pengurutan fleksibel, penyimpanan lokal otomatis, progres harian, dan riwayat yang dapat dibuka saat dibutuhkan dalam sebuah widget desktop ringkas.
 
-Panduan ini membahas Daily Quest v1.8.0.
+Panduan ini membahas Daily Quest v1.8.1.
 
 <p align="center">
   <img src="docs/images/daily-quest.png" width="360" alt="Jendela utama Daily Quest berbahasa Indonesia dengan timer quest berjalan">
@@ -40,7 +40,7 @@ Panduan ini membahas Daily Quest v1.8.0.
 - Buka kembali jendela dari tray, atau pilih **Keluar** di sana untuk menjeda hitung mundur atau timer overtime aktif dan menyimpan nilai terbarunya sebelum proses ditutup.
 - Pada rilis resmi Windows, dengarkan ringtone facility-alarm bawaan aplikasi selama maksimal satu menit dan terima satu notifikasi bawaan saat waktu habis selama Daily Quest terlihat, dalam mode ringkas, diminimalkan, atau tersembunyi di tray; lanjutkan secara opsional ke overtime merah setelah mematikannya.
 - Lihat sapaan, jumlah selesai, persentase, dan progress bar hari ini secara langsung.
-- Pindahkan setiap quest yang belum selesai ke besok secara otomatis sebagai quest aktif yang sama—bukan duplikat—lalu reset status selesainya untuk hari baru.
+- Saat tanggal berganti, arsipkan hari sebelumnya dan pindahkan hanya quest yang belum selesai ke besok sebagai quest aktif yang sama—bukan duplikat; quest selesai keluar dari daftar aktif tetapi tetap tersimpan di Riwayat.
 - Pindahkan quest yang selesai ke urutan paling bawah secara otomatis agar prioritas yang belum selesai tetap di atas.
 - Buka riwayat hari sebelumnya; klik kartu tanggal untuk melihat detail aktivitasnya.
 - Pertahankan aktivitas selesai di riwayat setelah dibersihkan dari daftar aktif hari ini.
@@ -98,7 +98,7 @@ Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga 
 | Klik kanan ikon tray | Pilih **Buka Daily Quest** untuk memulihkan jendela, atau **Keluar** untuk menjeda timer, menyimpan state, dan menutup proses sepenuhnya. |
 | Header dan tepi jendela | Tarik header untuk memindahkan widget, atau tarik tepi untuk mengubah ukurannya. Ukuran jendela penuh tetap tersimpan setelah aplikasi ditutup. |
 
-Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest mengarsipkan hari sebelumnya, mempertahankan daftar quest aktif, lalu mengosongkan semua centangnya untuk hari baru. Quest yang belum selesai otomatis pindah ke besok sebagai quest yang sama, bukan salinan terjadwal baru, sehingga pergantian hari tidak membuat duplikat. Quest aktif yang sudah selesai juga di-reset untuk hari baru kecuali kamu membersihkan atau menghapusnya. Quest akan terus muncul setiap hari sampai kamu menghapusnya.
+Setiap quest aktif mengikuti proses pergantian hari **Daily Quest**. Saat tanggal berganti, Daily Quest terlebih dahulu mengarsipkan hari sebelumnya. Setelah itu, hanya quest yang belum dicentang yang dibawa ke hari baru sebagai quest aktif yang sama, sedangkan quest selesai keluar dari daftar aktif dan tetap tersimpan di Riwayat. Proses ini tidak membuat salinan terjadwal sehingga quest yang dibawa tidak akan terduplikasi. Quest terjadwal yang jatuh tempo pada tanggal baru diaktifkan tanpa centang setelah arsip dibuat, lalu bergabung dengan quest belum selesai yang dibawa dari hari sebelumnya.
 
 ### Menggunakan timer quest
 
@@ -133,7 +133,7 @@ Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest
 - Untuk menggunakan kembali seluruh isi suatu hari, buka **Jadwalkan untuk**, klik kanan kartu tanggal mana pun, buka **Salin semua quest ke**, lalu pilih tujuan dari **Hari ini** hingga **H+8**. Pilih **Semua hari mendatang** untuk menyalin snapshot lengkap hari tersebut ke setiap tanggal dari **Besok** hingga **H+8**, dengan Hari ini dikecualikan. Sumber Hari ini menggunakan semua quest dalam daftar aktif yang sedang ditampilkan, termasuk quest selesai; sumber tanggal mendatang menggunakan semua quest yang dijadwalkan secara khusus untuk tanggal tersebut.
 - Penyalinan massal tidak mengubah sumber. Setiap salinan dibuat baru tanpa centang, dengan timer yang di-reset dan belum berjalan. Sumber kosong tidak melakukan apa pun. Memilih tanggal sumber dan tujuan yang sama menduplikasi snapshot sumber tepat satu kali. Dengan **Semua hari mendatang**, tanggal sumber mendatang juga termasuk tujuan sehingga tanggal tersebut menerima satu salinan baru dari snapshot awalnya; snapshot hanya diambil satu kali agar salinan baru tidak ikut berantai ke tujuan berikutnya. Mengulangi tindakan ini menambahkan satu kumpulan baru ke delapan tanggal mendatang.
 - Quest mendatang disimpan dalam antrean terpisah. Sebelum jatuh tempo, quest tersebut tidak memengaruhi checklist Hari ini, progres, mode ringkas, atau Riwayat.
-- Saat tanggalnya tiba, quest ditambahkan ke Hari ini tanpa centang setelah hari sebelumnya diarsipkan. Setelah itu, quest berperilaku seperti quest aktif biasa dan mengikuti reset harian sampai kamu menghapusnya.
+- Saat tanggalnya tiba, quest ditambahkan ke Hari ini tanpa centang setelah hari sebelumnya diarsipkan. Setelah itu, quest hanya dibawa ke hari berikutnya selama belum selesai; begitu selesai, quest tetap berada di Riwayat dan keluar dari daftar aktif pada pergantian hari berikutnya.
 - Jika proses Daily Quest tidak berjalan pada tanggal target, quest yang lewat jatuh tempo akan diaktifkan saat aplikasi berikutnya dibuka. Setiap quest hanya diaktifkan satu kali.
 - Buka daftar mendatang untuk meninjau atau membatalkan quest terjadwal sebelum aktif.
 
@@ -152,7 +152,7 @@ Penjadwalan saja tidak membuat notifikasi Windows atau menjalankan layanan latar
 - **Q&A:** buka [Pertanyaan yang Sering Diajukan](docs/FAQ.md) dalam dua bahasa.
 - **Laporkan bug:** buka formulir issue GitHub yang sudah disiapkan melalui browser bawaan.
 
-Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.8.0 untuk rilis ini).
+Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.8.1 untuk rilis ini).
 
 ### Navigasi keyboard
 
@@ -213,7 +213,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-Test harness logika tanpa dependency eksternal ini mencakup perubahan checklist serta pengeditan teks/timer quest, label beserta migrasinya, mode urutan manual dan otomatis, penempatan quest selesai, validasi serta persistence durasi timer, perilaku mulai/jeda/lanjutkan/reset dan overtime, jeda timer saat shutdown normal, aturan satu timer berjalan, pemulihan berbasis timestamp setelah proses berhenti tak terduga dan alarm kedaluwarsa, registrasi startup Windows, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, reset Daily Quest tanpa duplikasi saat pergantian tanggal, penyimpanan dan penghapusan riwayat, pengaturan yang tersimpan, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
+Test harness logika tanpa dependency eksternal ini mencakup perubahan checklist serta pengeditan teks/timer quest, label beserta migrasinya, mode urutan manual dan otomatis, penempatan quest selesai, validasi serta persistence durasi timer, perilaku mulai/jeda/lanjutkan/reset dan overtime, jeda timer saat shutdown normal, aturan satu timer berjalan, pemulihan berbasis timestamp setelah proses berhenti tak terduga dan alarm kedaluwarsa, registrasi startup Windows, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, pergantian hari tanpa duplikasi yang hanya membawa quest belum selesai, penyimpanan dan penghapusan riwayat, pengaturan yang tersimpan, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
 
 ## Buat build portable
 

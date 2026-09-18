@@ -14,7 +14,7 @@
     <AssemblyTitle>Daily Quest</AssemblyTitle>
     <Product>Daily Quest</Product>
     <Description>Daily checklist, timer, and history widget for Windows.</Description>
-    <Version>1.8.0</Version>
+    <Version>1.8.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\DailyQuest.ico</ApplicationIcon>
     <DebugType>embedded</DebugType>

@@ -20,7 +20,7 @@
 
 Daily Quest keeps today's priorities visible without turning them into a complicated project-management system. It combines quick check-ins, customizable labels, optional quest timers, flexible sorting, automatic local saving, progress tracking, and expandable daily history in a compact desktop widget.
 
-This guide covers Daily Quest v1.8.0.
+This guide covers Daily Quest v1.8.1.
 
 <p align="center">
   <img src="docs/images/daily-quest-en.png" width="360" alt="Daily Quest main window in English showing a running quest timer">
@@ -40,7 +40,7 @@ This guide covers Daily Quest v1.8.0.
 - Reopen the hidden window from the tray, or choose **Exit** there to pause the active countdown or overtime timer and save its latest value before the process closes.
 - In the official Windows release, hear the bundled facility-alarm ringtone for up to one minute and receive one native notification when time runs out while Daily Quest is visible, compact, minimized, or hidden in the tray; optionally continue into red overtime after silencing it.
 - See today's greeting, completion count, percentage, and progress bar at a glance.
-- Carry every unfinished quest into tomorrow automatically as the same active quest—never as a duplicate—and reset its completion for the new day.
+- At the date change, archive the previous day and carry only unfinished quests into tomorrow as the same active quests—never as duplicates; completed quests leave the active list but remain in History.
 - Move a completed quest to the bottom automatically, keeping unfinished priorities at the top.
 - Review previous days in History; select a date card to reveal its activity details.
 - Preserve completed entries in history after clearing them from today's active list.
@@ -98,7 +98,7 @@ All release options are self-contained for 64-bit Windows 10/11, so the .NET run
 | Right-click the tray icon | Choose **Open Daily Quest** to restore the window, or **Exit** to pause timers, save state, and fully close the process. |
 | Header and window edges | Drag the header to move the widget, or drag an edge to resize it. The expanded size is saved after closing the app. |
 
-Every active quest is a **Daily Quest**. When the date changes, Daily Quest archives the previous day, keeps the active quest list, and resets every checkbox for the new day. An unfinished quest therefore moves into tomorrow as the same quest, not a second scheduled copy, so rollover cannot duplicate it. Completed active quests also reset for the new day unless you clear or remove them. A quest continues to appear each day until you remove it.
+Every active quest participates in the **Daily Quest** rollover. When the date changes, Daily Quest first archives the previous day. It then carries only unchecked quests into the new day as the same active quests, while completed quests leave the active list and remain preserved in History. Rollover never creates scheduled copies, so carried quests are not duplicated. Any scheduled quests due on the new date activate unchecked after the archive is created and join the carried unfinished quests.
 
 ### Timing a quest
 
@@ -133,7 +133,7 @@ Every active quest is a **Daily Quest**. When the date changes, Daily Quest arch
 - To reuse a whole day, open **Schedule for**, right-click any date tile, open **Copy all quests to**, and choose any destination from **Today** through **D+8**. Choose **All upcoming days** to copy that day's complete snapshot to every date from **Tomorrow** through **D+8**, with Today excluded. Today as a source uses every quest in the currently visible active list, including completed quests; a future source date uses every quest explicitly scheduled for that exact date.
 - Bulk copying leaves the source unchanged. Every copy is fresh and unchecked, with its timer reset and idle. An empty source does nothing. Choosing the same source and destination duplicates the source snapshot exactly once. With **All upcoming days**, a future source date is also one of the destinations, so it receives one fresh copy of its starting snapshot; that snapshot is captured once, which prevents newly created copies from cascading into later destinations. Repeating the action appends another fresh set to all eight future dates.
 - A future quest is stored in a separate upcoming queue. Before it is due, it does not affect Today's checklist, progress, compact mode, or History.
-- When its date arrives, the quest is added to Today unchecked after the previous day has been archived. It then behaves like a regular active quest and follows the normal daily reset until you remove it.
+- When its date arrives, the quest is added to Today unchecked after the previous day has been archived. From then on, it carries into the following day only while unfinished; once completed, it remains in History and leaves the active list at the next rollover.
 - If the Daily Quest process was not running on the scheduled date, the overdue quest is activated the next time the app opens. It is activated only once.
 - Open the upcoming list to review or cancel a scheduled quest before it becomes active.
 
@@ -152,7 +152,7 @@ Scheduling by itself does not create a Windows notification or run a separate ba
 - **Q&A:** open the bilingual [Frequently Asked Questions](docs/FAQ.md).
 - **Report a bug:** open the repository's pre-filled GitHub issue form in the default browser.
 
-The footer on the full Today view shows the app name and installed version (v1.8.0 for this release).
+The footer on the full Today view shows the app name and installed version (v1.8.1 for this release).
 
 ### Keyboard navigation
 
@@ -213,7 +213,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-The dependency-free logic test harness covers checklist mutations and text/timer editing, labels and their migrations, manual and automatic sort modes, completed-item ordering, timer duration validation and persistence, start/pause/resume/reset and overtime behavior, graceful-shutdown timer pausing, the single-running-timer rule, timestamp-based crash recovery and expiry alarms, Windows startup registration, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, duplicate-free daily quest rollover, history retention and clearing, persisted settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
+The dependency-free logic test harness covers checklist mutations and text/timer editing, labels and their migrations, manual and automatic sort modes, completed-item ordering, timer duration validation and persistence, start/pause/resume/reset and overtime behavior, graceful-shutdown timer pausing, the single-running-timer rule, timestamp-based crash recovery and expiry alarms, Windows startup registration, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, unfinished-only duplicate-free daily quest rollover, history retention and clearing, persisted settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
 
 ## Create a portable build
 

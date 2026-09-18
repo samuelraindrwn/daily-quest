@@ -72,7 +72,7 @@ public sealed record UiCopy
     public string ScheduleTomorrow { get; init; } = "Besok";
     public string ScheduleOffsetFormat { get; init; } = "H+{0}";
     public string ScheduleOptionFormat { get; init; } = "{0} · {1}";
-    public string AutoSaveStatus { get; init; } = "Tersimpan · reset harian";
+    public string AutoSaveStatus { get; init; } = "Tersimpan · pergantian harian";
     public string ClearCompleted { get; init; } = "Hapus selesai";
     public string Reset { get; init; } = "Reset";
     public string ResetTooltip { get; init; } = "Kosongkan semua centang hari ini";
@@ -224,7 +224,7 @@ public static class UiCopyCatalog
         ScheduleTomorrow = "Tomorrow",
         ScheduleOffsetFormat = "D+{0}",
         ScheduleOptionFormat = "{0} · {1}",
-        AutoSaveStatus = "Autosaved · daily reset",
+        AutoSaveStatus = "Autosaved · daily rollover",
         ClearCompleted = "Clear done",
         Reset = "Reset",
         ResetTooltip = "Uncheck everything for today",

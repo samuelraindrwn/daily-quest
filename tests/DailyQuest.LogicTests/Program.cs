@@ -32,6 +32,7 @@ internal static class Program
         ("copy to future dates queues independent quests without changing today", CopyToFutureDatesQueuesIndependentQuestsWithoutChangingToday),
         ("copying one active quest to all future days excludes today", CopyingOneActiveQuestToAllFutureDaysExcludesToday),
         ("copy rejects invalid destinations and foreign quests", CopyRejectsInvalidDestinationsAndForeignQuests),
+        ("copy after midnight persists rollover when completed source is removed", CopyAfterMidnightPersistsRolloverWhenCompletedSourceIsRemoved),
         ("copying today's schedule preserves every quest definition without mutating today", CopyingTodaySchedulePreservesEveryDefinitionWithoutMutatingToday),
         ("copying a future schedule to today creates fresh active quests", CopyingFutureScheduleToTodayCreatesFreshActiveQuests),
         ("copying between future dates uses only the selected source day", CopyingBetweenFutureDatesUsesOnlySelectedSourceDay),
@@ -49,7 +50,7 @@ internal static class Program
         ("graceful shutdown pauses countdown across reopen", GracefulShutdownPausesCountdownAcrossReopen),
         ("graceful shutdown pauses overtime at close time", GracefulShutdownPausesOvertimeAtCloseTime),
         ("graceful shutdown expires silently and stops alarms", GracefulShutdownExpiresSilentlyAndStopsAlarms),
-        ("completion pauses timer and daily rollover resets it", CompletionPausesTimerAndDailyRolloverResetsIt),
+        ("completion pauses timer and rollover archives without carrying it", CompletionPausesTimerAndRolloverArchivesWithoutCarryingIt),
         ("midnight rollover resolves timers before resetting the day", MidnightRolloverResolvesTimersBeforeResettingDay),
         ("overtime action stops the alarm and count-up persists", OvertimeActionStopsAlarmAndCountUpPersists),
         ("disabled overtime rejects count-up and alarm can stop", DisabledOvertimeRejectsCountUpAndAlarmCanStop),
@@ -74,14 +75,14 @@ internal static class Program
         ("clear history preserves active quests", ClearHistoryPreservesActiveQuests),
         ("settings refreshes injected storage usage", SettingsRefreshesInjectedStorageUsage),
         ("storage usage failures degrade gracefully", StorageUsageFailuresDegradeGracefully),
-        ("active quests recur unchecked after daily rollover", ActiveQuestsRecurUncheckedAfterDailyRollover),
+        ("daily rollover carries only incomplete quests", DailyRolloverCarriesOnlyIncompleteQuests),
         ("unfinished quest rolls into today and tomorrow without duplicates", UnfinishedQuestRollsIntoTodayAndTomorrowWithoutDuplicates),
-        ("daily rollover archives once without duplicates", DailyRolloverArchivesOnceWithoutDuplicates),
-        ("daily rollover activates due quests after archiving", DailyRolloverActivatesDueQuestsAfterArchiving),
+        ("daily rollover archives exactly once and carries no duplicates", DailyRolloverArchivesExactlyOnceAndCarriesNoDuplicates),
+        ("daily rollover activates due quests after dropping completed quests", DailyRolloverActivatesDueQuestsAfterDroppingCompletedQuests),
         ("overdue quests activate once on the next launch", OverdueQuestsActivateOnceOnNextLaunch),
         ("legacy v3 state migrates to the light theme", LegacyV3StateMigratesToLightTheme),
         ("legacy v2 state migrates with an empty future queue", LegacyV2StateMigratesWithEmptyFutureQueue),
-        ("legacy v1 state migrates without history loss", LegacyV1StateMigratesWithoutHistoryLoss),
+        ("legacy v1 migration archives completed quests without carrying them", LegacyV1MigrationArchivesCompletedWithoutCarryingForward),
         ("future schema is rejected without saving", FutureSchemaIsRejectedWithoutSaving),
         ("JSON state store round-trips history language and theme", JsonStateStoreRoundTripsHistoryLanguageAndTheme),
         ("JSON state store recovers from corrupt state", JsonStateStoreRecoversFromCorruptState),
@@ -1530,6 +1531,58 @@ internal static class Program
         AssertEx.Equal(0, viewModel.UpcomingQuests.Count);
     }
 
+    private static void CopyAfterMidnightPersistsRolloverWhenCompletedSourceIsRemoved()
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 9, 17, 23, 59, 0, TimeSpan.FromHours(7)));
+        var completedId = Guid.NewGuid();
+        var createdAt = clock.Now.AddHours(-1);
+        var store = new InMemoryStateStore(new AppState
+        {
+            SchemaVersion = 8,
+            CurrentDate = "2026-09-17",
+            Items =
+            [
+                CreateItemState(
+                    completedId,
+                    "Completed before midnight",
+                    true,
+                    0,
+                    createdAt,
+                    plannedDurationMinutes: 20,
+                    remainingSeconds: 315)
+            ]
+        });
+        var viewModel = new MainViewModel(store, () => clock.Now);
+        var completedSource = viewModel.Items.Single();
+
+        clock.Now = clock.Now.AddMinutes(2);
+
+        AssertEx.False(
+            viewModel.CopyItemTo(completedSource, 1),
+            "The source removed by midnight rollover can no longer be copied.");
+        AssertEx.Equal(1, store.SaveCount);
+        AssertEx.Equal(0, viewModel.Items.Count);
+        AssertEx.Equal(0, viewModel.UpcomingQuests.Count);
+
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal("2026-09-18", saved.CurrentDate);
+        AssertEx.Equal(0, saved.Items.Count);
+        AssertEx.Equal(0, saved.ScheduledQuests.Count);
+        AssertEx.False(
+            saved.History.Any(entry => entry.Date == "2026-09-18"),
+            "The removed completed source must not appear in current-day history.");
+
+        var archived = HistoryFor(saved, "2026-09-17").Items.Single();
+        AssertEx.Equal(completedId, archived.Id);
+        AssertEx.Equal("Completed before midnight", archived.Text);
+        AssertEx.True(archived.IsCompleted, "The prior day must preserve completion.");
+        AssertEx.Equal(createdAt, archived.CreatedAt);
+        AssertEx.Equal(20, archived.PlannedDurationMinutes);
+        AssertEx.Equal(315, archived.RemainingSeconds);
+        AssertEx.False(archived.TimerStartedAt.HasValue);
+    }
+
     private static void CopyingTodaySchedulePreservesEveryDefinitionWithoutMutatingToday()
     {
         var now = new DateTimeOffset(2026, 9, 17, 16, 30, 0, TimeSpan.FromHours(7));
@@ -2603,7 +2656,7 @@ internal static class Program
         AssertEx.Equal(1, activeAlarmStore.SaveCount);
     }
 
-    private static void CompletionPausesTimerAndDailyRolloverResetsIt()
+    private static void CompletionPausesTimerAndRolloverArchivesWithoutCarryingIt()
     {
         var clock = new MutableClock(
             new DateTimeOffset(2026, 9, 16, 11, 0, 0, TimeSpan.FromHours(7)));
@@ -2632,15 +2685,29 @@ internal static class Program
         clock.Now = clock.Now.AddDays(1);
         AssertEx.True(viewModel.RollOverToCurrentDay());
 
-        AssertEx.False(item.IsCompleted);
+        AssertEx.True(item.IsCompleted, "The detached prior-day item must not be reset after rollover.");
         AssertEx.False(item.IsTimerRunning);
-        AssertEx.Equal(120, item.RemainingSeconds);
-        AssertEx.True(viewModel.ToggleTimerCommand.CanExecute(item));
+        AssertEx.Equal(110, item.RemainingSeconds);
+        AssertEx.False(
+            viewModel.Items.Any(candidate => candidate.Id == itemId),
+            "A completed quest must not remain active on the new day.");
+        AssertEx.Equal(0, viewModel.TotalCount);
+        AssertEx.Null(viewModel.NextPendingItem);
 
-        var saved = AssertEx.NotNull(store.Snapshot).Items.Single();
-        AssertEx.False(saved.IsCompleted);
-        AssertEx.Equal(120, saved.RemainingSeconds);
-        AssertEx.False(saved.TimerStartedAt.HasValue);
+        var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.Equal("2026-09-17", saved.CurrentDate);
+        AssertEx.False(
+            saved.Items.Any(candidate => candidate.Id == itemId),
+            "A completed quest must not be persisted in the new active list.");
+        AssertEx.False(
+            saved.History.Any(entry => entry.Date == "2026-09-17"),
+            "An empty new day should not receive a history row for the completed quest.");
+
+        var archivedItem = HistoryFor(saved, "2026-09-16").Items.Single();
+        AssertEx.Equal(itemId, archivedItem.Id);
+        AssertEx.True(archivedItem.IsCompleted, "The prior day must retain the completed result.");
+        AssertEx.Equal(110, archivedItem.RemainingSeconds);
+        AssertEx.False(archivedItem.TimerStartedAt.HasValue);
     }
 
     private static void MidnightRolloverResolvesTimersBeforeResettingDay()
@@ -2670,7 +2737,7 @@ internal static class Program
         AssertEx.Equal(60, elapsed.RemainingSeconds);
         AssertEx.Equal("2026-09-17", AssertEx.NotNull(store.Snapshot).CurrentDate);
 
-        // Starting the longer timer after rollover verifies that daily reset left it usable.
+        // Starting the longer timer after rollover verifies that the new-day timer state remains usable.
         var continuing = viewModel.Items.Single(item => item.Id == continuingId);
         AssertEx.False(continuing.IsTimerRunning);
         AssertEx.Equal(600, continuing.RemainingSeconds);
@@ -3202,7 +3269,7 @@ internal static class Program
         AssertEx.Equal(1, store.SaveCount);
     }
 
-    private static void ActiveQuestsRecurUncheckedAfterDailyRollover()
+    private static void DailyRolloverCarriesOnlyIncompleteQuests()
     {
         var clock = new MutableClock(
             new DateTimeOffset(2026, 9, 16, 8, 0, 0, TimeSpan.FromHours(7)));
@@ -3235,35 +3302,48 @@ internal static class Program
             viewModel.RollOverToCurrentDay(),
             "Advancing the local date should roll the active checklist forward.");
         AssertEx.SequenceEqual(
-            [secondId, firstId],
+            [secondId],
             viewModel.Items.Select(item => item.Id));
         AssertEx.True(
             viewModel.Items.All(item => !item.IsCompleted),
-            "Recurring quests should be unchecked for the new day.");
+            "Only incomplete quests should remain active on the new day.");
+        AssertEx.False(
+            viewModel.Items.Any(item => item.Id == firstId),
+            "The completed quest must not carry into the new active list.");
         AssertEx.Equal(secondId, AssertEx.NotNull(viewModel.NextPendingItem).Id);
 
         var saved = AssertEx.NotNull(store.Snapshot);
         AssertEx.Equal("2026-09-17", saved.CurrentDate);
-        AssertEx.SequenceEqual([secondId, firstId], saved.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([secondId], saved.Items.Select(item => item.Id));
         AssertEx.True(
             saved.Items.All(item => !item.IsCompleted),
-            "The reset completion state should be persisted.");
+            "The carried incomplete state should be persisted.");
+        AssertEx.False(
+            saved.Items.Any(item => item.Id == firstId),
+            "The completed quest must not be saved as active for the new day.");
 
         var previousDay = HistoryFor(saved, "2026-09-16");
         AssertEx.SequenceEqual([secondId, firstId], previousDay.Items.Select(item => item.Id));
         AssertEx.SequenceEqual([false, true], previousDay.Items.Select(item => item.IsCompleted));
+        AssertEx.True(
+            previousDay.Items.Single(item => item.Id == firstId).IsCompleted,
+            "The archived prior day must retain the completed quest exactly.");
 
         var currentDay = HistoryFor(saved, "2026-09-17");
-        AssertEx.SequenceEqual([secondId, firstId], currentDay.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([secondId], currentDay.Items.Select(item => item.Id));
         AssertEx.True(
             currentDay.Items.All(item => !item.IsCompleted),
-            "The new day's history should begin with every recurring quest unchecked.");
+            "The new day's history should contain only the carried incomplete quest.");
+        AssertEx.False(
+            currentDay.Items.Any(item => item.Id == firstId),
+            "The completed prior-day quest must not appear in current-day history.");
 
         var reloadStore = new InMemoryStateStore(saved);
         var reloaded = new MainViewModel(reloadStore, () => clock.Now);
 
-        AssertEx.SequenceEqual([secondId, firstId], reloaded.Items.Select(item => item.Id));
+        AssertEx.SequenceEqual([secondId], reloaded.Items.Select(item => item.Id));
         AssertEx.True(reloaded.Items.All(item => !item.IsCompleted));
+        AssertEx.False(reloaded.Items.Any(item => item.Id == firstId));
         AssertEx.Equal(0, reloadStore.SaveCount);
     }
 
@@ -4083,7 +4163,7 @@ internal static class Program
         AssertEx.Equal(0, store.SaveCount);
     }
 
-    private static void DailyRolloverArchivesOnceWithoutDuplicates()
+    private static void DailyRolloverArchivesExactlyOnceAndCarriesNoDuplicates()
     {
         var clock = new MutableClock(
             new DateTimeOffset(2026, 9, 16, 6, 45, 0, TimeSpan.FromHours(7)));
@@ -4104,20 +4184,30 @@ internal static class Program
 
         AssertEx.Equal(1, store.SaveCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
-        AssertEx.True(viewModel.Items.All(item => !item.IsCompleted), "New-day active items should be unchecked.");
+        AssertEx.SequenceEqual([pendingId], viewModel.Items.Select(item => item.Id));
+        AssertEx.False(
+            viewModel.Items.Any(item => item.Id == completedId),
+            "Only the incomplete quest should carry into the active list.");
 
         var saved = AssertEx.NotNull(store.Snapshot);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
         AssertEx.Equal(2, saved.History.Count);
         AssertEx.Equal(2, saved.History.Select(entry => entry.Date).Distinct().Count());
+        AssertEx.SequenceEqual([pendingId], saved.Items.Select(item => item.Id));
+        AssertEx.Equal(1, saved.Items.Count(item => item.Id == pendingId));
+        AssertEx.False(saved.Items.Any(item => item.Id == completedId));
 
         var previousDay = HistoryFor(saved, "2026-09-15");
         AssertEx.SequenceEqual([pendingId, completedId], previousDay.Items.Select(item => item.Id));
         AssertEx.SequenceEqual([false, true], previousDay.Items.Select(item => item.IsCompleted));
+        AssertEx.Equal(1, previousDay.Items.Count(item => item.Id == pendingId));
+        AssertEx.Equal(1, previousDay.Items.Count(item => item.Id == completedId));
 
         var currentDay = HistoryFor(saved, "2026-09-16");
-        AssertEx.SequenceEqual([completedId, pendingId], currentDay.Items.Select(item => item.Id));
-        AssertEx.True(currentDay.Items.All(item => !item.IsCompleted), "Today's history should start unchecked.");
+        AssertEx.SequenceEqual([pendingId], currentDay.Items.Select(item => item.Id));
+        AssertEx.False(
+            currentDay.Items.Any(item => item.Id == completedId),
+            "Today's history must exclude yesterday's completed quest.");
 
         var savesBeforeSameDayCheck = store.SaveCount;
         AssertEx.False(viewModel.RollOverToCurrentDay(), "A repeated same-day check should be a no-op.");
@@ -4128,10 +4218,12 @@ internal static class Program
         AssertEx.Equal(1, saved.History.Count(entry => entry.Date == "2026-09-16"));
         AssertEx.True(
             HistoryFor(saved, "2026-09-15").Items.Single(item => item.Id == completedId).IsCompleted,
-            "Resetting active items must not mutate the archived snapshot.");
+            "Carrying incomplete items must not mutate the archived snapshot.");
+        AssertEx.Equal(1, saved.Items.Count(item => item.Id == pendingId));
+        AssertEx.False(saved.Items.Any(item => item.Id == completedId));
     }
 
-    private static void DailyRolloverActivatesDueQuestsAfterArchiving()
+    private static void DailyRolloverActivatesDueQuestsAfterDroppingCompletedQuests()
     {
         var now = new DateTimeOffset(2026, 9, 17, 6, 45, 0, TimeSpan.FromHours(7));
         var activeId = Guid.NewGuid();
@@ -4165,15 +4257,20 @@ internal static class Program
         var viewModel = new MainViewModel(store, () => now);
 
         AssertEx.SequenceEqual(
-            [activeId, dueId],
+            [dueId],
             viewModel.Items.Select(item => item.Id));
         AssertEx.True(
             viewModel.Items.All(item => !item.IsCompleted),
-            "Both recurring and newly activated quests should start the day unchecked.");
+            "The newly activated due quest should start unchecked.");
+        AssertEx.False(
+            viewModel.Items.Any(item => item.Id == activeId),
+            "The prior day's completed quest must not remain active.");
         AssertEx.Equal(1, viewModel.UpcomingQuests.Count);
         AssertEx.Equal(1, store.SaveCount);
 
         var saved = AssertEx.NotNull(store.Snapshot);
+        AssertEx.SequenceEqual([dueId], saved.Items.Select(item => item.Id));
+        AssertEx.False(saved.Items.Any(item => item.Id == activeId));
         AssertEx.SequenceEqual(
             [activeId],
             HistoryFor(saved, "2026-09-16").Items.Select(item => item.Id));
@@ -4181,11 +4278,16 @@ internal static class Program
             HistoryFor(saved, "2026-09-16").Items.Single().IsCompleted,
             "The previous day must be archived before the due quest is activated.");
         AssertEx.SequenceEqual(
-            [activeId, dueId],
+            [dueId],
             HistoryFor(saved, "2026-09-17").Items.Select(item => item.Id));
         AssertEx.True(
             HistoryFor(saved, "2026-09-17").Items.All(item => !item.IsCompleted),
             "Today's history should contain the newly activated quest unchecked.");
+        AssertEx.False(
+            HistoryFor(saved, "2026-09-17").Items.Any(item => item.Id == activeId),
+            "Today's history must exclude the archived completed quest.");
+        AssertEx.Equal(1, saved.Items.Count(item => item.Id == dueId));
+        AssertEx.Equal(1, HistoryFor(saved, "2026-09-17").Items.Count(item => item.Id == dueId));
         AssertEx.SequenceEqual([laterId], saved.ScheduledQuests.Select(item => item.Id));
     }
 
@@ -4383,7 +4485,7 @@ internal static class Program
         AssertEx.Equal(0, reloadStore.SaveCount);
     }
 
-    private static void LegacyV1StateMigratesWithoutHistoryLoss()
+    private static void LegacyV1MigrationArchivesCompletedWithoutCarryingForward()
     {
         var now = new DateTimeOffset(2026, 9, 16, 7, 0, 0, TimeSpan.FromHours(7));
         var itemId = Guid.NewGuid();
@@ -4414,6 +4516,7 @@ internal static class Program
 
         AssertEx.Equal(1, store.SaveCount);
         AssertEx.Equal(0, viewModel.CompletedCount);
+        AssertEx.Equal(0, viewModel.Items.Count);
         var saved = AssertEx.NotNull(store.Snapshot);
         AssertEx.Equal(8, saved.SchemaVersion);
         AssertEx.Equal("2026-09-16", saved.CurrentDate);
@@ -4424,6 +4527,9 @@ internal static class Program
         AssertEx.Equal(80d, saved.Window.Top);
         AssertEx.Equal(430d, saved.Window.Width);
         AssertEx.Equal(650d, saved.Window.Height);
+        AssertEx.False(
+            saved.Items.Any(item => item.Id == itemId),
+            "The migrated completed quest must not become active on the new day.");
 
         var migratedDay = HistoryFor(saved, "2026-09-15");
         var migratedItem = migratedDay.Items.Single();
@@ -4432,15 +4538,19 @@ internal static class Program
         AssertEx.True(migratedItem.IsCompleted, "Migration must snapshot completion before rollover.");
         AssertEx.Equal(createdAt, migratedItem.CreatedAt);
 
-        var today = HistoryFor(saved, "2026-09-16");
-        AssertEx.False(today.Items.Single().IsCompleted, "The new active day should be reset after migration.");
+        AssertEx.False(
+            saved.History.Any(entry => entry.Date == "2026-09-16"),
+            "Migration must not copy the completed quest into current-day history.");
+        AssertEx.Equal(1, saved.History.Count);
 
         var reloadStore = new InMemoryStateStore(saved);
-        _ = new MainViewModel(reloadStore, () => now);
+        var reloadedViewModel = new MainViewModel(reloadStore, () => now);
         AssertEx.Equal(0, reloadStore.SaveCount);
         var reloaded = AssertEx.NotNull(reloadStore.Snapshot);
-        AssertEx.Equal(2, reloaded.History.Count);
-        AssertEx.Equal(2, reloaded.History.Select(entry => entry.Date).Distinct().Count());
+        AssertEx.Equal(0, reloadedViewModel.Items.Count);
+        AssertEx.Equal(1, reloaded.History.Count);
+        AssertEx.Equal(1, reloaded.History.Select(entry => entry.Date).Distinct().Count());
+        AssertEx.True(HistoryFor(reloaded, "2026-09-15").Items.Single().IsCompleted);
     }
 
     private static void FutureSchemaIsRejectedWithoutSaving()

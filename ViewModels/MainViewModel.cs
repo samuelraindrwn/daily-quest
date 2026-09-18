@@ -525,9 +525,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
             try
             {
                 StopTimerAlarm();
+
+                // A completed quest belongs only to the day on which it was
+                // completed. Its archived snapshot stays in history, while only
+                // unfinished quests remain active for the new day.
+                foreach (var completedItem in Items
+                             .Where(item => item.IsCompleted)
+                             .ToList())
+                {
+                    completedItem.PropertyChanged -= Item_PropertyChanged;
+                    Items.Remove(completedItem);
+                    RemoveFromManualOrder(completedItem.Id);
+                }
+
                 foreach (var item in Items)
                 {
-                    item.IsCompleted = false;
                     if (item.IsOvertime || !item.IsTimerRunning)
                     {
                         item.ResetTimer();
@@ -552,6 +564,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         ApplyQuestSort();
         SyncHistoryFromActiveDay(preserveCompletedOrphans: !dateChanged);
+        NotifyTimerStateChanged();
         NotifyProgressChanged();
         RefreshHistoryEntries();
         RefreshScheduleOptions(today);
@@ -661,11 +674,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         // Resolve a possible midnight rollover before deriving the target date.
-        // Existing item instances remain active during rollover, so the source
-        // reference is still safe to use after this call.
-        RollOverToCurrentDay(saveAfterReset: false);
+        // A completed source can leave the active list during that rollover.
+        var didRollOver = RollOverToCurrentDay(saveAfterReset: false);
         if (!Items.Contains(item))
         {
+            if (didRollOver)
+            {
+                Save();
+            }
+
             return false;
         }
 

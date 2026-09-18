@@ -4,7 +4,7 @@
 
 ## English
 
-This Q&A covers Daily Quest v1.8.0.
+This Q&A covers Daily Quest v1.8.1.
 
 ### Does Daily Quest require an account or internet connection?
 
@@ -38,9 +38,9 @@ Open Settings to add, rename, recolor, or delete labels. Drag a label by its six
 
 Fresh installations and state migrated from a version before labels begin with **Important**, **Personal**, and **Routine**. These are editable starter labels. If you delete every label, Daily Quest keeps the list empty instead of recreating them. Deleting a label only detaches it from active, scheduled, and historical quests; it does not delete any quest.
 
-### Does a quest repeat every day?
+### Which quests continue into the next day?
 
-Yes. Every active quest is a Daily Quest by default. At the date change, Daily Quest archives the previous day's result, keeps the quest in the active list, and resets its checkbox. An unfinished quest therefore carries into tomorrow as the same active quest, not a new scheduled copy, so rollover does not duplicate it. Completed active quests reset too unless you clear or remove them. A future quest follows the same daily behavior after its scheduled date arrives and it becomes active.
+Only unfinished quests continue. At the date change, Daily Quest first archives the previous day's exact result. Unchecked quests then carry into the new day as the same active quests, not new scheduled copies, so rollover does not duplicate them. Completed quests leave the active list but remain in History. A future quest follows the same rule after its scheduled date arrives and it becomes active.
 
 ### How do I edit a quest's text or timer?
 
@@ -92,7 +92,7 @@ The source is never moved or changed. Each copy keeps its text, label, and confi
 
 The overdue quest is added to Today, unchecked, the next time Daily Quest opens. It is activated only once. Scheduling does not create a Windows notification or background service. Separately, **Launch at startup** is enabled by default, so Daily Quest normally opens when you sign in to Windows unless you turn that preference off.
 
-Once activated, the quest becomes a regular active quest. It follows the normal daily reset and remains in the reusable checklist until you remove it.
+Once activated, the quest becomes a regular active quest. It continues into each following day only while unfinished; after completion, it remains in History and leaves the active checklist at the next date change.
 
 ### What does Clear history remove?
 
@@ -152,7 +152,7 @@ Use **Report a bug** in Settings or open the [bug report form](https://github.co
 
 ## Bahasa Indonesia
 
-Tanya jawab ini membahas Daily Quest v1.8.0.
+Tanya jawab ini membahas Daily Quest v1.8.1.
 
 ### Apakah Daily Quest membutuhkan akun atau koneksi internet?
 
@@ -186,9 +186,9 @@ Buka Pengaturan untuk menambah, mengganti nama atau warna, maupun menghapus labe
 
 Instalasi baru dan state yang dimigrasikan dari versi sebelum dukungan label dimulai dengan **Important**, **Personal**, dan **Routine**. Ketiganya merupakan label awal yang dapat diubah. Jika semua label dihapus, Daily Quest mempertahankan daftar kosong dan tidak membuatnya kembali. Menghapus label hanya melepaskannya dari quest aktif, terjadwal, dan riwayat; tindakan ini tidak menghapus quest apa pun.
 
-### Apakah quest berulang setiap hari?
+### Quest mana yang dilanjutkan ke hari berikutnya?
 
-Ya. Setiap quest aktif menjadi Daily Quest secara default. Saat tanggal berganti, Daily Quest mengarsipkan hasil hari sebelumnya, mempertahankan quest dalam daftar aktif, lalu mengosongkan centangnya. Quest yang belum selesai otomatis pindah ke besok sebagai quest aktif yang sama, bukan salinan terjadwal baru, sehingga pergantian hari tidak membuat duplikat. Quest aktif yang sudah selesai juga di-reset kecuali kamu membersihkan atau menghapusnya. Quest mendatang mengikuti perilaku harian yang sama setelah tanggal jadwalnya tiba dan quest tersebut menjadi aktif.
+Hanya quest yang belum selesai. Saat tanggal berganti, Daily Quest terlebih dahulu mengarsipkan hasil persis hari sebelumnya. Quest yang belum dicentang kemudian dibawa ke hari baru sebagai quest aktif yang sama, bukan salinan terjadwal baru, sehingga tidak terjadi duplikasi. Quest selesai keluar dari daftar aktif tetapi tetap tersimpan di Riwayat. Quest mendatang mengikuti aturan yang sama setelah tanggal jadwalnya tiba dan quest tersebut menjadi aktif.
 
 ### Bagaimana cara mengubah teks atau timer quest?
 
@@ -240,7 +240,7 @@ Sumber tidak pernah dipindahkan atau diubah. Setiap salinan mempertahankan teks,
 
 Quest yang lewat jatuh tempo ditambahkan ke Hari ini tanpa centang saat Daily Quest berikutnya dibuka. Setiap quest hanya diaktifkan satu kali. Penjadwalan tidak membuat notifikasi Windows atau layanan latar belakang. Secara terpisah, **Jalankan saat startup** aktif secara default sehingga Daily Quest biasanya terbuka saat kamu masuk ke Windows, kecuali preferensi tersebut dimatikan.
 
-Setelah aktif, quest menjadi quest aktif biasa. Quest mengikuti reset harian normal dan tetap berada dalam checklist yang digunakan kembali sampai kamu menghapusnya.
+Setelah aktif, quest menjadi quest aktif biasa. Quest hanya dilanjutkan ke hari-hari berikutnya selama belum selesai; setelah selesai, quest tetap berada di Riwayat dan keluar dari checklist aktif saat tanggal berganti.
 
 ### Apa yang dihapus oleh Hapus riwayat?
 
