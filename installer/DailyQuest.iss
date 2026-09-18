@@ -75,17 +75,79 @@ const
   UninstallRegistryKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{9F5BE714-FBF2-4A86-BD6F-A563ECF7BDA3}_is1';
   StartupRegistryKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
   StartupRegistryValue = 'DailyQuest';
+  SingleInstanceMutexName = 'Local\MorningCheckIn.SingleInstance.8F915C25';
+  ExitProtocolMinimumVersion = '1.8.0.0';
+  ExitWaitIntervalMilliseconds = 100;
+  ExitWaitTimeoutMilliseconds = 5000;
+
+function TryGetInstalledExecutable(var InstalledExecutable: String): Boolean;
+var
+  InstallLocation: String;
+begin
+  if RegQueryStringValue(
+       HKEY_CURRENT_USER,
+       UninstallRegistryKey,
+       'InstallLocation',
+       InstallLocation) and
+     (Trim(InstallLocation) <> '') then
+  begin
+    InstalledExecutable := AddBackslash(Trim(InstallLocation)) + '{#AppExeName}';
+  end
+  else
+  begin
+    InstalledExecutable := ExpandConstant(
+      '{localappdata}\Programs\{#AppName}\{#AppExeName}');
+  end;
+
+  Result := FileExists(InstalledExecutable);
+end;
+
+procedure RequestInstalledApplicationExit(InstalledVersion: Int64);
+var
+  ExitProtocolMinimum: Int64;
+  InstalledExecutable: String;
+  ResultCode: Integer;
+  WaitedMilliseconds: Integer;
+begin
+  if not StrToVersion(ExitProtocolMinimumVersion, ExitProtocolMinimum) or
+     (ComparePackedVersion(InstalledVersion, ExitProtocolMinimum) < 0) or
+     not TryGetInstalledExecutable(InstalledExecutable) then
+  begin
+    Exit;
+  end;
+
+  { v1.8+ understands --exit and saves state before releasing this stable mutex. }
+  Exec(
+    InstalledExecutable,
+    '--exit',
+    ExtractFileDir(InstalledExecutable),
+    SW_HIDE,
+    ewWaitUntilTerminated,
+    ResultCode);
+
+  WaitedMilliseconds := 0;
+  while CheckForMutexes(SingleInstanceMutexName) and
+        (WaitedMilliseconds < ExitWaitTimeoutMilliseconds) do
+  begin
+    Sleep(ExitWaitIntervalMilliseconds);
+    WaitedMilliseconds := WaitedMilliseconds + ExitWaitIntervalMilliseconds;
+  end;
+end;
 
 function InitializeSetup: Boolean;
 var
   InstalledVersionText: String;
   InstalledVersion: Int64;
   SetupVersion: Int64;
+  HasInstalledVersion: Boolean;
 begin
   Result := True;
 
-  if RegQueryStringValue(HKEY_CURRENT_USER, UninstallRegistryKey, 'DisplayVersion', InstalledVersionText) and
-     StrToVersion(InstalledVersionText + '.0', InstalledVersion) and
+  HasInstalledVersion :=
+    RegQueryStringValue(HKEY_CURRENT_USER, UninstallRegistryKey, 'DisplayVersion', InstalledVersionText) and
+    StrToVersion(InstalledVersionText + '.0', InstalledVersion);
+
+  if HasInstalledVersion and
      StrToVersion('{#AppVersion}.0', SetupVersion) and
      (ComparePackedVersion(InstalledVersion, SetupVersion) > 0) then
   begin
@@ -96,6 +158,13 @@ begin
       MB_OK,
       IDOK);
     Result := False;
+    Exit;
+  end;
+
+  { InitializeSetup runs before Inno Setup enforces [Setup] AppMutex. }
+  if HasInstalledVersion then
+  begin
+    RequestInstalledApplicationExit(InstalledVersion);
   end;
 end;
 

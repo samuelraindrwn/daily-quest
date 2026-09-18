@@ -20,7 +20,7 @@
 
 Daily Quest membuat prioritas hari ini selalu terlihat tanpa mengubahnya menjadi sistem manajemen proyek yang rumit. Aplikasi ini menggabungkan check-in cepat, label yang dapat diatur, timer quest opsional, pengurutan fleksibel, penyimpanan lokal otomatis, progres harian, dan riwayat yang dapat dibuka saat dibutuhkan dalam sebuah widget desktop ringkas.
 
-Panduan ini membahas Daily Quest v1.7.0.
+Panduan ini membahas Daily Quest v1.8.0.
 
 <p align="center">
   <img src="docs/images/daily-quest.png" width="360" alt="Jendela utama Daily Quest berbahasa Indonesia dengan timer quest berjalan">
@@ -31,15 +31,16 @@ Panduan ini membahas Daily Quest v1.7.0.
 - Checklist dimulai kosong—rutinitas tetap sepenuhnya milikmu.
 - Tambah, centang, dan hapus aktivitas dalam beberapa klik.
 - Tambahkan quest langsung ke Hari ini, atau jadwalkan untuk tanggal Besok hingga H+8.
-- Klik kanan quest aktif untuk menyalinnya ke Hari ini atau tanggal mana pun hingga H+8 tanpa mengetik ulang.
-- Klik kanan tanggal mana pun di **Jadwalkan untuk** untuk menyalin semua quest dari tanggal tersebut ke tanggal lain dari Hari ini hingga H+8.
+- Klik kanan quest aktif untuk mengubah teks dan timernya, menyalinnya ke satu tanggal hingga H+8, atau sekaligus ke setiap tanggal mendatang dari Besok hingga H+8.
+- Klik kanan tanggal mana pun di **Jadwalkan untuk** untuk menyalin semua quest dari tanggal tersebut ke satu tujuan, atau ke semua hari mendatang selain Hari ini.
 - Tetapkan label berwarna yang dapat diatur saat menambahkan quest, atau ubah labelnya nanti melalui kartu quest.
 - Tambahkan quest baru tanpa timer, dengan preset 5/10/15/25/30/45/60 menit, atau durasi khusus dari 1 sampai 480 menit.
 - Mulai, jeda, lanjutkan, atau reset hitung mundur quest, dengan maksimal satu timer berjalan dalam satu waktu.
-- Tutup Daily Quest untuk menyimpan dan menjeda hitung mundur atau timer overtime yang aktif; saat dibuka kembali, timer tetap dijeda pada nilai tersimpan.
-- Pada rilis resmi Windows, dengarkan ringtone facility-alarm bawaan aplikasi selama maksimal satu menit dan terima satu notifikasi bawaan saat waktu habis selama Daily Quest terbuka, dalam mode ringkas, atau diminimalkan; lanjutkan secara opsional ke overtime merah setelah mematikannya.
+- Tutup jendela dengan `X` atau `Alt+F4` untuk menyembunyikan Daily Quest ke system tray; timer dan alarm yang aktif tetap berjalan.
+- Buka kembali jendela dari tray, atau pilih **Keluar** di sana untuk menjeda hitung mundur atau timer overtime aktif dan menyimpan nilai terbarunya sebelum proses ditutup.
+- Pada rilis resmi Windows, dengarkan ringtone facility-alarm bawaan aplikasi selama maksimal satu menit dan terima satu notifikasi bawaan saat waktu habis selama Daily Quest terlihat, dalam mode ringkas, diminimalkan, atau tersembunyi di tray; lanjutkan secara opsional ke overtime merah setelah mematikannya.
 - Lihat sapaan, jumlah selesai, persentase, dan progress bar hari ini secara langsung.
-- Jadikan setiap quest aktif sebagai Daily Quest: pertahankan untuk hari berikutnya dan reset status selesainya secara otomatis.
+- Pindahkan setiap quest yang belum selesai ke besok secara otomatis sebagai quest aktif yang sama—bukan duplikat—lalu reset status selesainya untuk hari baru.
 - Pindahkan quest yang selesai ke urutan paling bawah secara otomatis agar prioritas yang belum selesai tetap di atas.
 - Buka riwayat hari sebelumnya; klik kartu tanggal untuk melihat detail aktivitasnya.
 - Pertahankan aktivitas selesai di riwayat setelah dibersihkan dari daftar aktif hari ini.
@@ -60,7 +61,7 @@ Panduan ini membahas Daily Quest v1.7.0.
 2. Unduh dan jalankan aset `win-x64-setup.exe` untuk proses instalasi Windows standar.
 3. Untuk penggunaan portable, unduh dan ekstrak `win-x64.zip`, atau unduh aset `win-x64.exe` mandiri.
 
-Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga runtime .NET tidak perlu dipasang terpisah. Installer menambahkan entri Start Menu dan uninstall, menawarkan shortcut Desktop opsional, serta mendukung upgrade langsung. Daily Quest mengaktifkan peluncuran saat masuk ke Windows setelah pertama kali dijalankan; fitur ini dapat dimatikan melalui Pengaturan. Pengguna versi portable dapat memperbarui aplikasi dengan menutup Daily Quest lalu mengganti executable lama. Kedua metode tetap mempertahankan data di Local AppData.
+Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga runtime .NET tidak perlu dipasang terpisah. Installer menambahkan entri Start Menu dan uninstall, menawarkan shortcut Desktop opsional, serta mendukung upgrade langsung. Daily Quest mengaktifkan peluncuran saat masuk ke Windows setelah pertama kali dijalankan; fitur ini dapat dimatikan melalui Pengaturan. Pengguna versi portable dapat memperbarui aplikasi dengan mengeklik kanan ikon tray, memilih **Keluar**, lalu mengganti executable lama. Kedua metode tetap mempertahankan data di Local AppData.
 
 > [!NOTE]
 > Installer dan aplikasi saat ini belum ditandatangani secara digital sehingga Windows mungkin menampilkan peringatan SmartScreen. Lanjutkan hanya jika file berasal dari halaman Releases resmi repositori ini. File dapat diverifikasi menggunakan `SHA256SUMS.txt` yang disertakan.
@@ -77,8 +78,8 @@ Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga 
 | Kontrol timer pada quest | Mulai atau jeda hitung mundur, lanjutkan timer yang dijeda, atau reset ke durasi penuh quest. |
 | **Overtime** pada quest yang waktunya habis | Saat mode overtime aktif, langsung matikan alarm dan lanjutkan hitungan naik kumulatif berwarna merah dari durasi yang ditetapkan sampai dijeda, di-reset, atau diselesaikan. |
 | Label pada quest | Ubah atau hapus label yang ditetapkan ke quest yang sudah ada. |
-| Klik kanan quest aktif | Buka **Salin ke**, lalu pilih **Hari ini**, **Besok**, atau **H+2** hingga **H+8**. |
-| Klik kanan tanggal di **Jadwalkan untuk** | Buka **Salin semua quest ke**, lalu pilih tujuan dari **Hari ini** hingga **H+8**. Fitur ini tersedia pada semua tanggal di pemilih, bukan hanya Hari ini. |
+| Klik kanan quest aktif | Pilih **Ubah quest** untuk mengubah teks serta menambah, mengganti, atau menghapus timer; perubahan durasi akan me-reset timer tersebut. Atau buka **Salin ke** lalu pilih satu tanggal dari **Hari ini** hingga **H+8**, atau **Semua hari mendatang** untuk membuat satu salinan baru pada setiap tanggal dari **Besok** hingga **H+8**. |
+| Klik kanan tanggal di **Jadwalkan untuk** | Buka **Salin semua quest ke**, lalu pilih satu tujuan dari **Hari ini** hingga **H+8**, atau **Semua hari mendatang** untuk menyalin snapshot sumber ke setiap tanggal dari **Besok** hingga **H+8**. Fitur ini tersedia pada semua tanggal di pemilih, bukan hanya Hari ini. |
 | Kontrol urutan | Gunakan urutan manual tersimpan, urutan label, durasi tersingkat, atau durasi terlama. |
 | Handle di samping aktivitas | Dalam mode urutan **Manual**, tarik dan lepas aktivitas untuk mengubah urutan tersimpannya. |
 | `×` di samping aktivitas | Hapus aktivitas tersebut dari checklist aktif. |
@@ -93,21 +94,25 @@ Semua pilihan rilis bersifat self-contained untuk Windows 10/11 64-bit sehingga 
 | Tombol perluas | Kembali dari mode ringkas ke widget penuh. |
 | Tombol pin | Aktifkan atau nonaktifkan mode selalu di atas. |
 | Tombol `−` | Minimalkan jendela ke taskbar Windows. Fungsi ini terpisah dari mode ringkas. |
+| Tombol `X` atau `Alt+F4` | Sembunyikan jendela ke system tray tanpa menghentikan timer atau alarm yang sedang berjalan. |
+| Klik kanan ikon tray | Pilih **Buka Daily Quest** untuk memulihkan jendela, atau **Keluar** untuk menjeda timer, menyimpan state, dan menutup proses sepenuhnya. |
 | Header dan tepi jendela | Tarik header untuk memindahkan widget, atau tarik tepi untuk mengubah ukurannya. Ukuran jendela penuh tetap tersimpan setelah aplikasi ditutup. |
 
-Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest mengarsipkan hari sebelumnya, mempertahankan daftar quest aktif, lalu mengosongkan semua centangnya untuk hari baru. Quest akan terus muncul setiap hari sampai kamu menghapusnya.
+Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest mengarsipkan hari sebelumnya, mempertahankan daftar quest aktif, lalu mengosongkan semua centangnya untuk hari baru. Quest yang belum selesai otomatis pindah ke besok sebagai quest yang sama, bukan salinan terjadwal baru, sehingga pergantian hari tidak membuat duplikat. Quest aktif yang sudah selesai juga di-reset untuk hari baru kecuali kamu membersihkan atau menghapusnya. Quest akan terus muncul setiap hari sampai kamu menghapusnya.
 
 ### Menggunakan timer quest
 
 - Pilih **Tanpa timer** atau suatu durasi saat menambahkan quest. Preset tersedia untuk 5, 10, 15, 25, 30, 45, dan 60 menit; timer khusus menerima bilangan bulat dari 1 sampai 480 menit.
+- Untuk memperbarui quest yang sudah ada, klik kanan lalu pilih **Ubah quest**. Isi 1-480 menit untuk menambah atau mengganti timer, atau kosongkan kolom timer untuk menghapusnya. Durasi yang diubah dimulai kembali dari nilai penuh dalam keadaan dijeda.
 - Gunakan kontrol timer pada quest untuk memulai, menjeda, melanjutkan, atau me-reset hitung mundur. Hanya satu timer quest yang dapat berjalan dalam satu waktu.
-- Saat Daily Quest ditutup, hitung mundur atau timer overtime yang aktif hanya dihitung sampai momen penutupan, lalu dijeda dan disimpan. Saat aplikasi dibuka kembali, timer tetap dijeda sehingga waktu selama aplikasi tertutup tidak ikut dihitung.
+- Memilih `X` atau menekan `Alt+F4` hanya menyembunyikan jendela ke system tray; proses Daily Quest tetap aktif sehingga hitung mundur atau timer overtime terus berjalan normal.
+- Memilih **Keluar** dari tray akan memperbarui timer aktif sampai saat itu, menjedanya, menyimpan hasil, lalu menutup proses. Timer tersimpan tetap dijeda saat Daily Quest berikutnya dibuka.
 - Timer yang mencapai nol tidak otomatis menandai quest sebagai selesai. Selesaikan quest secara terpisah melalui checkbox.
 - Mode overtime nonaktif secara default. Saat nonaktif, timer yang habis tetap memutar alarm yang sama selama maksimal satu menit dan tidak menampilkan tindakan **Overtime**.
 - Pada rilis resmi Windows, setiap timer yang habis memutar ringtone bawaan aplikasi secara berulang selama maksimal 60 detik dan menampilkan satu notifikasi bawaan. Build dari source tanpa aset ringtone opsional akan memakai bunyi sistem Windows bergantian. Bunyi berhenti lebih awal saat quest di-reset, diselesaikan, atau dihapus; saat overtime dimatikan melalui Pengaturan; ketika hari berganti; atau ketika Daily Quest ditutup.
 - Saat mode overtime aktif, timer yang habis menawarkan **Overtime**. Memilihnya akan langsung mematikan alarm dan memulai hitungan naik kumulatif berwarna merah dari durasi yang ditetapkan—timer satu menit memulai overtime pada `+01:00`—sampai timer dijeda atau di-reset, atau quest diselesaikan.
-- Alarm timer dan notifikasi bawaan Windows bekerja pada tampilan penuh, mode ringkas, dan ketika jendela diminimalkan selama proses Daily Quest masih berjalan.
-- Daily Quest tidak menjalankan layanan latar belakang, sehingga alarm dan notifikasi tidak dapat muncul saat proses aplikasi benar-benar ditutup.
+- Alarm timer dan notifikasi bawaan Windows bekerja pada tampilan penuh, mode ringkas, ketika jendela diminimalkan, maupun saat tersembunyi di system tray selama proses Daily Quest masih berjalan.
+- Daily Quest tidak menjalankan layanan Windows terpisah. Setelah memilih **Keluar** atau proses dihentikan paksa, tidak ada proses aktif yang dapat memutar alarm atau menampilkan notifikasi timer; aplikasi yang dihentikan paksa tidak dapat mengirim notifikasi lagi sampai dijalankan kembali.
 
 ### Label dan pengurutan
 
@@ -124,12 +129,12 @@ Setiap quest aktif merupakan **Daily Quest**. Saat tanggal berganti, Daily Quest
 
 - Composer menyediakan pilihan **Hari ini**, **Besok**, dan **H+2** sampai **H+8** berdasarkan tanggal lokal Windows.
 - Ringkasan progres disembunyikan selama pemilih tanggal terbuka agar jadwal tetap jelas.
-- Untuk menggunakan kembali quest aktif, klik kanan kartunya, buka **Salin ke**, lalu pilih **Hari ini** hingga **H+8**. Salinan mempertahankan teks, label, dan durasi yang diatur, tetapi dibuat sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan. Salinan untuk tanggal mendatang tampil di **Mendatang** sampai waktunya tiba.
-- Untuk menggunakan kembali seluruh isi suatu hari, buka **Jadwalkan untuk**, klik kanan kartu tanggal mana pun, buka **Salin semua quest ke**, lalu pilih tujuan dari **Hari ini** hingga **H+8**. Sumber Hari ini menggunakan semua quest dalam daftar aktif yang sedang ditampilkan, termasuk quest selesai; sumber tanggal mendatang menggunakan semua quest yang dijadwalkan secara khusus untuk tanggal tersebut.
-- Penyalinan massal tidak mengubah sumber. Setiap salinan dibuat baru tanpa centang, dengan timer yang di-reset dan belum berjalan. Sumber kosong tidak melakukan apa pun. Memilih tanggal sumber dan tujuan yang sama menduplikasi snapshot sumber tepat satu kali sehingga salinan yang baru dibuat tidak ikut disalin lagi dalam tindakan yang sama.
+- Untuk menggunakan kembali quest aktif, klik kanan kartunya, buka **Salin ke**, lalu pilih **Hari ini** hingga **H+8**. Pilih **Semua hari mendatang** untuk membuat satu salinan pada setiap tanggal dari **Besok** hingga **H+8** tanpa mengubah Hari ini. Salinan mempertahankan teks, label, dan durasi yang diatur, tetapi dibuat sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan. Salinan untuk tanggal mendatang tampil di **Mendatang** sampai waktunya tiba. Mengulangi salah satu tindakan salin akan menambahkan kumpulan salinan baru; quest yang sudah ada tidak diganti atau digabungkan.
+- Untuk menggunakan kembali seluruh isi suatu hari, buka **Jadwalkan untuk**, klik kanan kartu tanggal mana pun, buka **Salin semua quest ke**, lalu pilih tujuan dari **Hari ini** hingga **H+8**. Pilih **Semua hari mendatang** untuk menyalin snapshot lengkap hari tersebut ke setiap tanggal dari **Besok** hingga **H+8**, dengan Hari ini dikecualikan. Sumber Hari ini menggunakan semua quest dalam daftar aktif yang sedang ditampilkan, termasuk quest selesai; sumber tanggal mendatang menggunakan semua quest yang dijadwalkan secara khusus untuk tanggal tersebut.
+- Penyalinan massal tidak mengubah sumber. Setiap salinan dibuat baru tanpa centang, dengan timer yang di-reset dan belum berjalan. Sumber kosong tidak melakukan apa pun. Memilih tanggal sumber dan tujuan yang sama menduplikasi snapshot sumber tepat satu kali. Dengan **Semua hari mendatang**, tanggal sumber mendatang juga termasuk tujuan sehingga tanggal tersebut menerima satu salinan baru dari snapshot awalnya; snapshot hanya diambil satu kali agar salinan baru tidak ikut berantai ke tujuan berikutnya. Mengulangi tindakan ini menambahkan satu kumpulan baru ke delapan tanggal mendatang.
 - Quest mendatang disimpan dalam antrean terpisah. Sebelum jatuh tempo, quest tersebut tidak memengaruhi checklist Hari ini, progres, mode ringkas, atau Riwayat.
 - Saat tanggalnya tiba, quest ditambahkan ke Hari ini tanpa centang setelah hari sebelumnya diarsipkan. Setelah itu, quest berperilaku seperti quest aktif biasa dan mengikuti reset harian sampai kamu menghapusnya.
-- Jika Daily Quest tidak dibuka pada tanggal target, quest yang lewat jatuh tempo akan diaktifkan saat aplikasi berikutnya dibuka. Setiap quest hanya diaktifkan satu kali.
+- Jika proses Daily Quest tidak berjalan pada tanggal target, quest yang lewat jatuh tempo akan diaktifkan saat aplikasi berikutnya dibuka. Setiap quest hanya diaktifkan satu kali.
 - Buka daftar mendatang untuk meninjau atau membatalkan quest terjadwal sebelum aktif.
 
 Penjadwalan saja tidak membuat notifikasi Windows atau menjalankan layanan latar belakang terpisah. Daily Quest tetap dapat dibuka saat pengguna masuk ke Windows melalui preferensi startup yang secara default aktif seperti dijelaskan di bawah. Notifikasi timer yang habis mengikuti perilaku yang dijelaskan di atas.
@@ -147,7 +152,7 @@ Penjadwalan saja tidak membuat notifikasi Windows atau menjalankan layanan latar
 - **Q&A:** buka [Pertanyaan yang Sering Diajukan](docs/FAQ.md) dalam dua bahasa.
 - **Laporkan bug:** buka formulir issue GitHub yang sudah disiapkan melalui browser bawaan.
 
-Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.7.0 untuk rilis ini).
+Footer pada tampilan Hari ini yang penuh menampilkan nama dan versi aplikasi yang terpasang (v1.8.0 untuk rilis ini).
 
 ### Navigasi keyboard
 
@@ -176,7 +181,7 @@ Panel penyimpanan hanya membaca ukuran file dari lokasi aplikasi dan data lokal.
 
 Fungsi checklist utama Daily Quest tetap berjalan tanpa koneksi internet. Memilih **Q&A** atau **Laporkan bug** akan membuka halaman GitHub melalui browser bawaan; tindakan opsional ini membutuhkan internet dan selanjutnya mengikuti praktik privasi GitHub.
 
-Untuk membuat backup manual, tutup aplikasi lalu salin folder `%LOCALAPPDATA%\DailyQuest`. Jika ingin memulai dari awal tanpa langsung menghapus data, tutup aplikasi lalu ubah nama folder tersebut; folder bersih akan dibuat saat aplikasi dibuka kembali.
+Untuk membuat backup manual, klik kanan ikon tray Daily Quest dan pilih **Keluar** sebelum menyalin folder `%LOCALAPPDATA%\DailyQuest`. Jika ingin memulai dari awal tanpa langsung menghapus data, gunakan **Keluar** dari tray terlebih dahulu lalu ubah nama folder tersebut; folder bersih akan dibuat saat aplikasi dibuka kembali. Menutup jendela dengan `X` atau `Alt+F4` tidak cukup karena tindakan itu hanya menyembunyikan aplikasi yang masih berjalan.
 
 Jika file state tidak dapat dibaca, Daily Quest menyimpan salinan bertanda waktu dengan nama `state.json.broken-*` sebelum memulai state baru yang bersih.
 
@@ -208,7 +213,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-Test harness tanpa dependency eksternal ini mencakup perubahan checklist, label beserta migrasinya, mode urutan manual dan otomatis, penempatan quest selesai, validasi serta persistence durasi timer, perilaku mulai/jeda/lanjutkan/reset dan overtime, jeda timer saat aplikasi ditutup normal, aturan satu timer berjalan, pemulihan berbasis timestamp setelah proses berhenti tak terduga dan alarm kedaluwarsa, registrasi startup Windows, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, reset Daily Quest saat pergantian tanggal, penyimpanan dan penghapusan riwayat, pengaturan yang tersimpan, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
+Test harness logika tanpa dependency eksternal ini mencakup perubahan checklist serta pengeditan teks/timer quest, label beserta migrasinya, mode urutan manual dan otomatis, penempatan quest selesai, validasi serta persistence durasi timer, perilaku mulai/jeda/lanjutkan/reset dan overtime, jeda timer saat shutdown normal, aturan satu timer berjalan, pemulihan berbasis timestamp setelah proses berhenti tak terduga dan alarm kedaluwarsa, registrasi startup Windows, validasi tanggal dan penjadwalan quest mendatang, aktivasi due maupun overdue, logika pemilihan mode ringkas, reset Daily Quest tanpa duplikasi saat pergantian tanggal, penyimpanan dan penghapusan riwayat, pengaturan yang tersimpan, laporan penggunaan penyimpanan, persistence JSON, pemulihan state rusak, dan migrasi state lama.
 
 ## Buat build portable
 
@@ -253,7 +258,7 @@ tests/           Runner tes logika tanpa dependency eksternal
 - **Windows menampilkan “unknown publisher”:** aplikasi belum code-signed. Gunakan hanya rilis resmi dan verifikasi checksum SHA-256-nya.
 - **Membuka aplikasi lagi tidak membuat jendela kedua:** Daily Quest hanya mengizinkan satu instance dan akan memulihkan jendela yang sudah ada.
 - **Widget ringkas tidak masuk ke taskbar:** mode ringkas mempertahankan jendela quest kecil agar tetap terlihat. Gunakan tombol `−` untuk fungsi minimize bawaan Windows.
-- **Timer tidak berlanjut selama aplikasi ditutup:** ini memang disengaja. Penutupan normal menyimpan dan menjeda hitung mundur atau timer overtime yang aktif. Lanjutkan timer secara manual setelah membuka kembali Daily Quest.
+- **Jendela sudah ditutup tetapi Daily Quest masih berjalan:** `X` dan `Alt+F4` menyembunyikan jendela ke system tray agar timer dan alarm aktif dapat terus berjalan. Klik kanan ikon tray lalu pilih **Buka Daily Quest** untuk memulihkannya, atau **Keluar** untuk menjeda timer, menyimpan state, dan menutup proses sepenuhnya.
 - **Tombol Overtime tidak ada:** aktifkan mode overtime di Pengaturan sebelum timer habis. Saat overtime nonaktif, alarm tetap berjalan maksimal satu menit, tetapi timer tidak menawarkan overtime.
 - **Riwayat hari ini muncul lagi setelah dihapus:** checklist aktif memang dipertahankan, sehingga ringkasan hari ini dapat ditulis ulang setelah quest berubah. Hapus riwayat setelah selesai melakukan perubahan jika ingin tampilan Riwayat tetap kosong untuk sementara.
 - **Proyek source melaporkan SDK tidak ditemukan:** pasang .NET 10 SDK, lalu pastikan versinya muncul melalui `dotnet --list-sdks`.

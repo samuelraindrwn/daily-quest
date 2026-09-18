@@ -22,6 +22,16 @@ public sealed record UiCopy
     public string ReorderActivity { get; init; } = "Tarik untuk mengubah urutan";
     public string CopyTo { get; init; } = "Salin ke";
     public string CopyAllTo { get; init; } = "Salin semua quest ke";
+    public string CopyToAllFutureDays { get; init; } = "Semua hari mendatang";
+    public string CopyToAllFutureDaysRange { get; init; } = "Besok – H+8";
+    public string EditQuest { get; init; } = "Ubah quest";
+    public string EditQuestTitle { get; init; } = "Ubah quest";
+    public string EditQuestTimer { get; init; } = "Timer (menit)";
+    public string EditQuestTimerHint { get; init; } = "Kosongkan untuk menghapus timer. Mengubah durasi akan mereset timer.";
+    public string SaveQuestEdit { get; init; } = "Simpan";
+    public string CancelQuestEdit { get; init; } = "Batal";
+    public string InvalidQuestText { get; init; } = "Teks quest tidak boleh kosong.";
+    public string InvalidQuestDuration { get; init; } = "Gunakan durasi 1-480 menit, atau kosongkan untuk tanpa timer.";
     public string CopyScheduleDayTooltip { get; init; } = "Klik kanan untuk menyalin semua quest pada tanggal ini";
     public string NoQuestsToCopy { get; init; } = "Tidak ada quest pada tanggal ini untuk disalin.";
     public string CompactAllDone { get; init; } = "Semua quest selesai";
@@ -130,6 +140,8 @@ public sealed record UiCopy
     public string QnaHint { get; init; } = "Jawaban singkat untuk pertanyaan umum.";
     public string ReportBug { get; init; } = "Laporkan bug";
     public string ReportBugHint { get; init; } = "Buka formulir GitHub Issue untuk melaporkan masalah.";
+    public string TrayOpen { get; init; } = "Buka Daily Quest";
+    public string TrayExit { get; init; } = "Keluar";
     public string FooterFormat { get; init; } = "Daily Quest · v{0}";
     public string SettingsFooter { get; init; } = "Dibuat untuk membantu satu quest kecil pada satu waktu.";
 }
@@ -162,6 +174,16 @@ public static class UiCopyCatalog
         ReorderActivity = "Drag to change order",
         CopyTo = "Copy to",
         CopyAllTo = "Copy all quests to",
+        CopyToAllFutureDays = "All upcoming days",
+        CopyToAllFutureDaysRange = "Tomorrow – D+8",
+        EditQuest = "Edit quest",
+        EditQuestTitle = "Edit quest",
+        EditQuestTimer = "Timer (minutes)",
+        EditQuestTimerHint = "Leave blank to remove the timer. Changing the duration resets it.",
+        SaveQuestEdit = "Save",
+        CancelQuestEdit = "Cancel",
+        InvalidQuestText = "Quest text cannot be empty.",
+        InvalidQuestDuration = "Use 1-480 minutes, or leave it blank for no timer.",
         CopyScheduleDayTooltip = "Right-click to copy every quest on this day",
         NoQuestsToCopy = "There are no quests on this day to copy.",
         CompactAllDone = "All quests complete",
@@ -270,6 +292,8 @@ public static class UiCopyCatalog
         QnaHint = "Quick answers to common questions.",
         ReportBug = "Report a bug",
         ReportBugHint = "Open a GitHub Issue form to report a problem.",
+        TrayOpen = "Open Daily Quest",
+        TrayExit = "Exit",
         FooterFormat = "Daily Quest · v{0}",
         SettingsFooter = "Made to help with one small quest at a time."
     };

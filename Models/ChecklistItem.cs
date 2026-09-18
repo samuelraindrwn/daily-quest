@@ -5,9 +5,11 @@ namespace DailyQuest.Models;
 
 public sealed class ChecklistItem : INotifyPropertyChanged
 {
+    private string _text;
     private bool _isCompleted;
     private int _remainingSeconds;
     private DateTimeOffset? _timerStartedAt;
+    private int? _plannedDurationMinutes;
     private Guid? _labelId;
     private string? _labelName;
     private string? _labelColorHex;
@@ -29,18 +31,18 @@ public sealed class ChecklistItem : INotifyPropertyChanged
         int overtimeSeconds = 0)
     {
         Id = id;
-        Text = text;
+        _text = text;
         _isCompleted = isCompleted;
         CreatedAt = createdAt;
-        PlannedDurationMinutes = plannedDurationMinutes is >= 1 and <= 480
+        _plannedDurationMinutes = plannedDurationMinutes is >= 1 and <= 480
             ? plannedDurationMinutes
             : null;
 
-        var fullDurationSeconds = PlannedDurationMinutes.GetValueOrDefault() * 60;
-        _remainingSeconds = PlannedDurationMinutes.HasValue
+        var fullDurationSeconds = _plannedDurationMinutes.GetValueOrDefault() * 60;
+        _remainingSeconds = _plannedDurationMinutes.HasValue
             ? Math.Clamp(remainingSeconds ?? fullDurationSeconds, 0, fullDurationSeconds)
             : 0;
-        _isOvertime = !isCompleted && PlannedDurationMinutes.HasValue &&
+        _isOvertime = !isCompleted && _plannedDurationMinutes.HasValue &&
                       _remainingSeconds == 0 && isOvertime;
         _overtimeSeconds = _isOvertime ? Math.Max(0, overtimeSeconds) : 0;
         _timerStartedAt = !isCompleted && (_remainingSeconds > 0 || _isOvertime)
@@ -53,11 +55,11 @@ public sealed class ChecklistItem : INotifyPropertyChanged
 
     public Guid Id { get; }
 
-    public string Text { get; }
+    public string Text => _text;
 
     public DateTimeOffset CreatedAt { get; }
 
-    public int? PlannedDurationMinutes { get; }
+    public int? PlannedDurationMinutes => _plannedDurationMinutes;
 
     public bool HasTimer => PlannedDurationMinutes.HasValue;
 
@@ -120,6 +122,45 @@ public sealed class ChecklistItem : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsTimerExpired));
             OnPropertyChanged(nameof(CanStartOvertime));
         }
+    }
+
+    internal bool UpdateText(string text)
+    {
+        if (string.Equals(_text, text, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        _text = text;
+        OnPropertyChanged(nameof(Text));
+        return true;
+    }
+
+    internal bool UpdateTimerPlan(int? plannedDurationMinutes)
+    {
+        if (_plannedDurationMinutes == plannedDurationMinutes)
+        {
+            return false;
+        }
+
+        _plannedDurationMinutes = plannedDurationMinutes;
+        _remainingSeconds = plannedDurationMinutes.GetValueOrDefault() * 60;
+        _timerStartedAt = null;
+        _isOvertime = false;
+        _overtimeSeconds = 0;
+
+        OnPropertyChanged(nameof(PlannedDurationMinutes));
+        OnPropertyChanged(nameof(HasTimer));
+        OnPropertyChanged(nameof(RemainingSeconds));
+        OnPropertyChanged(nameof(TimerStartedAt));
+        OnPropertyChanged(nameof(IsTimerRunning));
+        OnPropertyChanged(nameof(IsTimerExpired));
+        OnPropertyChanged(nameof(IsOvertime));
+        OnPropertyChanged(nameof(OvertimeSeconds));
+        OnPropertyChanged(nameof(CanStartOvertime));
+        OnPropertyChanged(nameof(RemainingTimeText));
+        OnPropertyChanged(nameof(TimerProgressPercent));
+        return true;
     }
 
     internal bool StartTimer(DateTimeOffset now)

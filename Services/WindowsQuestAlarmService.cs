@@ -15,15 +15,12 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         "DailyQuest.Assets.Ringtone.FacilityAlarm.wav";
     internal static readonly TimeSpan MaximumAlarmDuration = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan FallbackAlarmInterval = TimeSpan.FromMilliseconds(850);
-    // Windows may keep an accessibility-extended balloon visible well beyond the
-    // requested display duration, so keep the tray host alive until Windows closes
-    // it. The timer is only a safety fallback for shells that omit that event.
-    private static readonly TimeSpan TrayIconLifetime = TimeSpan.FromMinutes(10);
-
     private readonly Dispatcher _dispatcher;
     private Forms.NotifyIcon? _notifyIcon;
+    private Forms.ContextMenuStrip? _trayMenu;
+    private Forms.ToolStripMenuItem? _openMenuItem;
+    private Forms.ToolStripMenuItem? _exitMenuItem;
     private Icon? _applicationIcon;
-    private DispatcherTimer? _hideTrayIconTimer;
     private DispatcherTimer? _alarmStopTimer;
     private DispatcherTimer? _fallbackAlarmTimer;
     private MemoryStream? _alarmWaveStream;
@@ -37,6 +34,40 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         RunOnDispatcher(Initialize);
     }
 
+    public event EventHandler? OpenRequested;
+
+    public event EventHandler? ExitRequested;
+
+    public void SetTrayMenuText(string openText, string exitText)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        RunOnDispatcher(() =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (_openMenuItem is not null)
+            {
+                _openMenuItem.Text = string.IsNullOrWhiteSpace(openText)
+                    ? "Open Daily Quest"
+                    : openText.Trim();
+            }
+
+            if (_exitMenuItem is not null)
+            {
+                _exitMenuItem.Text = string.IsNullOrWhiteSpace(exitText)
+                    ? "Exit"
+                    : exitText.Trim();
+            }
+        });
+    }
+
     public void NotifyTimerCompleted(string questText)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -48,17 +79,13 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
 
             // A newly completed timer owns the alarm channel. This prevents an
             // earlier alarm from continuing behind the new alert.
-            StopTimerAlarmCore(hideTrayIcon: true);
+            StopTimerAlarmCore();
             StartAlarmCore();
 
             _notifyIcon!.BalloonTipTitle = "Daily Quest";
             _notifyIcon.BalloonTipText = notificationText;
             _notifyIcon.BalloonTipIcon = Forms.ToolTipIcon.Info;
-            _notifyIcon.Visible = true;
             _notifyIcon.ShowBalloonTip(BalloonDisplayMilliseconds);
-
-            _hideTrayIconTimer!.Stop();
-            _hideTrayIconTimer.Start();
         });
     }
 
@@ -73,7 +100,7 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         {
             if (!_disposed)
             {
-                StopTimerAlarmCore(hideTrayIcon: true);
+                StopTimerAlarmCore();
             }
         });
     }
@@ -92,20 +119,24 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
     private void Initialize()
     {
         _applicationIcon = LoadApplicationIcon();
+        _openMenuItem = new Forms.ToolStripMenuItem("Open Daily Quest");
+        _exitMenuItem = new Forms.ToolStripMenuItem("Exit");
+        _openMenuItem.Click += OpenMenuItem_Click;
+        _exitMenuItem.Click += ExitMenuItem_Click;
+        _trayMenu = new Forms.ContextMenuStrip();
+        _trayMenu.Items.Add(_openMenuItem);
+        _trayMenu.Items.Add(new Forms.ToolStripSeparator());
+        _trayMenu.Items.Add(_exitMenuItem);
+
         _notifyIcon = new Forms.NotifyIcon
         {
             Icon = _applicationIcon,
             Text = "Daily Quest",
-            Visible = false,
+            ContextMenuStrip = _trayMenu,
+            Visible = true,
         };
-        _notifyIcon.BalloonTipClosed += NotifyIcon_BalloonTipClosed;
+        _notifyIcon.DoubleClick += NotifyIcon_DoubleClick;
         _notifyIcon.BalloonTipClicked += NotifyIcon_BalloonTipClicked;
-
-        _hideTrayIconTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
-        {
-            Interval = TrayIconLifetime,
-        };
-        _hideTrayIconTimer.Tick += HideTrayIconTimer_Tick;
 
         _alarmStopTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
         {
@@ -133,29 +164,19 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         PlayFallbackAlarmPulse();
     }
 
-    private void HideTrayIconTimer_Tick(object? sender, EventArgs e)
-    {
-        HideTrayIcon();
-    }
-
-    private void NotifyIcon_BalloonTipClosed(object? sender, EventArgs e)
-    {
-        HideTrayIcon();
-    }
-
     private void NotifyIcon_BalloonTipClicked(object? sender, EventArgs e)
     {
-        HideTrayIcon();
+        OpenRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private void HideTrayIcon()
-    {
-        _hideTrayIconTimer?.Stop();
-        if (_notifyIcon is not null)
-        {
-            _notifyIcon.Visible = false;
-        }
-    }
+    private void NotifyIcon_DoubleClick(object? sender, EventArgs e) =>
+        OpenRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OpenMenuItem_Click(object? sender, EventArgs e) =>
+        OpenRequested?.Invoke(this, EventArgs.Empty);
+
+    private void ExitMenuItem_Click(object? sender, EventArgs e) =>
+        ExitRequested?.Invoke(this, EventArgs.Empty);
 
     private void StartAlarmCore()
     {
@@ -213,15 +234,10 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
         }
     }
 
-    private void StopTimerAlarmCore(bool hideTrayIcon)
+    private void StopTimerAlarmCore()
     {
         _alarmStopTimer?.Stop();
         StopAlarmPlaybackCore();
-
-        if (hideTrayIcon)
-        {
-            HideTrayIcon();
-        }
     }
 
     private void StopAlarmPlaybackCore()
@@ -246,14 +262,7 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
             return;
         }
 
-        if (_hideTrayIconTimer is not null)
-        {
-            _hideTrayIconTimer.Stop();
-            _hideTrayIconTimer.Tick -= HideTrayIconTimer_Tick;
-            _hideTrayIconTimer = null;
-        }
-
-        StopTimerAlarmCore(hideTrayIcon: true);
+        StopTimerAlarmCore();
 
         if (_alarmStopTimer is not null)
         {
@@ -270,12 +279,28 @@ public sealed class WindowsQuestAlarmService : IQuestAlarmService, IDisposable
 
         if (_notifyIcon is not null)
         {
-            _notifyIcon.BalloonTipClosed -= NotifyIcon_BalloonTipClosed;
+            _notifyIcon.DoubleClick -= NotifyIcon_DoubleClick;
             _notifyIcon.BalloonTipClicked -= NotifyIcon_BalloonTipClicked;
+            _notifyIcon.ContextMenuStrip = null;
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
             _notifyIcon = null;
         }
+
+        if (_openMenuItem is not null)
+        {
+            _openMenuItem.Click -= OpenMenuItem_Click;
+            _openMenuItem = null;
+        }
+
+        if (_exitMenuItem is not null)
+        {
+            _exitMenuItem.Click -= ExitMenuItem_Click;
+            _exitMenuItem = null;
+        }
+
+        _trayMenu?.Dispose();
+        _trayMenu = null;
 
         _applicationIcon?.Dispose();
         _applicationIcon = null;

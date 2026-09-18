@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -50,8 +51,10 @@ public partial class MainWindow : Window
     private ChecklistItem? _itemLabelTarget;
     private ContextMenu? _activeQuestCopyMenu;
     private ChecklistItem? _questCopySource;
+    private ChecklistItem? _questEditTarget;
     private ContextMenu? _activeScheduleDayCopyMenu;
     private int? _scheduleDayCopySourceOffset;
+    private bool _exitPrepared;
 
     public MainWindow()
         : this(new MainViewModel())
@@ -134,6 +137,11 @@ public partial class MainWindow : Window
         if (ItemLabelPopup is not null)
         {
             ItemLabelPopup.IsOpen = false;
+        }
+
+        if (QuestEditOverlay is not null)
+        {
+            CloseQuestEditor();
         }
 
         if (_activeQuestCopyMenu is not null)
@@ -554,7 +562,8 @@ public partial class MainWindow : Window
         _questCopySource = item;
         menu.DataContext = CreateCopyDestinationMenu(
             _viewModel.Copy.CopyTo,
-            hasSourceQuests: true);
+            hasSourceQuests: true,
+            showQuestActions: true);
     }
 
     private void QuestContextMenu_Closed(object sender, RoutedEventArgs e)
@@ -611,13 +620,149 @@ public partial class MainWindow : Window
 
     private CopyDestinationMenuViewModel CreateCopyDestinationMenu(
         string title,
-        bool hasSourceQuests) => new()
+        bool hasSourceQuests,
+        bool showQuestActions = false) => new()
         {
+            ShowQuestActions = showQuestActions,
+            EditQuestText = _viewModel.Copy.EditQuest,
             Title = title,
             EmptyMessage = _viewModel.Copy.NoQuestsToCopy,
+            AllFutureDaysText = _viewModel.Copy.CopyToAllFutureDays,
+            AllFutureDaysRangeText = _viewModel.Copy.CopyToAllFutureDaysRange,
             ScheduleOptions = [.. _viewModel.ScheduleOptions],
             HasSourceQuests = hasSourceQuests
         };
+
+    private void EditQuestMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var item = _questCopySource;
+        var menu = _activeQuestCopyMenu;
+        if (item is null || !_viewModel.Items.Contains(item))
+        {
+            return;
+        }
+
+        if (menu is not null)
+        {
+            menu.IsOpen = false;
+        }
+
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () => OpenQuestEditor(item));
+        e.Handled = true;
+    }
+
+    private void OpenQuestEditor(ChecklistItem item)
+    {
+        if (!_viewModel.Items.Contains(item) || _exitPrepared)
+        {
+            return;
+        }
+
+        _questEditTarget = item;
+        QuestEditTextBox.Text = item.Text;
+        QuestEditDurationTextBox.Text = item.PlannedDurationMinutes?.ToString(
+            CultureInfo.InvariantCulture) ?? string.Empty;
+        QuestEditTextErrorText.Visibility = Visibility.Collapsed;
+        QuestEditDurationErrorText.Visibility = Visibility.Collapsed;
+        QuestEditOverlay.Visibility = Visibility.Visible;
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () =>
+            {
+                QuestEditTextBox.Focus();
+                QuestEditTextBox.SelectAll();
+            });
+    }
+
+    private void SaveQuestEdit_Click(object sender, RoutedEventArgs e) => SaveQuestEdit();
+
+    private void CancelQuestEdit_Click(object sender, RoutedEventArgs e) =>
+        CloseQuestEditor();
+
+    private void QuestEditTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            SaveQuestEdit();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            CloseQuestEditor();
+            e.Handled = true;
+        }
+    }
+
+    private void QuestEditDurationTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
+        e.Handled = e.Text.Any(character => !char.IsDigit(character));
+
+    private void SaveQuestEdit()
+    {
+        QuestEditTextErrorText.Visibility = Visibility.Collapsed;
+        QuestEditDurationErrorText.Visibility = Visibility.Collapsed;
+
+        if (string.IsNullOrWhiteSpace(QuestEditTextBox.Text))
+        {
+            QuestEditTextErrorText.Visibility = Visibility.Visible;
+            QuestEditTextBox.Focus();
+            QuestEditTextBox.SelectAll();
+            return;
+        }
+
+        var durationText = QuestEditDurationTextBox.Text.Trim();
+        int? durationMinutes = null;
+        if (durationText.Length > 0 &&
+            (!int.TryParse(
+                durationText,
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var parsedDuration) ||
+             parsedDuration is < 1 or > 480))
+        {
+            QuestEditDurationErrorText.Visibility = Visibility.Visible;
+            QuestEditDurationTextBox.Focus();
+            QuestEditDurationTextBox.SelectAll();
+            return;
+        }
+
+        if (durationText.Length > 0)
+        {
+            durationMinutes = int.Parse(durationText, CultureInfo.InvariantCulture);
+        }
+
+        if (_questEditTarget is not null &&
+            _viewModel.TryUpdateItem(
+                _questEditTarget,
+                QuestEditTextBox.Text,
+                durationMinutes))
+        {
+            CloseQuestEditor();
+            return;
+        }
+
+        QuestEditTextErrorText.Visibility = Visibility.Visible;
+        QuestEditTextBox.Focus();
+        QuestEditTextBox.SelectAll();
+    }
+
+    private void QuestEditOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        CloseQuestEditor();
+        e.Handled = true;
+    }
+
+    private void QuestEditCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
+        e.Handled = true;
+
+    private void CloseQuestEditor()
+    {
+        QuestEditOverlay.Visibility = Visibility.Collapsed;
+        _questEditTarget = null;
+        QuestEditTextErrorText.Visibility = Visibility.Collapsed;
+        QuestEditDurationErrorText.Visibility = Visibility.Collapsed;
+    }
 
     private void CopyDestinationOption_Click(object sender, RoutedEventArgs e)
     {
@@ -643,6 +788,41 @@ public partial class MainWindow : Window
                     _viewModel.CopyScheduleDayCommand.Execute(request);
                 }
             }
+        }
+
+        if (questMenu is not null)
+        {
+            questMenu.IsOpen = false;
+        }
+
+        if (scheduleDayMenu is not null)
+        {
+            scheduleDayMenu.IsOpen = false;
+        }
+
+        if (isScheduleDayCopy)
+        {
+            SchedulePopup.StaysOpen = false;
+            SchedulePopup.IsOpen = false;
+            SchedulePickerButton.IsChecked = false;
+        }
+
+        e.Handled = true;
+    }
+
+    private void CopyAllFutureDays_Click(object sender, RoutedEventArgs e)
+    {
+        var questMenu = _activeQuestCopyMenu;
+        var scheduleDayMenu = _activeScheduleDayCopyMenu;
+        var isScheduleDayCopy = _scheduleDayCopySourceOffset.HasValue;
+
+        if (_questCopySource is not null)
+        {
+            _viewModel.CopyItemToAllFutureDays(_questCopySource);
+        }
+        else if (_scheduleDayCopySourceOffset is int sourceOffset)
+        {
+            _viewModel.CopyScheduleToAllFutureDays(sourceOffset);
         }
 
         if (questMenu is not null)
@@ -1350,12 +1530,79 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        if (_exitPrepared)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        SaveCurrentWindowSize();
+        CloseTransientSurfaces();
+        ShowInTaskbar = false;
+        Hide();
+    }
+
+    public void RestoreFromTray()
+    {
+        if (_exitPrepared)
+        {
+            return;
+        }
+
+        _viewModel.RollOverToCurrentDay();
+        ShowInTaskbar = true;
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+        Focus();
+    }
+
+    public void PrepareForApplicationExit()
+    {
+        if (_exitPrepared)
+        {
+            return;
+        }
+
+        _exitPrepared = true;
         _dayChangeTimer.Stop();
         _timerTickTimer.Stop();
+        CloseTransientSurfaces();
         _viewModel.PauseTimersForShutdown();
+        SaveCurrentWindowSize();
+    }
+
+    private void SaveCurrentWindowSize() =>
         _viewModel.SaveWindowSize(
             _isCompact ? _expandedWidth : ActualWidth,
             _isCompact ? _expandedHeight : ActualHeight);
+
+    private void CloseTransientSurfaces()
+    {
+        SchedulePopup.IsOpen = false;
+        DurationPopup.IsOpen = false;
+        LabelPopup.IsOpen = false;
+        SortPopup.IsOpen = false;
+        ItemLabelPopup.IsOpen = false;
+        CloseQuestEditor();
+
+        if (_activeQuestCopyMenu is not null)
+        {
+            _activeQuestCopyMenu.IsOpen = false;
+        }
+
+        if (_activeScheduleDayCopyMenu is not null)
+        {
+            _activeScheduleDayCopyMenu.IsOpen = false;
+        }
     }
 
     private static T? FindVisualParent<T>(DependencyObject? child)

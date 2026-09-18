@@ -25,7 +25,7 @@
     <Window.Resources>
         <ControlTemplate x:Key="CopyDestinationContextMenuTemplate"
                          TargetType="{x:Type ContextMenu}">
-            <Border MinWidth="248"
+            <Border MinWidth="280"
                     Padding="8"
                     Background="{DynamicResource PopupSurfaceBrush}"
                     BorderBrush="{DynamicResource GlassEdgeBrush}"
@@ -40,6 +40,58 @@
                                       Color="{DynamicResource PopupShadowColor}" />
                 </Border.Effect>
                 <StackPanel KeyboardNavigation.DirectionalNavigation="Cycle">
+                    <Button MinHeight="38"
+                            Margin="0,1,0,4"
+                            Padding="10,6"
+                            HorizontalContentAlignment="Left"
+                            Click="EditQuestMenuItem_Click"
+                            AutomationProperties.Name="{Binding EditQuestText}">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowQuestActions}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Width="22"
+                                       VerticalAlignment="Center"
+                                       Text="&#x270E;"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                       FontSize="14" />
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{Binding EditQuestText}"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Button>
+                    <Border Height="1"
+                            Margin="8,0,8,5"
+                            Background="{DynamicResource GlassEdgeBrush}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowQuestActions}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                    </Border>
                     <TextBlock Margin="9,5,9,7"
                                Text="{Binding Title}"
                                Foreground="{DynamicResource InkBrush}"
@@ -61,6 +113,42 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                    <Button MinHeight="42"
+                            Margin="0,1,0,5"
+                            Padding="10,7"
+                            HorizontalContentAlignment="Stretch"
+                            IsEnabled="{Binding HasSourceQuests}"
+                            Click="CopyAllFutureDays_Click"
+                            AutomationProperties.Name="{Binding AllFutureDaysText}">
+                        <Button.Style>
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource SoftButtonStyle}">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                            </Style>
+                        </Button.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{Binding AllFutureDaysText}"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1"
+                                       Margin="14,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding AllFutureDaysRangeText}"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                       FontSize="10.5"
+                                       Opacity="0.72" />
+                        </Grid>
+                    </Button>
+                    <Border Height="1"
+                            Margin="8,0,8,5"
+                            Background="{DynamicResource GlassEdgeBrush}" />
                     <ItemsControl ItemsSource="{Binding ScheduleOptions}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -2996,6 +3084,126 @@
                         CornerRadius="19"
                         IsHitTestVisible="False" />
             </Grid>
+        </Border>
+    </Grid>
+    <Grid x:Name="QuestEditOverlay"
+          Panel.ZIndex="100"
+          Background="Transparent"
+          Visibility="Collapsed"
+          MouseLeftButtonDown="QuestEditOverlay_MouseLeftButtonDown">
+        <Border Width="330"
+                Margin="24"
+                Padding="18"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Background="{DynamicResource PopupSurfaceBrush}"
+                BorderBrush="{DynamicResource GlassEdgeBrush}"
+                BorderThickness="1"
+                CornerRadius="18"
+                MouseLeftButtonDown="QuestEditCard_MouseLeftButtonDown">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="26"
+                                  Direction="270"
+                                  Opacity="0.26"
+                                  ShadowDepth="8"
+                                  Color="{DynamicResource PopupShadowColor}" />
+            </Border.Effect>
+            <StackPanel>
+                <TextBlock Margin="2,0,2,12"
+                           Text="{Binding Copy.EditQuestTitle}"
+                           FontSize="15"
+                           FontWeight="SemiBold" />
+                <Border MinHeight="46"
+                        Background="{DynamicResource GlassElevatedBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <TextBox x:Name="QuestEditTextBox"
+                             Padding="13,10"
+                             MaxLength="120"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Foreground="{DynamicResource InkBrush}"
+                             CaretBrush="{DynamicResource AccentDarkBrush}"
+                             SelectionBrush="{DynamicResource AccentBrush}"
+                             SelectionOpacity="0.42"
+                             FontFamily="{StaticResource AppFont}"
+                             FontSize="14"
+                             KeyDown="QuestEditTextBox_KeyDown" />
+                </Border>
+                <TextBlock x:Name="QuestEditTextErrorText"
+                           Margin="3,7,3,0"
+                           Text="{Binding Copy.InvalidQuestText}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource DangerBrush}"
+                           FontSize="11"
+                           Visibility="Collapsed" />
+                <TextBlock Margin="2,13,2,7"
+                           Text="{Binding Copy.EditQuestTimer}"
+                           FontSize="12"
+                           FontWeight="SemiBold" />
+                <Border MinHeight="42"
+                        Background="{DynamicResource GlassElevatedBrush}"
+                        BorderBrush="{DynamicResource GlassEdgeBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <Grid>
+                        <TextBox x:Name="QuestEditDurationTextBox"
+                                 Padding="13,9,44,9"
+                                 MaxLength="3"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="{DynamicResource InkBrush}"
+                                 CaretBrush="{DynamicResource AccentDarkBrush}"
+                                 SelectionBrush="{DynamicResource AccentBrush}"
+                                 SelectionOpacity="0.42"
+                                 FontFamily="{StaticResource AppFont}"
+                                 FontSize="13"
+                                 PreviewTextInput="QuestEditDurationTextBox_PreviewTextInput"
+                                 KeyDown="QuestEditTextBox_KeyDown" />
+                        <TextBlock Margin="0,0,13,0"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False"
+                                   Text="{Binding Copy.DurationMinuteSuffix}"
+                                   Foreground="{DynamicResource MutedInkBrush}"
+                                   FontSize="11" />
+                    </Grid>
+                </Border>
+                <TextBlock Margin="3,6,3,0"
+                           Text="{Binding Copy.EditQuestTimerHint}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedInkBrush}"
+                           FontSize="10.5" />
+                <TextBlock x:Name="QuestEditDurationErrorText"
+                           Margin="3,7,3,0"
+                           Text="{Binding Copy.InvalidQuestDuration}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource DangerBrush}"
+                           FontSize="11"
+                           Visibility="Collapsed" />
+                <StackPanel Margin="0,14,0,0"
+                            HorizontalAlignment="Right"
+                            Orientation="Horizontal">
+                    <Button MinWidth="76"
+                            Height="36"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource SoftButtonStyle}"
+                            Click="CancelQuestEdit_Click"
+                            Content="{Binding Copy.CancelQuestEdit}" />
+                    <Button MinWidth="76"
+                            Height="36"
+                            Style="{StaticResource SoftButtonStyle}"
+                            Background="{DynamicResource AccentGradientBrush}"
+                            BorderThickness="0"
+                            Foreground="{DynamicResource IvoryBrush}"
+                            Click="SaveQuestEdit_Click">
+                        <TextBlock Text="{Binding Copy.SaveQuestEdit}"
+                                   Foreground="{DynamicResource IvoryBrush}"
+                                   FontWeight="SemiBold" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
         </Border>
     </Grid>
     <Popup x:Name="ItemLabelPopup"

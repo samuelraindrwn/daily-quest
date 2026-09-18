@@ -20,7 +20,7 @@
 
 Daily Quest keeps today's priorities visible without turning them into a complicated project-management system. It combines quick check-ins, customizable labels, optional quest timers, flexible sorting, automatic local saving, progress tracking, and expandable daily history in a compact desktop widget.
 
-This guide covers Daily Quest v1.7.0.
+This guide covers Daily Quest v1.8.0.
 
 <p align="center">
   <img src="docs/images/daily-quest-en.png" width="360" alt="Daily Quest main window in English showing a running quest timer">
@@ -31,15 +31,16 @@ This guide covers Daily Quest v1.7.0.
 - Starts with an empty checklist—your routine stays yours.
 - Add, complete, and remove activities in a few clicks.
 - Add a quest to Today immediately, or schedule it for any date from Tomorrow through D+8.
-- Right-click an active quest to copy it to Today or any date through D+8 without retyping it.
-- Right-click any date in **Schedule for** to copy every quest from that date to another date from Today through D+8.
+- Right-click an active quest to edit its text and timer, copy it to one date through D+8, or copy it to every future date from Tomorrow through D+8 at once.
+- Right-click any date in **Schedule for** to copy every quest from that date to one destination, or to all future dates except Today.
 - Assign a customizable color label when adding a quest, or change it later from the quest card.
 - Give a new quest no timer, a 5/10/15/25/30/45/60-minute preset, or a custom duration from 1 to 480 minutes.
 - Start, pause, resume, or reset a quest countdown, with at most one timer running at a time.
-- Close Daily Quest to save and pause the active countdown or overtime timer; reopening keeps it paused at the saved value.
-- In the official Windows release, hear the bundled facility-alarm ringtone for up to one minute and receive one native notification when time runs out while Daily Quest is open, compact, or minimized; optionally continue into red overtime after silencing it.
+- Close the window with `X` or `Alt+F4` to hide Daily Quest in the system tray while active timers and alarms keep running.
+- Reopen the hidden window from the tray, or choose **Exit** there to pause the active countdown or overtime timer and save its latest value before the process closes.
+- In the official Windows release, hear the bundled facility-alarm ringtone for up to one minute and receive one native notification when time runs out while Daily Quest is visible, compact, minimized, or hidden in the tray; optionally continue into red overtime after silencing it.
 - See today's greeting, completion count, percentage, and progress bar at a glance.
-- Treat every active quest as a Daily Quest: keep it for the next day and reset its completion automatically.
+- Carry every unfinished quest into tomorrow automatically as the same active quest—never as a duplicate—and reset its completion for the new day.
 - Move a completed quest to the bottom automatically, keeping unfinished priorities at the top.
 - Review previous days in History; select a date card to reveal its activity details.
 - Preserve completed entries in history after clearing them from today's active list.
@@ -60,7 +61,7 @@ This guide covers Daily Quest v1.7.0.
 2. Download and run the `win-x64-setup.exe` asset for the standard Windows install experience.
 3. For portable use, download and extract `win-x64.zip`, or download the standalone `win-x64.exe` asset.
 
-All release options are self-contained for 64-bit Windows 10/11, so the .NET runtime does not need to be installed separately. The installer adds Start Menu and uninstall entries, offers an optional Desktop shortcut, and upgrades in place. Daily Quest enables launch-at-sign-in after its first run; it can be disabled in Settings. Portable users can update by closing Daily Quest and replacing the old executable. Either method preserves data in Local AppData.
+All release options are self-contained for 64-bit Windows 10/11, so the .NET runtime does not need to be installed separately. The installer adds Start Menu and uninstall entries, offers an optional Desktop shortcut, and upgrades in place. Daily Quest enables launch-at-sign-in after its first run; it can be disabled in Settings. Portable users can update by right-clicking the tray icon, choosing **Exit**, and then replacing the old executable. Either method preserves data in Local AppData.
 
 > [!NOTE]
 > The installer and application are not code-signed yet, so Windows may show a SmartScreen warning. Continue only when the file came from this repository's official Releases page. You can verify it with the included `SHA256SUMS.txt`.
@@ -77,8 +78,8 @@ All release options are self-contained for 64-bit Windows 10/11, so the .NET run
 | Timer controls on a quest | Start or pause the countdown, resume a paused timer, or reset it to the quest's full duration. |
 | **Overtime** on an expired quest | When overtime mode is enabled, silence the alarm immediately and continue a cumulative red count-up from the configured duration until paused, reset, or completed. |
 | Label on a quest | Change or remove the label assigned to an existing quest. |
-| Right-click an active quest | Open **Copy to**, then choose **Today**, **Tomorrow**, or **D+2** through **D+8**. |
-| Right-click a date in **Schedule for** | Open **Copy all quests to**, then choose a destination from **Today** through **D+8**. This works on every date in the picker, not only Today. |
+| Right-click an active quest | Choose **Edit quest** to change its text and add, change, or remove its timer; changing the duration resets that timer. Or open **Copy to** and choose one date from **Today** through **D+8**, or **All upcoming days** to create one fresh copy on every date from **Tomorrow** through **D+8**. |
+| Right-click a date in **Schedule for** | Open **Copy all quests to**, then choose one destination from **Today** through **D+8**, or **All upcoming days** to copy the source snapshot to every date from **Tomorrow** through **D+8**. This works on every date in the picker, not only Today. |
 | Sort control | Use the saved manual order, label order, shortest duration, or longest duration. |
 | Drag handle beside an activity | In **Manual** sort mode, drag and drop the activity to change its saved order. |
 | `×` beside an activity | Remove that activity from the active checklist. |
@@ -93,21 +94,25 @@ All release options are self-contained for 64-bit Windows 10/11, so the .NET run
 | Expand button | Return from compact mode to the full widget. |
 | Pin button | Toggle always-on-top mode. |
 | `−` button | Minimize the window to the Windows taskbar. This is separate from compact mode. |
+| `X` button or `Alt+F4` | Hide the window in the system tray without stopping a running timer or its alarm. |
+| Right-click the tray icon | Choose **Open Daily Quest** to restore the window, or **Exit** to pause timers, save state, and fully close the process. |
 | Header and window edges | Drag the header to move the widget, or drag an edge to resize it. The expanded size is saved after closing the app. |
 
-Every active quest is a **Daily Quest**. When the date changes, Daily Quest archives the previous day, keeps the active quest list, and resets every checkbox for the new day. A quest continues to appear each day until you remove it.
+Every active quest is a **Daily Quest**. When the date changes, Daily Quest archives the previous day, keeps the active quest list, and resets every checkbox for the new day. An unfinished quest therefore moves into tomorrow as the same quest, not a second scheduled copy, so rollover cannot duplicate it. Completed active quests also reset for the new day unless you clear or remove them. A quest continues to appear each day until you remove it.
 
 ### Timing a quest
 
 - Choose **No timer** or a duration while adding the quest. Presets cover 5, 10, 15, 25, 30, 45, and 60 minutes; a custom timer accepts any whole number from 1 through 480 minutes.
+- To update an existing quest, right-click it and choose **Edit quest**. Enter 1-480 minutes to add or change its timer, or leave the timer field blank to remove it. A changed duration starts again at its full value in a paused state.
 - Use the quest's timer controls to start, pause, resume, or reset its countdown. Only one quest timer can run at a time.
-- Closing Daily Quest advances the active countdown or overtime timer only to the close moment, pauses it, and saves the result. Reopening the app keeps that timer paused, so time spent with the app closed is not counted.
+- Selecting `X` or pressing `Alt+F4` hides the window in the system tray; the Daily Quest process stays active, so a running countdown or overtime timer continues normally.
+- Selecting **Exit** from the tray advances an active timer to that moment, pauses it, saves the result, and then closes the process. The saved timer remains paused the next time Daily Quest starts.
 - Reaching zero does not mark the quest complete. Complete the quest separately with its checkbox.
 - Overtime mode is off by default. With it off, an expired timer plays the same one-minute-maximum alarm and shows no **Overtime** action.
 - In the official Windows release, every expired timer loops the bundled ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds instead. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when Daily Quest exits.
 - When overtime mode is enabled, an expired timer offers **Overtime**. Selecting it silences the alarm immediately and starts a red cumulative count-up from the configured duration—a one-minute timer begins overtime at `+01:00`—until you pause or reset the timer, or complete the quest.
-- Timer alarms and native Windows notifications work in the full view, compact mode, and while the window is minimized, as long as the Daily Quest process is running.
-- Daily Quest does not run a background service, so it cannot play the alarm or show the notification while its process is fully closed.
+- Timer alarms and native Windows notifications work in the full view, compact mode, while the window is minimized, and while it is hidden in the system tray, as long as the Daily Quest process is running.
+- Daily Quest does not run a separate Windows service. After **Exit** or a forced process termination, no live process remains to play the alarm or show a timer notification; a forcibly terminated app cannot notify again until it is launched.
 
 ### Labels and sorting
 
@@ -124,12 +129,12 @@ Every active quest is a **Daily Quest**. When the date changes, Daily Quest arch
 
 - The composer offers **Today**, **Tomorrow**, and **D+2** through **D+8**, based on the local date reported by Windows.
 - The progress summary hides while the date picker is open so the schedule remains visually clear.
-- To reuse an active quest, right-click its card, open **Copy to**, and choose **Today** through **D+8**. The copy keeps the quest text, label, and configured duration, but is created as a fresh unchecked quest with its timer reset and idle. Copies for a future date appear in **Upcoming** until they are due.
-- To reuse a whole day, open **Schedule for**, right-click any date tile, open **Copy all quests to**, and choose any destination from **Today** through **D+8**. Today uses every quest in the currently visible active list, including completed quests; a future source date uses every quest explicitly scheduled for that exact date.
-- Bulk copying leaves the source unchanged. Every copy is fresh and unchecked, with its timer reset and idle. An empty source does nothing. Choosing the same source and destination duplicates the source snapshot exactly once, so newly created copies are not copied again during the same action.
+- To reuse an active quest, right-click its card, open **Copy to**, and choose **Today** through **D+8**. Choose **All upcoming days** to create one copy on each date from **Tomorrow** through **D+8** while leaving Today unchanged. The copy keeps the quest text, label, and configured duration, but is created as a fresh unchecked quest with its timer reset and idle. Copies for a future date appear in **Upcoming** until they are due. Repeating either copy action appends another set of fresh copies; it does not replace or merge existing quests.
+- To reuse a whole day, open **Schedule for**, right-click any date tile, open **Copy all quests to**, and choose any destination from **Today** through **D+8**. Choose **All upcoming days** to copy that day's complete snapshot to every date from **Tomorrow** through **D+8**, with Today excluded. Today as a source uses every quest in the currently visible active list, including completed quests; a future source date uses every quest explicitly scheduled for that exact date.
+- Bulk copying leaves the source unchanged. Every copy is fresh and unchecked, with its timer reset and idle. An empty source does nothing. Choosing the same source and destination duplicates the source snapshot exactly once. With **All upcoming days**, a future source date is also one of the destinations, so it receives one fresh copy of its starting snapshot; that snapshot is captured once, which prevents newly created copies from cascading into later destinations. Repeating the action appends another fresh set to all eight future dates.
 - A future quest is stored in a separate upcoming queue. Before it is due, it does not affect Today's checklist, progress, compact mode, or History.
 - When its date arrives, the quest is added to Today unchecked after the previous day has been archived. It then behaves like a regular active quest and follows the normal daily reset until you remove it.
-- If Daily Quest was closed on the scheduled date, the overdue quest is activated the next time the app opens. It is activated only once.
+- If the Daily Quest process was not running on the scheduled date, the overdue quest is activated the next time the app opens. It is activated only once.
 - Open the upcoming list to review or cancel a scheduled quest before it becomes active.
 
 Scheduling by itself does not create a Windows notification or run a separate background service. Daily Quest can still launch at Windows sign-in through the default-on startup preference described below. Timer expiry notifications follow the behavior described above.
@@ -147,7 +152,7 @@ Scheduling by itself does not create a Windows notification or run a separate ba
 - **Q&A:** open the bilingual [Frequently Asked Questions](docs/FAQ.md).
 - **Report a bug:** open the repository's pre-filled GitHub issue form in the default browser.
 
-The footer on the full Today view shows the app name and installed version (v1.7.0 for this release).
+The footer on the full Today view shows the app name and installed version (v1.8.0 for this release).
 
 ### Keyboard navigation
 
@@ -176,7 +181,7 @@ The storage panel reads file sizes from the local application and data locations
 
 Daily Quest's core checklist works without a network connection. Selecting **Q&A** or **Report a bug** opens a GitHub page in your default browser; that optional action requires internet access and is then subject to GitHub's privacy practices.
 
-For a manual backup, close the app and copy the `%LOCALAPPDATA%\DailyQuest` folder. To start over without immediately deleting data, close the app and rename that folder; a clean one will be created on the next launch.
+For a manual backup, right-click the Daily Quest tray icon and choose **Exit** before copying the `%LOCALAPPDATA%\DailyQuest` folder. To start over without immediately deleting data, use tray **Exit** first and then rename that folder; a clean one will be created on the next launch. Closing the window with `X` or `Alt+F4` is not enough because it only hides the still-running app.
 
 If a state file cannot be read, Daily Quest keeps a timestamped `state.json.broken-*` copy before starting with a clean state.
 
@@ -208,7 +213,7 @@ dotnet run --project .\DailyQuest.csproj
 dotnet run --project .\tests\DailyQuest.LogicTests\DailyQuest.LogicTests.csproj -c Release
 ```
 
-The dependency-free test harness covers checklist mutations, labels and their migrations, manual and automatic sort modes, completed-item ordering, timer duration validation and persistence, start/pause/resume/reset and overtime behavior, graceful-close timer pausing, the single-running-timer rule, timestamp-based crash recovery and expiry alarms, Windows startup registration, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, daily quest rollover, history retention and clearing, persisted settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
+The dependency-free logic test harness covers checklist mutations and text/timer editing, labels and their migrations, manual and automatic sort modes, completed-item ordering, timer duration validation and persistence, start/pause/resume/reset and overtime behavior, graceful-shutdown timer pausing, the single-running-timer rule, timestamp-based crash recovery and expiry alarms, Windows startup registration, future-date validation and scheduling, due and overdue activation, compact-mode selection logic, duplicate-free daily quest rollover, history retention and clearing, persisted settings, storage reporting, JSON persistence, corrupt-state recovery, and legacy-state migration.
 
 ## Create a portable build
 
@@ -253,7 +258,7 @@ tests/           Dependency-free logic test runner
 - **Windows shows “unknown publisher”:** the app is not code-signed yet. Use only the official release and verify its SHA-256 checksum.
 - **Opening the app again does not create another window:** Daily Quest allows one instance and restores the existing window instead.
 - **The compact widget is not in the taskbar:** compact mode keeps a small quest window visible. Use the `−` button when you want the native Windows minimize behavior.
-- **A timer did not continue while the app was closed:** this is intentional. A normal close saves and pauses the active countdown or overtime timer. Resume it manually after reopening Daily Quest.
+- **The window closed but Daily Quest is still running:** `X` and `Alt+F4` hide the window in the system tray so active timers and alarms can continue. Right-click the tray icon and choose **Open Daily Quest** to restore it, or **Exit** to pause timers, save state, and fully close the process.
 - **There is no Overtime button:** enable overtime mode in Settings before the timer expires. With overtime disabled, the alarm still runs for up to one minute, but the timer does not offer overtime.
 - **Cleared history returns for today:** the active checklist is intentionally preserved, so the current-day summary can be written again after a quest changes. Clear history after finishing changes if you want the History view to stay empty for the moment.
 - **The source project reports a missing SDK:** install the .NET 10 SDK, then confirm it appears in `dotnet --list-sdks`.

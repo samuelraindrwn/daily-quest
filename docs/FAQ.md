@@ -4,7 +4,7 @@
 
 ## English
 
-This Q&A covers Daily Quest v1.7.0.
+This Q&A covers Daily Quest v1.8.0.
 
 ### Does Daily Quest require an account or internet connection?
 
@@ -40,7 +40,11 @@ Fresh installations and state migrated from a version before labels begin with *
 
 ### Does a quest repeat every day?
 
-Yes. Every active quest is a Daily Quest by default. At the date change, Daily Quest archives the previous day's result, keeps the quest in the active list, and resets its checkbox. It repeats this way until you remove the quest. A future quest follows the same daily behavior after its scheduled date arrives and it becomes active.
+Yes. Every active quest is a Daily Quest by default. At the date change, Daily Quest archives the previous day's result, keeps the quest in the active list, and resets its checkbox. An unfinished quest therefore carries into tomorrow as the same active quest, not a new scheduled copy, so rollover does not duplicate it. Completed active quests reset too unless you clear or remove them. A future quest follows the same daily behavior after its scheduled date arrives and it becomes active.
+
+### How do I edit a quest's text or timer?
+
+Right-click the active quest and choose **Edit quest**. You can change its text, enter 1-480 minutes to add or change its timer, or leave the timer field blank to remove it. Changing or removing a duration stops that quest's running or overtime timer and resets the new duration to its full value. Its completion state, label, and identity remain attached to the same quest. Use **Copy to** only when you want a separate quest on Today or another date.
 
 ### How do I add and control a quest timer?
 
@@ -48,15 +52,17 @@ Choose a timer in the composer before adding the quest. You can select **No time
 
 After adding the quest, use its controls to start or pause the countdown, resume it, or reset it to the full duration. Only one quest timer can run at a time. Reaching zero does not automatically complete the quest; use its checkbox when the work is actually done.
 
-### What happens to a running timer when I close the app?
+### What happens to a running timer when I close the window or exit the app?
 
-During a normal close, Daily Quest advances the active countdown or overtime timer only to the close moment, pauses it, and saves the result. Reopening the app keeps that timer paused, so time spent with the app closed is not counted. If the process is forcibly terminated before it can save, the last running timestamp can still be reconciled on the next launch so elapsed work is not silently lost.
+Selecting `X` or pressing `Alt+F4` hides Daily Quest in the system tray instead of ending its process. A running countdown or overtime timer keeps advancing, and its alarm can still fire. Right-click the tray icon and choose **Open Daily Quest** to restore the window.
+
+To stop Daily Quest completely, right-click the tray icon and choose **Exit**. Daily Quest advances the active timer to that moment, pauses it, saves the result, and then closes. The timer remains paused on the next launch. A forced process termination cannot perform this graceful save and pause.
 
 ### When will the timer alarm and notification work?
 
-When a timer reaches zero while the Daily Quest process is running, the official Windows release loops its bundled facility-alarm ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds. This works when the app is in its full view, compact mode, or minimized to the taskbar. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when the app exits. With overtime disabled, which is the default, there is no **Overtime** action.
+When a timer reaches zero while the Daily Quest process is running, the official Windows release loops its bundled facility-alarm ringtone for up to 60 seconds and shows one native notification. Source builds without the optional ringtone asset use alternating Windows system sounds. This works when the app is in its full view, compact mode, minimized to the taskbar, or hidden in the system tray. The sound stops sooner when the quest is reset, completed, or deleted; when overtime is turned off in Settings; at daily rollover; or when the app exits. With overtime disabled, which is the default, there is no **Overtime** action.
 
-Daily Quest does not run a background service. If you fully close its process, it cannot play the alarm or deliver a notification while closed. A normal close pauses the timer as described above, and an expired timer still does not auto-complete its quest.
+Daily Quest can keep its own process running in the background after you hide the window, but it does not install a separate Windows service. After tray **Exit** or a forced process termination, no live process remains to play the alarm or deliver a timer notification. A forced termination may be reconciled from the last saved timer timestamp on the next launch, but it cannot notify while the process is stopped. An expired timer still does not auto-complete its quest.
 
 ### How does overtime mode work?
 
@@ -72,17 +78,17 @@ A scheduled quest stays in the upcoming queue and does not affect Today's checkl
 
 ### How do I copy an existing quest to another day?
 
-Right-click an active quest, open **Copy to**, and choose **Today**, **Tomorrow**, or **D+2** through **D+8**. The source quest is not changed.
+Right-click an active quest, open **Copy to**, and choose **Today**, **Tomorrow**, or **D+2** through **D+8**. Choose **All upcoming days** to create one copy on every date from **Tomorrow** through **D+8**; Today is excluded. The source quest is not changed.
 
-The copy keeps the original text, label, and configured timer duration. It is always created as a fresh unchecked quest with its timer reset and idle, even when the source is completed, running, paused, expired, or in overtime. A copy made for **Today** appears in the active checklist; a copy made for a future date appears in **Upcoming** until it is due.
+The copy keeps the original text, label, and configured timer duration. It is always created as a fresh unchecked quest with its timer reset and idle, even when the source is completed, running, paused, expired, or in overtime. A copy made for **Today** appears in the active checklist; a copy made for a future date appears in **Upcoming** until it is due. Repeating a copy action appends another fresh copy to each selected destination instead of replacing or merging an existing quest.
 
 ### How do I copy every quest from one date to another?
 
-Open **Schedule for**, right-click any date tile—not only **Today**—open **Copy all quests to**, and choose a destination from **Today** through **D+8**. When **Today** is the source, Daily Quest copies every quest in the currently visible active list, including completed quests. For a future source date, it copies every quest explicitly scheduled for that exact date.
+Open **Schedule for**, right-click any date tile—not only **Today**—open **Copy all quests to**, and choose a destination from **Today** through **D+8**. Choose **All upcoming days** to copy the complete source-day snapshot to every date from **Tomorrow** through **D+8**, with Today excluded. When **Today** is the source, Daily Quest copies every quest in the currently visible active list, including completed quests. For a future source date, it copies every quest explicitly scheduled for that exact date.
 
-The source is never moved or changed. Each copy keeps its text, label, and configured timer duration, but starts as a fresh unchecked quest with its timer reset and idle. An empty source is a no-op. If the source and destination are the same date, Daily Quest duplicates the snapshot that existed when the action began exactly once; the new copies are not copied again during that action.
+The source is never moved or changed. Each copy keeps its text, label, and configured timer duration, but starts as a fresh unchecked quest with its timer reset and idle. An empty source is a no-op. If the source and destination are the same date, Daily Quest duplicates the snapshot that existed when the action began exactly once. With **All upcoming days**, a future source date is also one of the destinations, so it receives one fresh copy of its starting snapshot. Daily Quest captures that snapshot once, preventing the newly created copies from cascading into later destinations. Repeating the action appends another fresh set to all eight future dates.
 
-### What happens if Daily Quest is closed on the scheduled date?
+### What happens if Daily Quest is not running on the scheduled date?
 
 The overdue quest is added to Today, unchecked, the next time Daily Quest opens. It is activated only once. Scheduling does not create a Windows notification or background service. Separately, **Launch at startup** is enabled by default, so Daily Quest normally opens when you sign in to Windows unless you turn that preference off.
 
@@ -126,7 +132,7 @@ The footer identifies Daily Quest and its installed version.
 
 ### How do I back up or reset Daily Quest?
 
-Close the app before copying or changing its data folder.
+Right-click the Daily Quest tray icon and choose **Exit** before copying or changing its data folder. Closing the window with `X` or `Alt+F4` only hides the still-running app and is not sufficient.
 
 - To back up your data, copy `%LOCALAPPDATA%\DailyQuest` to a safe location.
 - To restore it, put the backed-up folder in the same location while the app is closed.
@@ -146,7 +152,7 @@ Use **Report a bug** in Settings or open the [bug report form](https://github.co
 
 ## Bahasa Indonesia
 
-Tanya jawab ini membahas Daily Quest v1.7.0.
+Tanya jawab ini membahas Daily Quest v1.8.0.
 
 ### Apakah Daily Quest membutuhkan akun atau koneksi internet?
 
@@ -182,7 +188,11 @@ Instalasi baru dan state yang dimigrasikan dari versi sebelum dukungan label dim
 
 ### Apakah quest berulang setiap hari?
 
-Ya. Setiap quest aktif menjadi Daily Quest secara default. Saat tanggal berganti, Daily Quest mengarsipkan hasil hari sebelumnya, mempertahankan quest dalam daftar aktif, lalu mengosongkan centangnya. Quest berulang dengan cara ini sampai kamu menghapusnya. Quest mendatang mengikuti perilaku harian yang sama setelah tanggal jadwalnya tiba dan quest tersebut menjadi aktif.
+Ya. Setiap quest aktif menjadi Daily Quest secara default. Saat tanggal berganti, Daily Quest mengarsipkan hasil hari sebelumnya, mempertahankan quest dalam daftar aktif, lalu mengosongkan centangnya. Quest yang belum selesai otomatis pindah ke besok sebagai quest aktif yang sama, bukan salinan terjadwal baru, sehingga pergantian hari tidak membuat duplikat. Quest aktif yang sudah selesai juga di-reset kecuali kamu membersihkan atau menghapusnya. Quest mendatang mengikuti perilaku harian yang sama setelah tanggal jadwalnya tiba dan quest tersebut menjadi aktif.
+
+### Bagaimana cara mengubah teks atau timer quest?
+
+Klik kanan quest aktif lalu pilih **Ubah quest**. Kamu dapat mengubah teksnya, mengisi 1-480 menit untuk menambah atau mengganti timer, atau mengosongkan kolom timer untuk menghapusnya. Mengganti atau menghapus durasi akan menghentikan timer berjalan maupun overtime pada quest itu dan me-reset durasi baru ke nilai penuh. Status selesai, label, dan identitasnya tetap melekat pada quest yang sama. Gunakan **Salin ke** hanya jika kamu ingin membuat quest terpisah untuk Hari ini atau tanggal lain.
 
 ### Bagaimana cara menambahkan dan mengontrol timer quest?
 
@@ -190,15 +200,17 @@ Pilih timer pada composer sebelum menambahkan quest. Kamu dapat memilih **Tanpa 
 
 Setelah quest ditambahkan, gunakan kontrolnya untuk memulai atau menjeda hitung mundur, melanjutkannya, atau me-reset ke durasi penuh. Hanya satu timer quest yang dapat berjalan dalam satu waktu. Timer yang mencapai nol tidak otomatis menyelesaikan quest; gunakan checkbox setelah pekerjaannya benar-benar selesai.
 
-### Apa yang terjadi pada timer berjalan saat aplikasi ditutup?
+### Apa yang terjadi pada timer berjalan saat jendela ditutup atau aplikasi dihentikan?
 
-Saat ditutup secara normal, Daily Quest hanya menghitung timer hitung mundur atau overtime yang aktif sampai momen penutupan, lalu menjeda dan menyimpan hasilnya. Saat aplikasi dibuka kembali, timer tetap dijeda sehingga waktu selama aplikasi tertutup tidak ikut dihitung. Jika proses dihentikan paksa sebelum sempat menyimpan, timestamp terakhir yang berjalan masih dapat disesuaikan pada peluncuran berikutnya agar waktu kerja yang sudah berlalu tidak hilang diam-diam.
+Memilih `X` atau menekan `Alt+F4` akan menyembunyikan Daily Quest ke system tray, bukan menghentikan prosesnya. Hitung mundur atau timer overtime yang sedang berjalan tetap bertambah dan alarmnya tetap dapat berbunyi. Klik kanan ikon tray lalu pilih **Buka Daily Quest** untuk memulihkan jendela.
+
+Untuk menghentikan Daily Quest sepenuhnya, klik kanan ikon tray lalu pilih **Keluar**. Daily Quest memperbarui timer aktif sampai saat itu, menjedanya, menyimpan hasil, lalu menutup proses. Timer tetap dijeda saat aplikasi dibuka berikutnya. Proses yang dihentikan paksa tidak dapat menjalankan penyimpanan dan jeda secara normal ini.
 
 ### Kapan alarm dan notifikasi timer dapat bekerja?
 
-Saat timer mencapai nol selama proses Daily Quest masih berjalan, rilis resmi Windows memutar berulang ringtone facility-alarm bawaan selama maksimal 60 detik dan menampilkan satu notifikasi bawaan. Build dari source tanpa aset ringtone opsional memakai bunyi sistem Windows bergantian. Fitur ini bekerja ketika aplikasi menggunakan tampilan penuh, mode ringkas, atau diminimalkan ke taskbar. Bunyi berhenti lebih awal saat quest di-reset, diselesaikan, atau dihapus; saat overtime dimatikan melalui Pengaturan; ketika hari berganti; atau ketika aplikasi ditutup. Saat overtime nonaktif—yang merupakan pengaturan default—tindakan **Overtime** tidak tersedia.
+Saat timer mencapai nol selama proses Daily Quest masih berjalan, rilis resmi Windows memutar berulang ringtone facility-alarm bawaan selama maksimal 60 detik dan menampilkan satu notifikasi bawaan. Build dari source tanpa aset ringtone opsional memakai bunyi sistem Windows bergantian. Fitur ini bekerja ketika aplikasi menggunakan tampilan penuh, mode ringkas, diminimalkan ke taskbar, atau tersembunyi di system tray. Bunyi berhenti lebih awal saat quest di-reset, diselesaikan, atau dihapus; saat overtime dimatikan melalui Pengaturan; ketika hari berganti; atau ketika aplikasi dihentikan. Saat overtime nonaktif—yang merupakan pengaturan default—tindakan **Overtime** tidak tersedia.
 
-Daily Quest tidak menjalankan layanan latar belakang. Jika prosesnya benar-benar ditutup, aplikasi tidak dapat memutar alarm atau mengirim notifikasi selama tertutup. Penutupan normal menjeda timer seperti dijelaskan di atas, dan timer yang habis tetap tidak otomatis menyelesaikan quest.
+Daily Quest dapat mempertahankan prosesnya di latar belakang setelah jendela disembunyikan, tetapi tidak memasang layanan Windows terpisah. Setelah memilih **Keluar** dari tray atau proses dihentikan paksa, tidak ada proses aktif yang dapat memutar alarm atau mengirim notifikasi timer. Penghentian paksa mungkin direkonsiliasi dari timestamp timer terakhir yang tersimpan saat aplikasi berikutnya dibuka, tetapi aplikasi tidak dapat mengirim notifikasi selama prosesnya berhenti. Timer yang habis tetap tidak otomatis menyelesaikan quest.
 
 ### Bagaimana cara kerja mode overtime?
 
@@ -214,17 +226,17 @@ Quest terjadwal tetap berada di antrean mendatang dan tidak memengaruhi checklis
 
 ### Bagaimana cara menyalin quest yang sudah ada ke hari lain?
 
-Klik kanan quest aktif, buka **Salin ke**, lalu pilih **Hari ini**, **Besok**, atau **H+2** hingga **H+8**. Quest sumber tidak berubah.
+Klik kanan quest aktif, buka **Salin ke**, lalu pilih **Hari ini**, **Besok**, atau **H+2** hingga **H+8**. Pilih **Semua hari mendatang** untuk membuat satu salinan pada setiap tanggal dari **Besok** hingga **H+8**; Hari ini dikecualikan. Quest sumber tidak berubah.
 
-Salinan mempertahankan teks, label, dan durasi timer yang diatur pada quest sumber. Salinan selalu dibuat sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan, meskipun quest sumber sudah selesai, sedang berjalan, dijeda, habis, atau dalam overtime. Salinan untuk **Hari ini** muncul di checklist aktif; salinan untuk tanggal mendatang muncul di **Mendatang** sampai waktunya tiba.
+Salinan mempertahankan teks, label, dan durasi timer yang diatur pada quest sumber. Salinan selalu dibuat sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan, meskipun quest sumber sudah selesai, sedang berjalan, dijeda, habis, atau dalam overtime. Salinan untuk **Hari ini** muncul di checklist aktif; salinan untuk tanggal mendatang muncul di **Mendatang** sampai waktunya tiba. Mengulangi tindakan salin akan menambahkan salinan baru lagi pada setiap tujuan yang dipilih, bukan mengganti atau menggabungkan quest yang sudah ada.
 
 ### Bagaimana cara menyalin semua quest dari satu tanggal ke tanggal lain?
 
-Buka **Jadwalkan untuk**, klik kanan kartu tanggal mana pun—bukan hanya **Hari ini**—buka **Salin semua quest ke**, lalu pilih tujuan dari **Hari ini** hingga **H+8**. Jika **Hari ini** menjadi sumber, Daily Quest menyalin semua quest dalam daftar aktif yang sedang ditampilkan, termasuk quest selesai. Untuk tanggal sumber mendatang, aplikasi menyalin semua quest yang dijadwalkan secara khusus untuk tanggal tersebut.
+Buka **Jadwalkan untuk**, klik kanan kartu tanggal mana pun—bukan hanya **Hari ini**—buka **Salin semua quest ke**, lalu pilih tujuan dari **Hari ini** hingga **H+8**. Pilih **Semua hari mendatang** untuk menyalin snapshot lengkap hari sumber ke setiap tanggal dari **Besok** hingga **H+8**, dengan Hari ini dikecualikan. Jika **Hari ini** menjadi sumber, Daily Quest menyalin semua quest dalam daftar aktif yang sedang ditampilkan, termasuk quest selesai. Untuk tanggal sumber mendatang, aplikasi menyalin semua quest yang dijadwalkan secara khusus untuk tanggal tersebut.
 
-Sumber tidak pernah dipindahkan atau diubah. Setiap salinan mempertahankan teks, label, dan durasi timer yang diatur, tetapi dimulai sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan. Sumber kosong tidak melakukan apa pun. Jika sumber dan tujuan adalah tanggal yang sama, Daily Quest menduplikasi snapshot yang ada saat tindakan dimulai tepat satu kali; salinan baru tidak ikut disalin lagi dalam tindakan tersebut.
+Sumber tidak pernah dipindahkan atau diubah. Setiap salinan mempertahankan teks, label, dan durasi timer yang diatur, tetapi dimulai sebagai quest baru tanpa centang dengan timer yang di-reset dan belum berjalan. Sumber kosong tidak melakukan apa pun. Jika sumber dan tujuan adalah tanggal yang sama, Daily Quest menduplikasi snapshot yang ada saat tindakan dimulai tepat satu kali. Dengan **Semua hari mendatang**, tanggal sumber mendatang juga termasuk tujuan sehingga tanggal tersebut menerima satu salinan baru dari snapshot awalnya. Daily Quest hanya mengambil snapshot itu satu kali agar salinan yang baru dibuat tidak ikut berantai ke tujuan berikutnya. Mengulangi tindakan ini menambahkan satu kumpulan baru ke delapan tanggal mendatang.
 
-### Apa yang terjadi jika Daily Quest ditutup pada tanggal yang dijadwalkan?
+### Apa yang terjadi jika Daily Quest tidak berjalan pada tanggal yang dijadwalkan?
 
 Quest yang lewat jatuh tempo ditambahkan ke Hari ini tanpa centang saat Daily Quest berikutnya dibuka. Setiap quest hanya diaktifkan satu kali. Penjadwalan tidak membuat notifikasi Windows atau layanan latar belakang. Secara terpisah, **Jalankan saat startup** aktif secara default sehingga Daily Quest biasanya terbuka saat kamu masuk ke Windows, kecuali preferensi tersebut dimatikan.
 
@@ -268,7 +280,7 @@ Footer menampilkan identitas Daily Quest dan versi yang terpasang.
 
 ### Bagaimana cara membuat backup atau me-reset Daily Quest?
 
-Tutup aplikasi sebelum menyalin atau mengubah folder datanya.
+Klik kanan ikon tray Daily Quest lalu pilih **Keluar** sebelum menyalin atau mengubah folder datanya. Menutup jendela dengan `X` atau `Alt+F4` hanya menyembunyikan aplikasi yang masih berjalan dan tidak cukup untuk langkah ini.
 
 - Untuk backup, salin `%LOCALAPPDATA%\DailyQuest` ke lokasi aman.
 - Untuk memulihkan, kembalikan folder backup ke lokasi yang sama saat aplikasi tertutup.

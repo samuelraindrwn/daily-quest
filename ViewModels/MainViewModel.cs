@@ -18,6 +18,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private const int CurrentSchemaVersion = 8;
     private const int MaximumScheduleOffset = 8;
     private const int MaximumTimerDurationMinutes = 480;
+    private const int MaximumQuestTextLength = 120;
     private const int MaximumQuestLabels = 12;
     private const int MaximumQuestLabelNameLength = 24;
     private const string DefaultLabelColorHex = "#5B8A72";
@@ -611,6 +612,47 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return true;
     }
 
+    public bool TryUpdateItemText(ChecklistItem? item, string? text)
+        => TryUpdateItem(item, text, item?.PlannedDurationMinutes);
+
+    public bool TryUpdateItem(
+        ChecklistItem? item,
+        string? text,
+        int? plannedDurationMinutes)
+    {
+        if (item is null ||
+            !Items.Contains(item) ||
+            plannedDurationMinutes is not null and (< 1 or > MaximumTimerDurationMinutes))
+        {
+            return false;
+        }
+
+        var cleanText = NormalizeQuestText(text);
+        if (cleanText.Length == 0)
+        {
+            return false;
+        }
+
+        var textChanged = item.UpdateText(cleanText);
+        var timerChanged = item.UpdateTimerPlan(plannedDurationMinutes);
+        if (!textChanged && !timerChanged)
+        {
+            return true;
+        }
+
+        if (timerChanged)
+        {
+            StopTimerAlarm(item.Id);
+            ApplyQuestSort();
+            NotifyTimerStateChanged();
+        }
+
+        SyncHistoryFromActiveDay(preserveCompletedOrphans: true);
+        RefreshHistoryEntries();
+        Save();
+        return true;
+    }
+
     public bool CopyItemTo(ChecklistItem item, int offset)
     {
         if (!Items.Contains(item) || offset is < 0 or > MaximumScheduleOffset)
@@ -665,6 +707,47 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RefreshHistoryEntries();
         Save();
         return true;
+    }
+
+    public int CopyItemToAllFutureDays(ChecklistItem item)
+    {
+        if (!Items.Contains(item))
+        {
+            return 0;
+        }
+
+        var didRollOver = RollOverToCurrentDay(saveAfterReset: false);
+        if (!Items.Contains(item))
+        {
+            if (didRollOver)
+            {
+                Save();
+            }
+
+            return 0;
+        }
+
+        var now = _now();
+        var today = GetLocalDate(now);
+        var label = FindLabel(item.LabelId);
+        for (var offset = 1; offset <= MaximumScheduleOffset; offset++)
+        {
+            _state.ScheduledQuests.Add(new ScheduledQuestState
+            {
+                Id = Guid.NewGuid(),
+                Text = item.Text,
+                ScheduledDate = GetDateKey(today.AddDays(offset)),
+                SortOrder = _state.ScheduledQuests.Count,
+                CreatedAt = now,
+                PlannedDurationMinutes = item.PlannedDurationMinutes,
+                LabelId = label?.Id
+            });
+        }
+
+        SortAndRenumberScheduledQuests();
+        RefreshUpcomingQuests(today);
+        Save();
+        return MaximumScheduleOffset;
     }
 
     public int CopyScheduleDayTo(int sourceOffset, int targetOffset)
@@ -736,6 +819,52 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RefreshHistoryEntries();
         Save();
         return definitions.Count;
+    }
+
+    public int CopyScheduleToAllFutureDays(int sourceOffset)
+    {
+        if (sourceOffset is < 0 or > MaximumScheduleOffset)
+        {
+            return 0;
+        }
+
+        var didRollOver = RollOverToCurrentDay(saveAfterReset: false);
+        var now = _now();
+        var today = GetLocalDate(now);
+        var definitions = GetScheduleDayCopyDefinitions(sourceOffset, today);
+        if (definitions.Count == 0)
+        {
+            if (didRollOver)
+            {
+                Save();
+            }
+
+            return 0;
+        }
+
+        for (var targetOffset = 1; targetOffset <= MaximumScheduleOffset; targetOffset++)
+        {
+            var targetDateKey = GetDateKey(today.AddDays(targetOffset));
+            foreach (var definition in definitions)
+            {
+                var label = FindLabel(definition.LabelId);
+                _state.ScheduledQuests.Add(new ScheduledQuestState
+                {
+                    Id = Guid.NewGuid(),
+                    Text = definition.Text,
+                    ScheduledDate = targetDateKey,
+                    SortOrder = _state.ScheduledQuests.Count,
+                    CreatedAt = now,
+                    PlannedDurationMinutes = definition.PlannedDurationMinutes,
+                    LabelId = label?.Id
+                });
+            }
+        }
+
+        SortAndRenumberScheduledQuests();
+        RefreshUpcomingQuests(today);
+        Save();
+        return definitions.Count * MaximumScheduleOffset;
     }
 
     public bool HasScheduleDayQuests(int sourceOffset)
@@ -1288,7 +1417,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 didNormalize = true;
             }
 
-            var cleanText = state.Text.Trim();
+            var cleanText = NormalizeQuestText(state.Text);
             var createdAt = state.CreatedAt == default ? _now() : state.CreatedAt;
             var plannedDurationMinutes = NormalizeDurationMinutes(state.PlannedDurationMinutes);
             var fullDurationSeconds = plannedDurationMinutes.GetValueOrDefault() * 60;
@@ -1578,7 +1707,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private static string NormalizeQuestText(string? text)
     {
         var cleanText = text?.Trim() ?? string.Empty;
-        return cleanText.Length > 120 ? cleanText[..120] : cleanText;
+        return cleanText.Length > MaximumQuestTextLength
+            ? cleanText[..MaximumQuestTextLength]
+            : cleanText;
     }
 
     private void SetScheduleOffset(object? parameter)
